@@ -9,7 +9,8 @@ You have to install modal with `pip install modal` and `modal setup` afterwards 
 You should then be able to run the commands `modal run download.py` to download the models and then `modal serve [serve.py OR serve_speculative.py]` to create the endpoint. 
 
 You can then hit it with Postman or curl e.g.
-```curl --max-time 600 -X POST https://midas-llm-research--qwen-2-5-3b-speculative-qwenspec-4201f7-dev.modal.run \
+```
+curl --max-time 600 -X POST https://midas-llm-research--qwen-2-5-3b-speculative-qwenspec-4201f7-dev.modal.run \
     -H "Content-Type: application/json" \
     -d '{"prompt": "What is speculative decoding?", "max_tokens": 256}'```
 
