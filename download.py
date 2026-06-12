@@ -20,7 +20,11 @@ def download_model():
     from huggingface_hub import snapshot_download
 
     snapshot_download(
-        "Qwen/Qwen3.5-9B",
-        local_dir="/models/Qwen3.5-9B",
+        "Qwen/Qwen2.5-3B",
+        local_dir="/models/Qwen2.5-3B",
+    )
+    snapshot_download(
+        "Qwen/Qwen2.5-0.5B",
+        local_dir="/models/Qwen2.5-0.5B",
     )
     volume.commit()
