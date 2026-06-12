@@ -1,6 +1,6 @@
 import modal
 
-app = modal.App("qwen-3.5-9b")
+app = modal.App("qwen-2.5-3b")
 volume = modal.Volume.from_name("llm-weights")
 
 image = (
@@ -26,7 +26,7 @@ class QwenServer:
         from vllm import LLM, SamplingParams
 
         self.llm = LLM(
-            model="/models/Qwen3.5-9B",
+            model="/models/Qwen2.5-3B",
             tensor_parallel_size=1,
             max_model_len=8192,
         )
