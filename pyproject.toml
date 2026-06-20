@@ -1,0 +1,24 @@
+[project]
+name = "midas"
+version = "0.1.0"
+description = "MoE-inspired dynamic context routing for DFlash speculative decoding"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2.0",
+    "transformers>=4.57.0",
+    "accelerate",
+    "datasets",
+    "wandb",
+    "pyyaml",
+    "numpy",
+    "tqdm",
+    "loguru",
+]
+
+[project.optional-dependencies]
+modal = ["modal"]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
