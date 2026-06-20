@@ -1,0 +1,33 @@
+target_model: "Qwen/Qwen3-4B"
+draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
+
+router:
+  hidden_size: 2560
+  num_layers: 5
+  rank: 128
+  gamma_init: 0.01
+  temperature_init: 1.0
+
+training:
+  lr: 6.0e-4
+  weight_decay: 0.01
+  num_epochs: 2
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  max_seq_len: 3072
+  block_size: 16
+  num_anchors: 512
+  warmup_ratio: 0.04
+  grad_clip: 1.0
+  loss_gamma: 7.0
+  entropy_reg_weight: 0.01
+
+checkpointing:
+  save_every_steps: 2000
+  save_dir: "/checkpoints/midas-router"
+  keep_last_n: 3
+
+logging:
+  wandb_project: "midas-dflash-router"
+  log_every_steps: 50
+  eval_every_steps: 1000
