@@ -50,8 +50,10 @@ image = (
     ],
     timeout=86400,
 )
-def train(config_path: str = "/root/configs/base_4b.yaml"):
+def train(config_path: str = "/root/configs/base_4b.yaml", fresh: bool = False):
     import sys
+    import shutil
+    from pathlib import Path
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
@@ -63,6 +65,13 @@ def train(config_path: str = "/root/configs/base_4b.yaml"):
     config.target_model = "/models/Qwen3-4B"
     config.draft_checkpoint = "/models/Qwen3-4B-DFlash-b16"
     config.checkpoint.save_dir = "/checkpoints/midas-router"
+
+    # Clear old checkpoints for a fresh start
+    if fresh:
+        ckpt_dir = Path(config.checkpoint.save_dir)
+        if ckpt_dir.exists():
+            shutil.rmtree(ckpt_dir)
+            print(f"Cleared old checkpoints at {ckpt_dir}")
 
     run_training(config)
 
@@ -94,7 +103,7 @@ def main(config: str = "configs/base_4b.yaml", download: bool = False):
     if download:
         download_models.remote()
     else:
-        call = train.spawn(config_path="/root/configs/base_4b.yaml")
+        call = train.spawn(config_path="/root/configs/base_4b.yaml", fresh=True)
         print(f"Training spawned. Function call ID: {call.object_id}")
         print("Monitor at: https://modal.com/apps/midas-llm-research/main/")
         print("Checkpoints saved to midas-checkpoints volume.")

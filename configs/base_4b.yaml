@@ -12,11 +12,11 @@ training:
   lr: 6.0e-4
   weight_decay: 0.01
   num_epochs: 2
-  batch_size: 4
-  gradient_accumulation_steps: 4
-  max_seq_len: 3072
+  batch_size: 1
+  gradient_accumulation_steps: 16
+  max_seq_len: 2048
   block_size: 16
-  num_anchors: 512
+  num_anchors: 128
   warmup_ratio: 0.04
   grad_clip: 1.0
   loss_gamma: 7.0

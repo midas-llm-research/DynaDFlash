@@ -15,6 +15,7 @@ import shutil
 from pathlib import Path
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
@@ -24,6 +25,7 @@ from midas.config import TrainConfig
 from midas.data import (
     DFlashDataset,
     OnlineHiddenStateExtractor,
+    build_block_attention_mask,
     collate_fn,
     create_masked_blocks,
 )
@@ -32,39 +34,58 @@ from midas.config import RouterConfig
 
 
 def compute_position_weighted_kl_loss(
-    draft_logits: torch.Tensor,
+    draft_hidden: torch.Tensor,
     target_logits: torch.Tensor,
     loss_mask: torch.Tensor,
     position_in_block: torch.Tensor,
+    lm_head: nn.Module,
     gamma: float = 7.0,
 ) -> torch.Tensor:
     """
-    Position-weighted KL divergence loss.
-
-    Positions earlier in a block get higher weight because errors there
-    invalidate all subsequent tokens in speculative decoding.
-    Weight for position k in block: exp(-(k-1)/gamma)
+    Position-weighted KL divergence loss, computed only at masked positions
+    to avoid OOM from full [B, T, V] logit tensors.
 
     Args:
-        draft_logits: [B, T, V]
-        target_logits: [B, T, V]
+        draft_hidden: [B, T, H] draft model hidden states (before lm_head)
+        target_logits: [B, T, V] target model logits (full sequence)
         loss_mask: [B, T] binary mask for valid loss positions
         position_in_block: [B, T] actual position within each block (1-indexed)
+        lm_head: the target model's lm_head (shared with draft)
         gamma: decay rate (higher = slower decay)
     """
-    # Weight: exp(-(k-1)/gamma) where k is 1-indexed position in block
-    weights = torch.exp(-((position_in_block.float() - 1) / gamma))
+    # Gather only masked positions to save memory
+    masked_indices = loss_mask.nonzero(as_tuple=False)  # [num_masked, 2]
 
-    # KL(target || draft) per token
-    target_log_probs = F.log_softmax(target_logits, dim=-1)
-    draft_log_probs = F.log_softmax(draft_logits, dim=-1)
-    target_probs = target_log_probs.exp()
+    if masked_indices.shape[0] == 0:
+        return torch.tensor(0.0, device=draft_hidden.device, requires_grad=True)
 
-    kl = (target_probs * (target_log_probs - draft_log_probs)).sum(dim=-1)  # [B, T]
+    # Extract hidden states and target logits at masked positions only
+    batch_idx = masked_indices[:, 0]
+    seq_idx = masked_indices[:, 1]
 
-    # Apply mask and weights
-    masked_kl = kl * loss_mask.float() * weights
-    loss = masked_kl.sum() / loss_mask.float().sum().clamp(min=1)
+    draft_hidden_masked = draft_hidden[batch_idx, seq_idx]  # [num_masked, H]
+    # CRITICAL: Target is causal LM (logits[t] predicts t+1), draft is diffusion
+    # (hidden[t] predicts token AT t). So target's prediction for position t
+    # comes from target_logits[t-1].
+    # Masked positions are always >= 1 (after anchors), so t-1 >= 0.
+    target_logits_masked = target_logits[batch_idx, seq_idx - 1]  # [num_masked, V]
+    positions_masked = position_in_block[batch_idx, seq_idx]  # [num_masked]
+
+    # Compute draft logits only at masked positions (much smaller than full [B,T,V])
+    draft_logits_masked = lm_head(draft_hidden_masked)  # [num_masked, V]
+
+    # Position weights
+    weights = torch.exp(-((positions_masked.float() - 1) / gamma))  # [num_masked]
+
+    # KL(target || draft) — memory efficient on [num_masked, V]
+    target_log_probs = F.log_softmax(target_logits_masked, dim=-1)
+    draft_log_probs = F.log_softmax(draft_logits_masked, dim=-1)
+
+    # Use F.kl_div for numerical stability (input=draft_log_probs, target=target_probs)
+    kl = F.kl_div(draft_log_probs, target_log_probs.exp(), reduction="none").sum(dim=-1)  # [num_masked]
+
+    # Weighted average
+    loss = (kl * weights).sum() / weights.sum().clamp(min=1)
     return loss
 
 
@@ -195,10 +216,6 @@ def train(config: TrainConfig):
     )
     model.train()
 
-    # Compile for faster training (fuses ops, ~20-30% speedup)
-    model = torch.compile(model)
-    logger.info("Draft model compiled with torch.compile")
-
     # Hidden state extractor
     target_layer_ids = model.target_layer_ids
     extractor = OnlineHiddenStateExtractor(target_model, target_layer_ids, device)
@@ -261,12 +278,16 @@ def train(config: TrainConfig):
             layer_hiddens, target_logits = extractor.extract(input_ids)
 
             # Create masked blocks for block-diffusion training
-            masked_ids, loss_mask, position_in_block = create_masked_blocks(
+            masked_ids, loss_mask, position_in_block, block_ids = create_masked_blocks(
                 input_ids,
                 block_size=config.block_size,
                 num_anchors=config.num_anchors,
                 mask_token_id=model.mask_token_id or 0,
             )
+
+            # Build inter-block isolation mask (DFlash paper Section 4.2)
+            ctx_len = input_ids.shape[1]
+            attn_mask = build_block_attention_mask(block_ids, ctx_len, dtype=torch.bfloat16)
 
             # Draft model forward
             noise_embedding = target_model.model.embed_tokens(masked_ids)
@@ -278,16 +299,17 @@ def train(config: TrainConfig):
                 position_ids=position_ids,
                 noise_embedding=noise_embedding,
                 target_hidden=layer_hiddens,
+                attention_mask=attn_mask,
                 return_routing_weights=True,
             )
-            draft_logits = target_model.lm_head(draft_output)
 
-            # Position-weighted KL loss
+            # Position-weighted KL loss (only computed at masked positions to save memory)
             loss = compute_position_weighted_kl_loss(
-                draft_logits,
+                draft_output,
                 target_logits,
                 loss_mask,
                 position_in_block,
+                target_model.lm_head,
                 config.loss_gamma,
             )
 
