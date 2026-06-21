@@ -5,7 +5,7 @@ router:
   hidden_size: 2560
   num_layers: 5
   rank: 128
-  gamma_init: 0.01
+  gamma_init: 1.0
   temperature_init: 1.0
 
 training:

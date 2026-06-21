@@ -160,7 +160,7 @@ def create_masked_blocks(
     block_size: int,
     num_anchors: int,
     mask_token_id: int,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Create block-diffusion training samples by randomly masking blocks.
 
@@ -178,12 +178,14 @@ def create_masked_blocks(
         loss_mask: [B, T] binary mask indicating positions to compute loss on
         position_in_block: [B, T] position within block (1-indexed) for loss weighting
         block_ids: [B, T] block assignment per position (0-indexed, -1 = not in any block)
+        block_anchors: [B, T] anchor position for each token's block (-1 if not in block)
     """
     B, T = input_ids.shape
     masked_ids = input_ids.clone()
     loss_mask = torch.zeros(B, T, dtype=torch.bool, device=input_ids.device)
     position_in_block = torch.zeros(B, T, dtype=torch.long, device=input_ids.device)
     block_ids = torch.full((B, T), -1, dtype=torch.long, device=input_ids.device)
+    block_anchors = torch.full((B, T), -1, dtype=torch.long, device=input_ids.device)
 
     for b in range(B):
         # Sample anchor positions (avoid last block_size positions)
@@ -193,32 +195,35 @@ def create_masked_blocks(
 
         for block_idx, anchor in enumerate(anchors):
             end = min(anchor + block_size, T)
-            # Anchor + all positions in this block get the same block_id
             block_ids[b, anchor:end] = block_idx
-            # Mask positions after anchor (positions 1..block_size-1)
+            block_anchors[b, anchor:end] = anchor
             masked_ids[b, anchor + 1 : end] = mask_token_id
             loss_mask[b, anchor + 1 : end] = True
             for k in range(1, end - anchor):
                 position_in_block[b, anchor + k] = k
 
-    return masked_ids, loss_mask, position_in_block, block_ids
+    return masked_ids, loss_mask, position_in_block, block_ids, block_anchors
 
 
 def build_block_attention_mask(
     block_ids: torch.Tensor,
+    block_anchors: torch.Tensor,
     ctx_len: int,
     dtype: torch.dtype = torch.bfloat16,
 ) -> torch.Tensor:
     """
-    Build sparse attention mask enforcing inter-block isolation (DFlash paper Section 4.2).
+    Build sparse attention mask enforcing causal consistency and inter-block
+    isolation (DFlash paper Section 4.2, Figure 4).
 
     Rules:
-    - All queries can attend to ALL context positions (target features)
+    - Queries in block b (anchor at position a) can attend to context positions < a ONLY
+      (causal consistency: no future context, matching inference behavior)
     - Queries in a block can attend to noise positions in the SAME block only
-    - Queries not in any block can attend to context only
+    - Queries not in any block cannot attend to any noise position
 
     Args:
         block_ids: [B, T] block assignment (-1 = not in block)
+        block_anchors: [B, T] anchor position of the block each position belongs to (-1 if not in block)
         ctx_len: number of context positions (prepended to keys)
         dtype: mask dtype
 
@@ -228,21 +233,24 @@ def build_block_attention_mask(
     B, T = block_ids.shape
     device = block_ids.device
 
-    # Noise-to-noise mask: [B, T, T]
-    # same_block[b, i, j] = True if positions i and j are in the same block
+    # --- Noise-to-noise mask: [B, T, T] ---
     q_ids = block_ids.unsqueeze(2)  # [B, T, 1]
     k_ids = block_ids.unsqueeze(1)  # [B, 1, T]
-
-    # Same block: both have same id AND neither is -1
     same_block = (q_ids == k_ids) & (q_ids != -1)
-
-    # Positions not in any block (-1) cannot attend to any noise position
-    # Positions in a block can only attend to same-block positions
     noise_mask = torch.where(same_block, 0.0, float("-inf"))  # [B, T, T]
 
+    # --- Context mask: [B, T, ctx_len] ---
+    # Each query position can only attend to context at positions BEFORE its block's anchor.
+    # This enforces causal consistency: at inference, context only covers verified prefix.
+    ctx_positions = torch.arange(ctx_len, device=device).view(1, 1, ctx_len)  # [1, 1, ctx_len]
+    anchor_positions = block_anchors.unsqueeze(2)  # [B, T, 1]
+
+    # Query can attend to context[j] if j < anchor_position of its block
+    # For non-block positions (anchor=-1), block everything (they don't contribute to loss)
+    ctx_visible = ctx_positions < anchor_positions  # [B, T, ctx_len]
+    ctx_mask = torch.where(ctx_visible, 0.0, float("-inf"))  # [B, T, ctx_len]
+
     # Full mask: [B, 1, T, ctx_len + T]
-    # Context part (always attend) = zeros, noise part = noise_mask
-    ctx_part = torch.zeros(B, T, ctx_len, dtype=dtype, device=device)
-    full_mask = torch.cat([ctx_part, noise_mask.to(dtype)], dim=2)  # [B, T, ctx_len + T]
+    full_mask = torch.cat([ctx_mask.to(dtype), noise_mask.to(dtype)], dim=2)
 
     return full_mask.unsqueeze(1)  # [B, 1, T, ctx_len + T]
