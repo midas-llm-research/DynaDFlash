@@ -29,19 +29,31 @@ class DFlashDataset(Dataset):
         tokenizer: AutoTokenizer,
         max_seq_len: int = 3072,
         num_samples: int = 100_000,
+        cache_dir: str = None,
     ):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.sequences = []
+
+        cache_path = None
+        if cache_dir:
+            cache_path = Path(cache_dir) / f"nemotron_tokenized_{num_samples}_seq{max_seq_len}.pt"
+            if cache_path.exists():
+                print(f"Loading cached data from {cache_path}")
+                self.sequences = torch.load(cache_path, weights_only=True)
+                print(f"Loaded {len(self.sequences)} cached sequences")
+                return
+
         self._load_data(num_samples)
+
+        if cache_path:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save(self.sequences, cache_path)
+            print(f"Cached {len(self.sequences)} sequences to {cache_path}")
 
     def _load_data(self, num_samples: int):
         from datasets import load_dataset
 
-        # Nemotron Post-Training Dataset V2: same source as DFlash paper
-        # Splits: math, code, stem, chat — diverse model-generated responses
-        # We use the full conversations (prompt + response) as training text.
-        # The target model (Qwen3-4B) provides hidden states + logits ONLINE.
         splits = ["math", "code", "stem", "chat"]
         per_split = num_samples // len(splits)
 
@@ -57,7 +69,6 @@ class DFlashDataset(Dataset):
                     if count >= per_split:
                         break
 
-                    # Nemotron format: messages list with role/content
                     messages = sample.get("messages", [])
                     parts = []
                     for msg in messages:
