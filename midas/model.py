@@ -307,6 +307,8 @@ class DFlashDraftModelRouted(Qwen3PreTrainedModel):
         cls,
         dflash_checkpoint: str,
         router_config: RouterConfig,
+        device: torch.device = None,
+        dtype: torch.dtype = torch.bfloat16,
         **kwargs,
     ) -> "DFlashDraftModelRouted":
         """Load pre-trained DFlash draft, replace fusion with router."""
@@ -314,9 +316,11 @@ class DFlashDraftModelRouted(Qwen3PreTrainedModel):
 
         # Load the original DFlash model to get config and weights
         original = AutoModel.from_pretrained(
-            dflash_checkpoint, trust_remote_code=True, **kwargs
+            dflash_checkpoint, trust_remote_code=True,
+            attn_implementation="sdpa", **kwargs
         )
         config = original.config
+        config._attn_implementation = "sdpa"
 
         # Create our routed model
         model = cls(config, router_config)
@@ -335,9 +339,18 @@ class DFlashDraftModelRouted(Qwen3PreTrainedModel):
                 loaded_keys.append(key)
 
         model.load_state_dict(model_state)
+
+        # Move entire model to correct device and dtype
+        if device is None:
+            device = next(original.parameters()).device
+        model = model.to(device=device, dtype=dtype)
+
+        # Free original model memory
+        del original
+
         print(
             f"Loaded {len(loaded_keys)} params from DFlash checkpoint. "
-            f"Router params initialized fresh."
+            f"Router params initialized fresh. Model on {device}, {dtype}."
         )
         return model
 
