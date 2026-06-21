@@ -104,6 +104,7 @@ def main(config: str = "configs/base_4b.yaml", download: bool = False):
         download_models.remote()
     else:
         call = train.spawn(config_path="/root/configs/base_4b.yaml", fresh=True)
+        # NOTE: set fresh=False for future runs to resume from checkpoint
         print(f"Training spawned. Function call ID: {call.object_id}")
         print("Monitor at: https://modal.com/apps/midas-llm-research/main/")
         print("Checkpoints saved to midas-checkpoints volume.")
