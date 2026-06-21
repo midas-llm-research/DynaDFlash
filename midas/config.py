@@ -31,6 +31,7 @@ class LoggingConfig:
 class TrainConfig:
     target_model: str = "Qwen/Qwen3-4B"
     draft_checkpoint: str = "z-lab/Qwen3-4B-DFlash-b16"
+    data_path: str = "/data/training_sequences.jsonl"
 
     lr: float = 6e-4
     weight_decay: float = 0.01
@@ -62,6 +63,7 @@ class TrainConfig:
         return cls(
             target_model=raw.get("target_model", cls.target_model),
             draft_checkpoint=raw.get("draft_checkpoint", cls.draft_checkpoint),
+            data_path=raw.get("data_path", cls.data_path),
             router=router_cfg,
             checkpoint=ckpt_cfg,
             logging=log_cfg,

@@ -35,7 +35,7 @@ def compute_position_weighted_kl_loss(
     draft_logits: torch.Tensor,
     target_logits: torch.Tensor,
     loss_mask: torch.Tensor,
-    block_size: int,
+    position_in_block: torch.Tensor,
     gamma: float = 7.0,
 ) -> torch.Tensor:
     """
@@ -43,21 +43,17 @@ def compute_position_weighted_kl_loss(
 
     Positions earlier in a block get higher weight because errors there
     invalidate all subsequent tokens in speculative decoding.
+    Weight for position k in block: exp(-(k-1)/gamma)
 
     Args:
         draft_logits: [B, T, V]
         target_logits: [B, T, V]
         loss_mask: [B, T] binary mask for valid loss positions
-        block_size: tokens per block
+        position_in_block: [B, T] actual position within each block (1-indexed)
         gamma: decay rate (higher = slower decay)
     """
-    B, T, V = draft_logits.shape
-
-    # Compute position within block for weighting
-    # Positions in loss_mask correspond to positions 1..block_size-1 within blocks
-    # We approximate by using a repeating pattern
-    positions = torch.arange(T, device=draft_logits.device).float()
-    weights = torch.exp(-((positions % block_size) / gamma))
+    # Weight: exp(-(k-1)/gamma) where k is 1-indexed position in block
+    weights = torch.exp(-((position_in_block.float() - 1) / gamma))
 
     # KL(target || draft) per token
     target_log_probs = F.log_softmax(target_logits, dim=-1)
@@ -67,7 +63,7 @@ def compute_position_weighted_kl_loss(
     kl = (target_probs * (target_log_probs - draft_log_probs)).sum(dim=-1)  # [B, T]
 
     # Apply mask and weights
-    masked_kl = kl * loss_mask.float() * weights.unsqueeze(0)
+    masked_kl = kl * loss_mask.float() * weights
     loss = masked_kl.sum() / loss_mask.float().sum().clamp(min=1)
     return loss
 
@@ -202,8 +198,8 @@ def train(config: TrainConfig):
     target_layer_ids = model.target_layer_ids
     extractor = OnlineHiddenStateExtractor(target_model, target_layer_ids, device)
 
-    # Dataset and dataloader
-    logger.info("Loading training data...")
+    # Dataset and dataloader (loads from Nemotron — same source as DFlash paper)
+    logger.info("Loading training data from Nemotron-Post-Training-Dataset-v2...")
     dataset = DFlashDataset(tokenizer, max_seq_len=config.max_seq_len)
     dataloader = DataLoader(
         dataset,
@@ -260,7 +256,7 @@ def train(config: TrainConfig):
             layer_hiddens, target_logits = extractor.extract(input_ids)
 
             # Create masked blocks for block-diffusion training
-            masked_ids, loss_mask, _ = create_masked_blocks(
+            masked_ids, loss_mask, position_in_block = create_masked_blocks(
                 input_ids,
                 block_size=config.block_size,
                 num_anchors=config.num_anchors,
@@ -286,7 +282,7 @@ def train(config: TrainConfig):
                 draft_logits,
                 target_logits,
                 loss_mask,
-                config.block_size,
+                position_in_block,
                 config.loss_gamma,
             )
 

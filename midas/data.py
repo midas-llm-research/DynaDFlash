@@ -1,14 +1,14 @@
 """
 Data pipeline for DFlash router training.
 
-Handles:
-1. Loading prompts from Nemotron + CodeAlpaca
-2. Online hidden state extraction from frozen target model
-3. Block-diffusion masking with random anchor sampling
+Loads pre-existing Qwen3-generated training data from HuggingFace,
+then provides online hidden state extraction from the frozen target model
+and block-diffusion masking with random anchor sampling.
 """
 
 import random
 from dataclasses import dataclass
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -16,76 +16,74 @@ from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
 
-@dataclass
-class TrainingBatch:
-    input_ids: torch.Tensor
-    position_ids: torch.Tensor
-    target_hidden_states: list[torch.Tensor]
-    target_logits: torch.Tensor
-    masked_ids: torch.Tensor
-    block_positions: torch.Tensor
-    loss_mask: torch.Tensor
-
-
 class DFlashDataset(Dataset):
-    """Dataset of tokenized sequences for DFlash training."""
+    """
+    Dataset of tokenized sequences for DFlash training.
+
+    Uses Qwen3-generated text from public datasets (AM-Qwen3-Distilled)
+    to match the target model's output distribution.
+    """
 
     def __init__(
         self,
         tokenizer: AutoTokenizer,
         max_seq_len: int = 3072,
-        split: str = "train",
+        num_samples: int = 100_000,
     ):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.sequences = []
-        self._load_data(split)
+        self._load_data(num_samples)
 
-    def _load_data(self, split: str):
-        from datasets import load_dataset, concatenate_datasets
+    def _load_data(self, num_samples: int):
+        from datasets import load_dataset
 
-        # Nemotron post-training data
-        nemotron = load_dataset(
-            "nvidia/Nemotron-CrossThink-Dataset",
-            split=split,
-            streaming=False,
-        )
+        # Nemotron Post-Training Dataset V2: same source as DFlash paper
+        # Splits: math, code, stem, chat — diverse model-generated responses
+        # We use the full conversations (prompt + response) as training text.
+        # The target model (Qwen3-4B) provides hidden states + logits ONLINE.
+        splits = ["math", "code", "stem", "chat"]
+        per_split = num_samples // len(splits)
 
-        # CodeAlpaca
-        code_alpaca = load_dataset(
-            "sahil2801/CodeAlpaca-20k",
-            split=split,
-            streaming=False,
-        )
+        for split_name in splits:
+            try:
+                ds = load_dataset(
+                    "nvidia/Nemotron-Post-Training-Dataset-v2",
+                    split=split_name,
+                    streaming=True,
+                )
+                count = 0
+                for sample in ds:
+                    if count >= per_split:
+                        break
 
-        # Tokenize and store
-        for sample in nemotron:
-            text = sample.get("text", sample.get("content", ""))
-            if not text:
-                continue
-            tokens = self.tokenizer(
-                text,
-                max_length=self.max_seq_len,
-                truncation=True,
-                return_tensors="pt",
-            )
-            if tokens["input_ids"].shape[1] > 64:
-                self.sequences.append(tokens["input_ids"].squeeze(0))
+                    # Nemotron format: messages list with role/content
+                    messages = sample.get("messages", [])
+                    parts = []
+                    for msg in messages:
+                        content = msg.get("content", "")
+                        if content:
+                            parts.append(content)
+                    text = "\n".join(parts)
 
-        for sample in code_alpaca:
-            text = sample.get("output", "")
-            if not text:
-                continue
-            prompt = sample.get("instruction", "")
-            full_text = f"{prompt}\n{text}" if prompt else text
-            tokens = self.tokenizer(
-                full_text,
-                max_length=self.max_seq_len,
-                truncation=True,
-                return_tensors="pt",
-            )
-            if tokens["input_ids"].shape[1] > 64:
-                self.sequences.append(tokens["input_ids"].squeeze(0))
+                    if not text or len(text) < 50:
+                        continue
+
+                    tokens = self.tokenizer(
+                        text,
+                        max_length=self.max_seq_len,
+                        truncation=True,
+                        return_tensors="pt",
+                    )
+                    if tokens["input_ids"].shape[1] > 64:
+                        self.sequences.append(tokens["input_ids"].squeeze(0))
+                        count += 1
+
+                print(f"Loaded {count} sequences from Nemotron/{split_name}")
+            except Exception as e:
+                print(f"Warning: Could not load Nemotron/{split_name}: {e}")
+
+        print(f"Total: {len(self.sequences)} training sequences")
 
     def __len__(self):
         return len(self.sequences)
@@ -135,9 +133,11 @@ class OnlineHiddenStateExtractor:
             logits: [B, T, V]
         """
         input_ids = input_ids.to(self.device)
-        position_ids = torch.arange(
-            input_ids.shape[1], device=self.device
-        ).unsqueeze(0).expand(input_ids.shape[0], -1)
+        position_ids = (
+            torch.arange(input_ids.shape[1], device=self.device)
+            .unsqueeze(0)
+            .expand(input_ids.shape[0], -1)
+        )
 
         output = self.target_model(
             input_ids,
@@ -148,7 +148,8 @@ class OnlineHiddenStateExtractor:
         # Extract selected layer hidden states (offset by 1 as in z-lab's code)
         offset = 1
         layer_hiddens = [
-            output.hidden_states[layer_id + offset] for layer_id in self.target_layer_ids
+            output.hidden_states[layer_id + offset]
+            for layer_id in self.target_layer_ids
         ]
 
         return layer_hiddens, output.logits
@@ -164,7 +165,7 @@ def create_masked_blocks(
     Create block-diffusion training samples by randomly masking blocks.
 
     For each sequence, sample anchor positions. Each anchor is the first token
-    of a block; remaining positions in the block are masked.
+    of a block; remaining positions in the block are masked for prediction.
 
     Args:
         input_ids: [B, T] original token ids
@@ -175,24 +176,25 @@ def create_masked_blocks(
     Returns:
         masked_ids: [B, T] with blocks masked
         loss_mask: [B, T] binary mask indicating positions to compute loss on
-        anchor_positions: [B, num_anchors] sampled anchor indices
+        position_in_block: [B, T] position within block (1-indexed) for loss weighting
     """
     B, T = input_ids.shape
     masked_ids = input_ids.clone()
     loss_mask = torch.zeros(B, T, dtype=torch.bool, device=input_ids.device)
+    position_in_block = torch.zeros(B, T, dtype=torch.long, device=input_ids.device)
 
-    all_anchors = []
     for b in range(B):
         # Sample anchor positions (avoid last block_size positions)
         valid_range = max(1, T - block_size)
         n_anchors = min(num_anchors, valid_range)
         anchors = sorted(random.sample(range(valid_range), n_anchors))
-        all_anchors.append(anchors)
 
         # Mask positions after each anchor (positions 1..block_size-1 in each block)
         for anchor in anchors:
             end = min(anchor + block_size, T)
             masked_ids[b, anchor + 1 : end] = mask_token_id
             loss_mask[b, anchor + 1 : end] = True
+            for k in range(1, end - anchor):
+                position_in_block[b, anchor + k] = k
 
-    return masked_ids, loss_mask, all_anchors
+    return masked_ids, loss_mask, position_in_block
