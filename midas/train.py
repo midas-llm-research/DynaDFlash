@@ -170,12 +170,13 @@ def train(config: TrainConfig):
         use_wandb = False
         logger.warning("WandB not available, logging to stdout only")
 
-    # Load target model (frozen, bf16)
+    # Load target model (frozen, bf16, flash attention)
     logger.info(f"Loading target model: {config.target_model}")
     target_model = AutoModelForCausalLM.from_pretrained(
         config.target_model,
         torch_dtype=torch.bfloat16,
         device_map=device,
+        attn_implementation="sdpa",
     )
     target_model.eval()
     for param in target_model.parameters():
@@ -189,10 +190,14 @@ def train(config: TrainConfig):
     model = DFlashDraftModelRouted.from_pretrained_dflash(
         config.draft_checkpoint,
         router_config=router_config,
-        torch_dtype=torch.bfloat16,
-        device_map=device,
+        device=device,
+        dtype=torch.bfloat16,
     )
     model.train()
+
+    # Compile for faster training (fuses ops, ~20-30% speedup)
+    model = torch.compile(model)
+    logger.info("Draft model compiled with torch.compile")
 
     # Hidden state extractor
     target_layer_ids = model.target_layer_ids
