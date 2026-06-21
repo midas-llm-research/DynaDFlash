@@ -278,16 +278,16 @@ def train(config: TrainConfig):
             layer_hiddens, target_logits = extractor.extract(input_ids)
 
             # Create masked blocks for block-diffusion training
-            masked_ids, loss_mask, position_in_block, block_ids = create_masked_blocks(
+            masked_ids, loss_mask, position_in_block, block_ids, block_anchors = create_masked_blocks(
                 input_ids,
                 block_size=config.block_size,
                 num_anchors=config.num_anchors,
                 mask_token_id=model.mask_token_id or 0,
             )
 
-            # Build inter-block isolation mask (DFlash paper Section 4.2)
+            # Build attention mask with causal consistency + inter-block isolation
             ctx_len = input_ids.shape[1]
-            attn_mask = build_block_attention_mask(block_ids, ctx_len, dtype=torch.bfloat16)
+            attn_mask = build_block_attention_mask(block_ids, block_anchors, ctx_len, dtype=torch.bfloat16)
 
             # Draft model forward
             noise_embedding = target_model.model.embed_tokens(masked_ids)
