@@ -284,21 +284,21 @@ class DFlashDraftModelRouted(Qwen3PreTrainedModel):
         # Dynamic routing over target layer hidden states
         target_context, routing_weights = self.context_router(target_hidden)
 
-        # Position embeddings must cover ctx_len + noise_len for attention keys.
-        # In attention, keys = cat([k_ctx, k_noise]) so RoPE needs positions for both.
-        # Context and noise represent the SAME sequence positions, so we repeat:
-        # [0, 1, ..., T-1, 0, 1, ..., T-1] — both halves get correct position encoding.
+        # Position embeddings for RoPE.
+        # Training: position_ids covers noise only (length T), but keys are ctx+noise (2T).
+        #   We prepend ctx positions [0..T-1] to get full [0..T-1, 0..T-1] for RoPE.
+        # Inference: position_ids already covers the full range (ctx+noise) via the
+        #   generation loop, and KV cache handles accumulation.
         ctx_len = target_context.shape[1]
-        noise_len = hidden_states.shape[1]
-        if past_key_values is None or past_key_values.get_seq_length() == 0:
-            # Training mode (no cache): need positions for full ctx+noise
+        if not use_cache:
+            # Training: build full position ids for ctx + noise
             ctx_positions = torch.arange(ctx_len, device=position_ids.device)
             full_position_ids = torch.cat([ctx_positions, position_ids[0]]).unsqueeze(0).expand(
                 hidden_states.shape[0], -1
             )
             position_embeddings = self.rotary_emb(hidden_states, full_position_ids)
         else:
-            # Inference mode (with cache): position_ids already covers ctx+noise
+            # Inference: position_ids from generate loop covers ctx+noise correctly
             position_embeddings = self.rotary_emb(hidden_states, position_ids)
 
         for layer in self.layers:

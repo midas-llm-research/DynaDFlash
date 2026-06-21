@@ -187,11 +187,17 @@ def create_masked_blocks(
     block_ids = torch.full((B, T), -1, dtype=torch.long, device=input_ids.device)
     block_anchors = torch.full((B, T), -1, dtype=torch.long, device=input_ids.device)
 
+    # Minimum anchor position: at inference, blocks start after the prompt.
+    # Setting min=64 ensures all blocks have meaningful context to attend to.
+    min_anchor = min(64, T // 4)
+
     for b in range(B):
-        # Sample anchor positions (avoid last block_size positions)
-        valid_range = max(1, T - block_size)
+        # Sample anchor positions (between min_anchor and T-block_size)
+        valid_start = min_anchor
+        valid_end = max(valid_start + 1, T - block_size)
+        valid_range = valid_end - valid_start
         n_anchors = min(num_anchors, valid_range)
-        anchors = sorted(random.sample(range(valid_range), n_anchors))
+        anchors = sorted(random.sample(range(valid_start, valid_end), n_anchors))
 
         for block_idx, anchor in enumerate(anchors):
             end = min(anchor + block_size, T)

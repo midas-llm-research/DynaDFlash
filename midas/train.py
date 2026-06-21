@@ -206,13 +206,15 @@ def train(config: TrainConfig):
     tokenizer = AutoTokenizer.from_pretrained(config.target_model)
 
     # Load draft model from pre-trained DFlash checkpoint
+    # Model kept in fp32 (master weights) — autocast handles bf16 forward pass.
+    # This ensures routing scalars (log_gamma, log_tau, log_prior) get precise updates.
     logger.info(f"Loading draft model from: {config.draft_checkpoint}")
     router_config = config.router
     model = DFlashDraftModelRouted.from_pretrained_dflash(
         config.draft_checkpoint,
         router_config=router_config,
         device=device,
-        dtype=torch.bfloat16,
+        dtype=torch.float32,
     )
     model.train()
 
@@ -289,35 +291,35 @@ def train(config: TrainConfig):
             ctx_len = input_ids.shape[1]
             attn_mask = build_block_attention_mask(block_ids, block_anchors, ctx_len, dtype=torch.bfloat16)
 
-            # Draft model forward
+            # Draft model forward + loss in bf16 autocast (fast), but optimizer in fp32 (precise)
             noise_embedding = target_model.model.embed_tokens(masked_ids)
             position_ids = torch.arange(
                 masked_ids.shape[1], device=device
             ).unsqueeze(0).expand(masked_ids.shape[0], -1)
 
-            draft_output, routing_weights = model(
-                position_ids=position_ids,
-                noise_embedding=noise_embedding,
-                target_hidden=layer_hiddens,
-                attention_mask=attn_mask,
-                return_routing_weights=True,
-            )
+            with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+                draft_output, routing_weights = model(
+                    position_ids=position_ids,
+                    noise_embedding=noise_embedding,
+                    target_hidden=layer_hiddens,
+                    attention_mask=attn_mask,
+                    return_routing_weights=True,
+                )
 
-            # Position-weighted KL loss (only computed at masked positions to save memory)
-            loss = compute_position_weighted_kl_loss(
-                draft_output,
-                target_logits,
-                loss_mask,
-                position_in_block,
-                target_model.lm_head,
-                config.loss_gamma,
-            )
+                # Position-weighted KL loss (only computed at masked positions to save memory)
+                loss = compute_position_weighted_kl_loss(
+                    draft_output,
+                    target_logits,
+                    loss_mask,
+                    position_in_block,
+                    target_model.lm_head,
+                    config.loss_gamma,
+                )
 
-            # Optional entropy regularization
-            if config.entropy_reg_weight > 0:
-                entropy = compute_routing_entropy(routing_weights)
-                # Encourage moderate entropy (penalize collapse)
-                loss = loss - config.entropy_reg_weight * entropy
+                # Optional entropy regularization
+                if config.entropy_reg_weight > 0:
+                    entropy = compute_routing_entropy(routing_weights)
+                    loss = loss - config.entropy_reg_weight * entropy
 
             # Gradient accumulation
             loss = loss / config.gradient_accumulation_steps
