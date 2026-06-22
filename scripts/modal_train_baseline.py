@@ -67,23 +67,21 @@ def train(fresh: bool = True):
     device = torch.device("cuda")
     save_dir = "/checkpoints/midas-baseline"
 
-    # === Config ===
+    # === Config (matching DFlash paper exactly) ===
     LR = 6e-4
     WEIGHT_DECAY = 0.01
-    NUM_EPOCHS = 2
+    NUM_EPOCHS = 6              # DFlash paper: 6 epochs
     BATCH_SIZE = 4
     GRAD_ACCUM = 8
-    MAX_SEQ_LEN = 3072
-    BLOCK_SIZE = 16
-    NUM_ANCHORS = 128
-    WARMUP_RATIO = 0.04
-    GRAD_CLIP = 1.0
-    LOSS_GAMMA = 7.0
-    TARGET_TEMPERATURE = 1.0
+    MAX_SEQ_LEN = 3072          # DFlash paper: 3072
+    BLOCK_SIZE = 16             # DFlash paper: block size 16
+    NUM_ANCHORS = 512           # DFlash paper: 512 anchors per sequence
+    WARMUP_RATIO = 0.04         # DFlash paper: 4% warmup
+    GRAD_CLIP = 1.0             # DFlash paper: gradient clip 1.0
+    LOSS_GAMMA = 7.0            # DFlash paper: gamma=7 for block_size=16
     SAVE_EVERY = 500
     LOG_EVERY = 50
     SDD_PATH = "/checkpoints/sdd/sdd_100k.jsonl"
-    KL_CHUNK_SIZE = 1024
 
     # Clear old checkpoints if fresh
     if fresh:
@@ -159,8 +157,8 @@ def train(fresh: bool = True):
             input_ids = input_ids.to(device)
             response_starts = response_starts.to(device)
 
-            # Target forward (frozen, no grad)
-            layer_hiddens, target_logits = extractor.extract(input_ids)
+            # Target forward (frozen, no grad) — only need hidden states, not logits for loss
+            layer_hiddens, _ = extractor.extract(input_ids)
 
             # Masked blocks (anchors only in response portion) + attention mask
             masked_ids, loss_mask, position_in_block, block_ids, block_anchors = create_masked_blocks(
@@ -182,37 +180,29 @@ def train(fresh: bool = True):
                     attention_mask=attn_mask,
                 )
 
-                # === Chunked KL loss (prevents OOM) ===
+                # === Cross-Entropy loss against hard tokens (DFlash paper Eq. 4) ===
+                # Draft predicts token AT position t. Target is input_ids[t] (ground truth).
                 masked_indices = loss_mask.nonzero(as_tuple=False)
                 if masked_indices.shape[0] > 0:
                     batch_idx_m = masked_indices[:, 0]
                     seq_idx = masked_indices[:, 1]
 
+                    # Draft hidden at masked positions → lm_head → logits
                     draft_hidden_masked = draft_output[batch_idx_m, seq_idx]
-                    target_logits_masked = target_logits[batch_idx_m, seq_idx - 1]
+                    draft_logits = target_model.lm_head(draft_hidden_masked)  # [num_masked, V]
+
+                    # Ground truth: the actual tokens at masked positions
+                    target_tokens = input_ids[batch_idx_m, seq_idx]  # [num_masked]
+
+                    # Position-weighted CE (Equation 4: w_k = exp(-(k-1)/gamma))
                     positions_masked = position_in_block[batch_idx_m, seq_idx]
                     weights = torch.exp(-((positions_masked.float() - 1) / LOSS_GAMMA))
 
-                    num_masked = masked_indices.shape[0]
-                    total_loss = torch.tensor(0.0, device=device)
-                    total_weight = torch.tensor(0.0, device=device)
+                    # Cross-entropy per token
+                    ce = F.cross_entropy(draft_logits, target_tokens, reduction="none")  # [num_masked]
 
-                    for chunk_start in range(0, num_masked, KL_CHUNK_SIZE):
-                        chunk_end = min(chunk_start + KL_CHUNK_SIZE, num_masked)
-                        chunk_draft_h = draft_hidden_masked[chunk_start:chunk_end]
-                        chunk_target_l = target_logits_masked[chunk_start:chunk_end]
-                        chunk_w = weights[chunk_start:chunk_end]
-
-                        chunk_draft_logits = target_model.lm_head(chunk_draft_h)
-
-                        t_log = F.log_softmax(chunk_target_l / TARGET_TEMPERATURE, dim=-1)
-                        d_log = F.log_softmax(chunk_draft_logits / TARGET_TEMPERATURE, dim=-1)
-                        kl = F.kl_div(d_log, t_log.exp(), reduction="none").sum(dim=-1)
-
-                        total_loss = total_loss + (kl * chunk_w).sum()
-                        total_weight = total_weight + chunk_w.sum()
-
-                    loss = total_loss / total_weight.clamp(min=1)
+                    # Weighted average
+                    loss = (ce * weights).sum() / weights.sum().clamp(min=1)
                 else:
                     loss = torch.tensor(0.0, device=device, requires_grad=True)
 
