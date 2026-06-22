@@ -19,8 +19,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.11")
     .pip_install(
-        "vllm==0.10.0",
-        "transformers>=4.57.0",
+        "vllm==0.8.5",
         "datasets",
         "numpy",
         "tqdm",
