@@ -1,8 +1,8 @@
 """
 Core SDD (Self-Distillation Data) generation logic.
 
-Generates responses from the target model at temperature=0.6,
-matching the DFlash/DFlare training recipe exactly.
+Generates responses from the target model using Qwen3's recommended
+non-thinking sampling params (temp=0.7, top_p=0.8, top_k=20, min_p=0).
 Uses vLLM for fast batched inference.
 """
 
@@ -69,7 +69,10 @@ def generate_shard(
     codealpaca_count: int,
     output_path: str,
     max_seq_len: int = 3072,
-    temperature: float = 0.6,
+    temperature: float = 0.7,
+    top_p: float = 0.8,
+    top_k: int = 20,
+    min_p: float = 0.0,
     fresh: bool = False,
     commit_fn=None,
 ):
@@ -128,6 +131,9 @@ def generate_shard(
 
     sampling_params = SamplingParams(
         temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        min_p=min_p,
         max_tokens=max_seq_len,  # vLLM auto-caps at max_model_len - prompt_len
     )
 
@@ -156,7 +162,7 @@ def generate_shard(
                 response = output.outputs[0].text
                 response_tokens = len(output.outputs[0].token_ids)
 
-                if len(response.strip()) >= 50:
+                if len(response.strip()) >= 25:
                     record = {
                         "prompt": prompt_info["prompt"],
                         "response": response,

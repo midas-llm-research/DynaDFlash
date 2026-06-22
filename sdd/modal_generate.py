@@ -19,7 +19,8 @@ PROJECT_ROOT = Path(__file__).parent.parent
 image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.11")
     .pip_install(
-        "vllm",
+        "vllm==0.10.0",
+        "transformers>=4.57.0",
         "datasets",
         "numpy",
         "tqdm",
@@ -52,7 +53,7 @@ def generate(fresh: bool = False):
         codealpaca_count=20_000,
         output_path="/checkpoints/sdd/sdd_100k.jsonl",
         max_seq_len=3072,
-        temperature=0.6,
+        temperature=0.7,
         fresh=fresh,
         commit_fn=checkpoint_volume.commit,
     )
@@ -65,7 +66,7 @@ def generate(fresh: bool = False):
 def main(fresh: bool = True):
     call = generate.spawn(fresh=fresh)
     print(f"SDD generation spawned: {call.object_id}")
-    print("Config: 100K samples, batch=64, temp=0.6, max_new_tokens=2048")
+    print("Config: 100K samples, temp=0.7, top_p=0.8, top_k=20, max_seq_len=3072")
     print("Splits: 20K each from math/code/stem/chat + 20K CodeAlpaca")
     print("Output: /checkpoints/sdd/sdd_100k.jsonl")
     print("Monitor: https://modal.com/apps/midas-llm-research/main/")
