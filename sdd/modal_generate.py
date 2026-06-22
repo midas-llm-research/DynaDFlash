@@ -17,15 +17,9 @@ checkpoint_volume = modal.Volume.from_name("midas-checkpoints", create_if_missin
 PROJECT_ROOT = Path(__file__).parent.parent
 
 image = (
-    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.11")
-    .pip_install(
-        "vllm==0.8.5",
-        "datasets",
-        "numpy",
-        "tqdm",
-        "loguru",
-        "huggingface_hub",
-    )
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install("transformers>=4.51.1,<5.0.0")
+    .pip_install("vllm==0.8.5", "datasets", "loguru", "huggingface_hub")
     .add_local_dir(str(PROJECT_ROOT / "sdd"), "/root/sdd", copy=True)
 )
 
