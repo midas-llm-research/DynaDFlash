@@ -55,7 +55,7 @@ def evaluate(checkpoint_path: str = "/checkpoints/midas-router/best"):
 
     sys.path.insert(0, "/root")
     from midas.config import RouterConfig
-    from midas.model import DFlashDraftModelRouted, dflash_generate
+    from midas.models import DFlashDraftModelRouted, dflash_generate
 
     device = torch.device("cuda")
 

@@ -115,7 +115,7 @@ def train(fresh: bool = True):
 
     # === Data ===
     logger.info(f"Loading {NUM_SAMPLES} training samples...")
-    extractor = OnlineHiddenStateExtractor(target_model, model.target_layer_ids, device)
+    extractor = OnlineHiddenStateExtractor(target_model, device)
     dataset = DFlashDataset(tokenizer, max_seq_len=MAX_SEQ_LEN, num_samples=NUM_SAMPLES, cache_dir="/checkpoints/data_cache")
     dataloader = DataLoader(
         dataset, batch_size=BATCH_SIZE, shuffle=True,
@@ -159,7 +159,8 @@ def train(fresh: bool = True):
             input_ids = input_ids.to(device)
 
             # Target forward (frozen, no grad)
-            layer_hiddens, target_logits = extractor.extract(input_ids)
+            hidden_states, target_logits = extractor.extract(input_ids)
+            target_hidden = model.extract_target_hidden(hidden_states)
 
             # Masked blocks + attention mask
             masked_ids, loss_mask, position_in_block, block_ids, block_anchors = create_masked_blocks(
@@ -170,13 +171,15 @@ def train(fresh: bool = True):
 
             # Draft forward (autocast bf16)
             noise_embedding = target_model.model.embed_tokens(masked_ids)
-            position_ids = torch.arange(masked_ids.shape[1], device=device).unsqueeze(0).expand(input_ids.shape[0], -1)
+            T = masked_ids.shape[1]
+            pos = torch.arange(T, device=device)
+            position_ids = torch.cat([pos, pos]).unsqueeze(0).expand(input_ids.shape[0], -1)
 
             with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 draft_output = model(
                     position_ids=position_ids,
                     noise_embedding=noise_embedding,
-                    target_hidden=layer_hiddens,
+                    target_hidden=target_hidden,
                     attention_mask=attn_mask,
                 )
 

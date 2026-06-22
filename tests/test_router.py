@@ -4,7 +4,7 @@ import torch
 import pytest
 
 from midas.config import RouterConfig
-from midas.router import ContextRouter
+from midas.models import ContextRouter
 
 
 @pytest.fixture
