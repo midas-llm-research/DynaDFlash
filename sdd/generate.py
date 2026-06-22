@@ -154,11 +154,23 @@ def generate_shard(
     with open(output_path, "a") as f:
         for chunk_start in range(0, len(prompts_remaining), chunk_size):
             chunk = prompts_remaining[chunk_start : chunk_start + chunk_size]
-            chunk_prompts = [format_prompt(p["prompt"]) for p in chunk]
 
-            outputs = llm.generate(chunk_prompts, sampling_params)
+            # Format prompts and filter out any that exceed max_model_len
+            formatted = []
+            chunk_filtered = []
+            for p in chunk:
+                text = format_prompt(p["prompt"])
+                token_count = len(tokenizer.encode(text))
+                if token_count < max_seq_len - 10:
+                    formatted.append(text)
+                    chunk_filtered.append(p)
 
-            for prompt_info, output in zip(chunk, outputs):
+            if not formatted:
+                continue
+
+            outputs = llm.generate(formatted, sampling_params)
+
+            for prompt_info, output in zip(chunk_filtered, outputs):
                 response = output.outputs[0].text
                 response_tokens = len(output.outputs[0].token_ids)
 

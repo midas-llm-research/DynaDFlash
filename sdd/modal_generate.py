@@ -56,7 +56,7 @@ def generate(fresh: bool = False):
 
 
 @app.local_entrypoint()
-def main(fresh: bool = True):
+def main(fresh: bool = False):
     call = generate.spawn(fresh=fresh)
     print(f"SDD generation spawned: {call.object_id}")
     print("Config: 100K samples, temp=0.7, top_p=0.8, top_k=20, max_seq_len=3072")
