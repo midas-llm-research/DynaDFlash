@@ -21,7 +21,6 @@ def load_prompts(nemotron_splits: dict[str, int], codealpaca_count: int) -> list
 
     Args:
         nemotron_splits: dict mapping split name to number of samples to take
-                         e.g. {"math": 195000, "code": 175000}
         codealpaca_count: number of CodeAlpaca samples
     """
     prompts = []
@@ -42,6 +41,8 @@ def load_prompts(nemotron_splits: dict[str, int], codealpaca_count: int) -> list
                 prompts.append({"prompt": user_msg.strip(), "source": "nemotron", "split": split_name})
                 count += 1
         logger.info(f"Loaded {count} prompts from Nemotron/{split_name} (target: {target_count})")
+        if count < target_count:
+            logger.warning(f"Only got {count}/{target_count} from Nemotron/{split_name}")
 
     if codealpaca_count > 0:
         ds = load_dataset("sahil2801/CodeAlpaca-20k", split="train", streaming=True)
@@ -53,9 +54,9 @@ def load_prompts(nemotron_splits: dict[str, int], codealpaca_count: int) -> list
             if instruction and len(instruction.strip()) > 20:
                 prompts.append({"prompt": instruction.strip(), "source": "codealpaca", "split": "code"})
                 count += 1
-        logger.info(f"Loaded {count} prompts from CodeAlpaca")
+        logger.info(f"Loaded {count} prompts from CodeAlpaca (target: {codealpaca_count})")
 
-    logger.info(f"Total prompts: {len(prompts)}")
+    logger.info(f"Total prompts loaded: {len(prompts)}")
     return prompts
 
 
@@ -72,14 +73,13 @@ def generate_shard(
     commit_fn=None,
 ):
     """Generate SDD for one shard (one GPU)."""
-    device = torch.device("cuda")
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Load model
     logger.info(f"Loading target model from {target_model_path}")
     model = AutoModelForCausalLM.from_pretrained(
-        target_model_path, torch_dtype=torch.bfloat16, device_map=device,
+        target_model_path, torch_dtype=torch.bfloat16, device_map="auto",
     ).eval()
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
     if tokenizer.pad_token is None:
@@ -89,7 +89,18 @@ def generate_shard(
     # Load prompts
     prompts = load_prompts(nemotron_splits, codealpaca_count)
 
-    # Resume: count existing output
+    # Save prompts list for deterministic resume
+    prompts_cache = output_path.with_suffix(".prompts.json")
+    if prompts_cache.exists():
+        logger.info(f"Loading cached prompt list from {prompts_cache}")
+        with open(prompts_cache) as f:
+            prompts = json.load(f)
+    else:
+        with open(prompts_cache, "w") as f:
+            json.dump(prompts, f)
+        logger.info(f"Saved {len(prompts)} prompts to {prompts_cache}")
+
+    # Resume: count existing output lines
     existing = 0
     if output_path.exists():
         with open(output_path) as f:
@@ -113,7 +124,7 @@ def generate_shard(
                 truncation=True,
                 max_length=max_prompt_tokens,
                 return_tensors="pt",
-            ).to(device)
+            ).to(model.device)
 
             with torch.no_grad():
                 outputs = model.generate(
@@ -129,7 +140,7 @@ def generate_shard(
                 response_ids = output_ids[prompt_len:]
                 response = tokenizer.decode(response_ids, skip_special_tokens=True)
 
-                if len(response.strip()) > 5:
+                if len(response.strip()) >= 50:
                     record = {
                         "prompt": prompt_info["prompt"],
                         "response": response,
@@ -145,11 +156,11 @@ def generate_shard(
                 f.flush()
                 commit_fn()
                 avg_len = total_response_tokens / max(generated - existing, 1)
-                logger.info(f"Committed. {generated} total, avg response: {avg_len:.0f} tokens")
+                logger.info(f"Committed. {generated} total samples, avg response: {avg_len:.0f} tokens")
 
     if commit_fn:
         commit_fn()
 
     avg_len = total_response_tokens / max(generated - existing, 1)
-    logger.info(f"Shard complete: {generated} samples, avg response {avg_len:.0f} tokens")
+    logger.info(f"Done: {generated} total samples, avg response {avg_len:.0f} tokens")
     return {"total": generated, "avg_response_tokens": avg_len}
