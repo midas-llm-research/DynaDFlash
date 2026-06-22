@@ -161,7 +161,7 @@ def generate_shard(
             for p in chunk:
                 text = format_prompt(p["prompt"])
                 token_count = len(tokenizer.encode(text))
-                if token_count < max_seq_len - 10:
+                if token_count < max_seq_len - 256:
                     formatted.append(text)
                     chunk_filtered.append(p)
 
