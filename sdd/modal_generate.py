@@ -17,7 +17,7 @@ checkpoint_volume = modal.Volume.from_name("midas-checkpoints", create_if_missin
 PROJECT_ROOT = Path(__file__).parent.parent
 
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.11")
     .pip_install(
         "vllm",
         "datasets",
