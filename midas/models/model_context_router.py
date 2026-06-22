@@ -1,11 +1,11 @@
 """
 DFlash draft model with a learned per-token context router replacing the
 static concat+FC fusion. Inherits everything from `DFlashDraftModel` and only
-overrides the fusion hooks.
+overrides the target-hidden fusion hooks.
 """
 
 import math
-from typing import Any, Optional
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -63,24 +63,40 @@ class ContextRouter(nn.Module):
         """
         Args:
             layer_hiddens: list of N tensors, each [B, T, H]
-        Returns:
-            context: [B, T, H]
-            routing_weights: [B, T, N]
-        """
-        normed = [self.layer_norms[i](layer_hiddens[i]) for i in range(self.num_layers)]
-        x = torch.stack(normed, dim=2)  # [B, T, N, H]
 
+        Returns:
+            context: [B, T, H] routed context vector
+            routing_weights: [B, T, N] for logging/analysis
+        """
+        # Per-layer normalization
+        normed = [self.layer_norms[i](layer_hiddens[i]) for i in range(self.num_layers)]
+
+        # Stack for batch operations: [B, T, N, H]
+        x = torch.stack(normed, dim=2)
+
+        # Query from deepest selected layer: [B, T, r]
         q = self.W_q(normed[-1])
+
+        # Keys for all layers: [B, T, N, r]
         k = self.W_k(x) + self.layer_embeddings
+
+        # Routing scores: [B, T, N]
         scores = torch.einsum("btr,btnr->btn", q, k) * (self.rank ** -0.5)
 
+        # Combine static prior with dynamic scores
         gamma = self.log_gamma.exp()
         tau = self.log_tau.exp()
         logits = self.log_prior + gamma * scores
+
+        # Routing weights
         alpha = F.softmax(logits / tau, dim=-1)
 
+        # Weighted sum over layers: [B, T, H]
         context = torch.einsum("btn,btnh->bth", alpha, x)
+
+        # Cross-dimension mixing + normalize
         context = self.output_norm(self.fc(context))
+
         return context, alpha
 
 
@@ -97,35 +113,32 @@ class DFlashDraftModelRouted(DFlashDraftModel):
     """
 
     def __init__(self, config, router_config: RouterConfig):
-        # Stash router_config before super().__init__ so _build_fusion can use it.
+        # Stash router_config before super().__init__ so the base __init__'s
+        # call to `_build_target_hidden_fusion` can use it.
         self._router_config = router_config
         super().__init__(config)
-        self._last_routing_weights: Optional[torch.Tensor] = None
+        self.last_routing_weights: Optional[torch.Tensor] = None
 
-    def _build_fusion(self, config) -> None:
+    def _build_target_hidden_fusion(self, config) -> None:
         self.context_router = ContextRouter(self._router_config)
 
-    def _apply_fusion(self, target_hidden: list[torch.Tensor]) -> torch.Tensor:
-        context, routing_weights = self.context_router(target_hidden)
-        self._last_routing_weights = routing_weights
+    def _apply_target_hidden_fusion(self, target_hidden: torch.Tensor) -> torch.Tensor:
+        # target_hidden is the concat tensor [B, T, N*H] from the base
+        # `extract_target_hidden`. Chunk back into N per-layer views (zero-copy)
+        # so the router can do its per-layer attention.
+        layer_hiddens = list(
+            torch.chunk(target_hidden, self.context_router.num_layers, dim=-1)
+        )
+        context, routing_weights = self.context_router(layer_hiddens)
+        self.last_routing_weights = routing_weights
         return context
-
-    def extract_target_hidden(
-        self, hidden_states: tuple[torch.Tensor, ...]
-    ) -> list[torch.Tensor]:
-        """Select per-layer hidden states for the router (z-lab offset = +1)."""
-        return [hidden_states[layer_id + 1] for layer_id in self.target_layer_ids]
 
     def routing_aux_loss(self) -> Optional[torch.Tensor]:
         """Routing entropy. Higher = more spread across layers. Encourage by subtracting."""
-        if self._last_routing_weights is None:
+        if self.last_routing_weights is None:
             return None
-        rw = self._last_routing_weights
+        rw = self.last_routing_weights
         return -(rw * rw.clamp(min=1e-8).log()).sum(dim=-1).mean()
-
-    @property
-    def last_routing_weights(self) -> Optional[torch.Tensor]:
-        return self._last_routing_weights
 
     @classmethod
     def from_pretrained_dflash(
@@ -149,16 +162,14 @@ class DFlashDraftModelRouted(DFlashDraftModel):
         config._attn_implementation = "sdpa"
 
         model = cls(config, router_config)
-
-        original_state = original.state_dict()
         model_state = model.state_dict()
-        loaded = []
-        for key, value in original_state.items():
+        loaded = 0
+        for key, value in original.state_dict().items():
             if key.startswith("fc.") or key.startswith("hidden_norm."):
                 continue
             if key in model_state:
                 model_state[key] = value
-                loaded.append(key)
+                loaded += 1
         model.load_state_dict(model_state)
 
         if device is None:
@@ -167,7 +178,7 @@ class DFlashDraftModelRouted(DFlashDraftModel):
         del original
 
         print(
-            f"Loaded {len(loaded)} params from DFlash checkpoint. "
+            f"Loaded {loaded} params from DFlash checkpoint. "
             f"Router params initialized fresh. Model on {device}, {dtype}."
         )
         return model
