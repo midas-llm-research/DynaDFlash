@@ -116,6 +116,9 @@ def generate_shard(
 
     # Load vLLM engine — max_model_len enforces total (prompt + response) ≤ max_seq_len
     logger.info(f"Loading vLLM engine: {target_model_path} (max_seq_len={max_seq_len})")
+    from transformers import AutoTokenizer as HFTokenizer
+    tokenizer = HFTokenizer.from_pretrained(target_model_path)
+
     llm = LLM(
         model=target_model_path,
         dtype="bfloat16",
@@ -133,12 +136,19 @@ def generate_shard(
     generated = existing
     total_response_tokens = 0
 
-    logger.info(f"Generating {len(prompts_remaining)} responses with vLLM (temp={temperature})")
+    logger.info(f"Generating {len(prompts_remaining)} responses with vLLM (temp={temperature}, thinking=off)")
+
+    def format_prompt(text: str) -> str:
+        """Apply chat template with thinking mode disabled."""
+        messages = [{"role": "user", "content": text}]
+        return tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+        )
 
     with open(output_path, "a") as f:
         for chunk_start in range(0, len(prompts_remaining), chunk_size):
             chunk = prompts_remaining[chunk_start : chunk_start + chunk_size]
-            chunk_prompts = [p["prompt"] for p in chunk]
+            chunk_prompts = [format_prompt(p["prompt"]) for p in chunk]
 
             outputs = llm.generate(chunk_prompts, sampling_params)
 
