@@ -19,9 +19,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
-        "torch>=2.2.0",
-        "transformers>=4.57.0",
-        "accelerate",
+        "vllm",
         "datasets",
         "numpy",
         "tqdm",
@@ -42,7 +40,7 @@ image = (
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=28800,
 )
-def generate():
+def generate(fresh: bool = False):
     import sys
     sys.path.insert(0, "/root")
     from sdd.generate import generate_shard
@@ -50,14 +48,12 @@ def generate():
     # 100K samples: 20K per Nemotron split + 20K CodeAlpaca
     result = generate_shard(
         target_model_path="/models/Qwen3-4B",
-        tokenizer_path="/models/Qwen3-4B",
         nemotron_splits={"math": 20_000, "code": 20_000, "stem": 20_000, "chat": 20_000},
         codealpaca_count=20_000,
         output_path="/checkpoints/sdd/sdd_100k.jsonl",
-        batch_size=64,
-        max_new_tokens=2048,
-        max_prompt_tokens=1024,
+        max_seq_len=3072,
         temperature=0.6,
+        fresh=fresh,
         commit_fn=checkpoint_volume.commit,
     )
 
@@ -66,8 +62,8 @@ def generate():
 
 
 @app.local_entrypoint()
-def main():
-    call = generate.spawn()
+def main(fresh: bool = True):
+    call = generate.spawn(fresh=fresh)
     print(f"SDD generation spawned: {call.object_id}")
     print("Config: 100K samples, batch=64, temp=0.6, max_new_tokens=2048")
     print("Splits: 20K each from math/code/stem/chat + 20K CodeAlpaca")
