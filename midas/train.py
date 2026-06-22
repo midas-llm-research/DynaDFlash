@@ -1,9 +1,9 @@
 """
 Training loop for any DFlash draft model.
 
-Works with any subclass of `DFlashDraftModel` — the loop only uses the
-abstract interface (`extract_target_hidden`, `forward`, `routing_aux_loss`),
-so adding a new method = new file in `midas/models/` + swap the constructor.
+Works with any subclass of `DFlashDraftModel` — the loop uses the base
+interface (`extract_target_hidden`, `forward`). Subclass-specific aux losses
+(e.g. router entropy) are wired in via explicit `isinstance` checks below.
 
 Implements:
 - Position-weighted KL loss (DFlash paper Eq. 4)
@@ -176,23 +176,30 @@ def cleanup_old_checkpoints(save_dir: str, keep_last_n: int):
 
 
 def build_default_model(
-    config: TrainConfig, device: torch.device
+    config: TrainConfig,
+    device: torch.device,
+    model_cls: type[DFlashDraftModel] = DFlashDraftModelRouted,
 ) -> DFlashDraftModel:
     """
-    Default draft model factory. Swap this (or pass `model` to `train`) to
-    train a different DFlash variant.
+    Build a draft model from `config.draft_checkpoint`. Pass `model_cls` to
+    pick which DFlashDraftModel subclass to use; `DFlashDraftModelRouted`
+    additionally needs a router_config (pulled from `config.router`).
     """
-    return DFlashDraftModelRouted.from_pretrained_dflash(
+    extra_kwargs: dict = {}
+    if model_cls is DFlashDraftModelRouted:
+        extra_kwargs["router_config"] = config.router
+    return model_cls.from_pretrained_dflash(
         config.draft_checkpoint,
-        router_config=config.router,
         device=device,
         dtype=torch.bfloat16,
+        **extra_kwargs,
     )
 
 
 def train(
     config: TrainConfig,
     model: Optional[DFlashDraftModel] = None,
+    model_cls: type[DFlashDraftModel] = DFlashDraftModelRouted,
 ):
     """Main training loop. `model` can be any DFlashDraftModel subclass."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -220,14 +227,20 @@ def train(
     tokenizer = AutoTokenizer.from_pretrained(config.target_model)
 
     if model is None:
-        logger.info(f"Building draft model from: {config.draft_checkpoint}")
-        model = build_default_model(config, device)
+        logger.info(
+            f"Building {model_cls.__name__} from {config.draft_checkpoint}"
+        )
+        model = build_default_model(config, device, model_cls=model_cls)
     model.train()
 
     extractor = OnlineHiddenStateExtractor(target_model, device)
 
-    logger.info("Loading training data...")
-    dataset = DFlashDataset(tokenizer, max_seq_len=config.max_seq_len)
+    logger.info(f"Loading SDD training data from {config.data_path}")
+    dataset = DFlashDataset(
+        tokenizer,
+        data_path=config.data_path,
+        max_seq_len=config.max_seq_len,
+    )
     dataloader = DataLoader(
         dataset,
         batch_size=config.batch_size,
@@ -310,8 +323,10 @@ def train(
                 config.loss_gamma,
             )
 
-            aux = model.routing_aux_loss()
-            if aux is not None and config.entropy_reg_weight > 0:
+            # Aux loss is method-specific — only the routed variant has one.
+            aux: Optional[torch.Tensor] = None
+            if isinstance(model, DFlashDraftModelRouted) and config.entropy_reg_weight > 0:
+                aux = model.routing_aux_loss()
                 loss = loss - config.entropy_reg_weight * aux
 
             loss = loss / config.gradient_accumulation_steps
