@@ -114,33 +114,33 @@ def collate_fn(batch: list[torch.Tensor], pad_token_id: int) -> torch.Tensor:
 
 class OnlineHiddenStateExtractor:
     """
-    Runs frozen target model to extract hidden states from selected layers.
-    Used during training to provide context features for the draft model.
+    Runs frozen target model and returns the full per-layer hidden states tuple
+    plus logits. Layer selection is delegated to the draft model so subclasses
+    can pick any subset they want from the full stack.
     """
 
     def __init__(
         self,
         target_model: nn.Module,
-        target_layer_ids: list[int],
         device: torch.device,
     ):
         self.target_model = target_model
-        self.target_layer_ids = target_layer_ids
         self.device = device
         self.target_model.eval()
 
     @torch.no_grad()
     def extract(
         self, input_ids: torch.Tensor
-    ) -> tuple[list[torch.Tensor], torch.Tensor]:
+    ) -> tuple[tuple[torch.Tensor, ...], torch.Tensor]:
         """
-        Run target model, return per-layer hidden states and logits.
+        Run target model, return full hidden-states tuple and logits.
 
         Args:
             input_ids: [B, T]
 
         Returns:
-            layer_hiddens: list of N tensors, each [B, T, H]
+            hidden_states: tuple of (num_layers + 1) tensors, each [B, T, H]
+                (index 0 = embedding output, then one per layer)
             logits: [B, T, V]
         """
         input_ids = input_ids.to(self.device)
@@ -156,14 +156,7 @@ class OnlineHiddenStateExtractor:
             output_hidden_states=True,
         )
 
-        # Extract selected layer hidden states (offset by 1 as in z-lab's code)
-        offset = 1
-        layer_hiddens = [
-            output.hidden_states[layer_id + offset]
-            for layer_id in self.target_layer_ids
-        ]
-
-        return layer_hiddens, output.logits
+        return output.hidden_states, output.logits
 
 
 def create_masked_blocks(
