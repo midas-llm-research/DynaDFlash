@@ -405,6 +405,57 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
             )
         return self.norm(hidden_states)
 
+    # MIDAS: new classmethod (not in z-lab upstream). Loads weights from a z-lab
+    # DFlash checkpoint into a fresh instance of whatever class this is called on:
+    #   DFlashDraftModel.from_pretrained_dflash(ckpt)
+    #     → base class has fc/hidden_norm, all keys match, copied directly.
+    #   DFlashDraftModelRouted.from_pretrained_dflash(ckpt, router_config=cfg)
+    #     → routed class has context_router instead; z-lab's fc/hidden_norm keys
+    #       have no destination in model_state and are silently dropped by the
+    #       `if key in model_state` filter. The fresh router stays randomly
+    #       initialized.
+    # `constructor_kwargs` are forwarded to `cls(config, ...)` so subclasses
+    # with extra __init__ args (e.g. router_config) just work.
+    @classmethod
+    def from_pretrained_dflash(
+        cls,
+        dflash_checkpoint: str,
+        *,
+        device: Optional[torch.device] = None,
+        dtype: torch.dtype = torch.bfloat16,
+        **constructor_kwargs,
+    ) -> "DFlashDraftModel":
+        from transformers import AutoModel
+
+        original = AutoModel.from_pretrained(
+            dflash_checkpoint,
+            trust_remote_code=True,
+            attn_implementation="sdpa",
+        )
+        config = original.config
+        config._attn_implementation = "sdpa"
+
+        model = cls(config, **constructor_kwargs)
+        model_state = model.state_dict()
+        loaded = 0
+        for key, value in original.state_dict().items():
+            if key in model_state:
+                model_state[key] = value
+                loaded += 1
+        model.load_state_dict(model_state)
+
+        if device is None:
+            device = next(original.parameters()).device
+        model = model.to(device=device, dtype=dtype)
+        del original
+
+        print(
+            f"Loaded {loaded} params from {dflash_checkpoint} into {cls.__name__}. "
+            f"Any modules unique to this subclass keep their fresh init. "
+            f"Model on {device}, {dtype}."
+        )
+        return model
+
     @torch.inference_mode()
     def spec_generate(
         self,
