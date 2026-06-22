@@ -70,7 +70,7 @@ def train(fresh: bool = True):
     # === Config ===
     LR = 6e-4
     WEIGHT_DECAY = 0.01
-    NUM_EPOCHS = 1
+    NUM_EPOCHS = 2
     BATCH_SIZE = 4
     GRAD_ACCUM = 8
     MAX_SEQ_LEN = 3072
