@@ -231,10 +231,9 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         # TRAINING_MOD: position embeddings for training (no cache) vs inference (with cache)
         ctx_len = target_hidden.shape[1]
         if not use_cache:
-            ctx_positions = torch.arange(ctx_len, device=position_ids.device)
-            full_position_ids = torch.cat([ctx_positions, position_ids[0]]).unsqueeze(0).expand(
-                hidden_states.shape[0], -1
-            )
+            B = hidden_states.shape[0]
+            ctx_positions = torch.arange(ctx_len, device=position_ids.device).unsqueeze(0).expand(B, -1)
+            full_position_ids = torch.cat([ctx_positions, position_ids], dim=1)
             position_embeddings = self.rotary_emb(hidden_states, full_position_ids)
         else:
             position_embeddings = self.rotary_emb(hidden_states, position_ids)

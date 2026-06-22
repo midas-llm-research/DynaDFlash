@@ -103,6 +103,94 @@ class DFlashDataset(Dataset):
         return self.sequences[idx]
 
 
+class SDDDataset(Dataset):
+    """
+    Dataset loading from pre-generated SDD JSONL (Self-Distillation Data).
+    Applies chat template during tokenization so token distribution matches inference.
+    Tracks response start index so anchors are only placed in response portion.
+    """
+
+    def __init__(
+        self,
+        tokenizer,
+        sdd_path: str,
+        max_seq_len: int = 3072,
+    ):
+        self.tokenizer = tokenizer
+        self.max_seq_len = max_seq_len
+        self.sequences = []
+        self.response_starts = []
+        self._load_data(sdd_path)
+
+    def _load_data(self, sdd_path: str):
+        import json
+
+        path = Path(sdd_path)
+        if not path.exists():
+            raise FileNotFoundError(f"SDD file not found: {sdd_path}")
+
+        count = 0
+        skipped = 0
+        for line in open(path):
+            record = json.loads(line)
+            prompt = record["prompt"]
+            response = record["response"]
+
+            # Apply chat template (matches inference-time token distribution)
+            messages = [
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": response},
+            ]
+            full_text = self.tokenizer.apply_chat_template(
+                messages, tokenize=False, enable_thinking=False
+            )
+
+            # Tokenize
+            tokens = self.tokenizer(
+                full_text,
+                max_length=self.max_seq_len,
+                truncation=True,
+                return_tensors="pt",
+            )
+            input_ids = tokens["input_ids"].squeeze(0)
+
+            if input_ids.shape[0] < 64:
+                skipped += 1
+                continue
+
+            # Find where response starts: tokenize just the prompt portion to get its length
+            prompt_messages = [{"role": "user", "content": prompt}]
+            prompt_text = self.tokenizer.apply_chat_template(
+                prompt_messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+            )
+            prompt_tokens = self.tokenizer(prompt_text, return_tensors="pt")
+            response_start = prompt_tokens["input_ids"].shape[1]
+
+            self.sequences.append(input_ids)
+            self.response_starts.append(response_start)
+            count += 1
+
+        print(f"Loaded {count} SDD samples from {sdd_path} (skipped {skipped})")
+
+    def __len__(self):
+        return len(self.sequences)
+
+    def __getitem__(self, idx):
+        return self.sequences[idx], self.response_starts[idx]
+
+
+def sdd_collate_fn(batch: list[tuple], pad_token_id: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """Pad SDD sequences and return response_starts."""
+    sequences = [item[0] for item in batch]
+    response_starts = torch.tensor([item[1] for item in batch], dtype=torch.long)
+
+    max_len = max(seq.shape[0] for seq in sequences)
+    padded = torch.full((len(sequences), max_len), pad_token_id, dtype=torch.long)
+    for i, seq in enumerate(sequences):
+        padded[i, : seq.shape[0]] = seq
+    return padded, response_starts
+
+
 def collate_fn(batch: list[torch.Tensor], pad_token_id: int) -> torch.Tensor:
     """Pad sequences to same length in batch."""
     max_len = max(seq.shape[0] for seq in batch)
@@ -171,6 +259,7 @@ def create_masked_blocks(
     block_size: int,
     num_anchors: int,
     mask_token_id: int,
+    response_starts: torch.Tensor = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Create block-diffusion training samples by randomly masking blocks.
@@ -183,6 +272,8 @@ def create_masked_blocks(
         block_size: number of tokens per block
         num_anchors: number of anchor positions to sample per sequence
         mask_token_id: token id used for masking
+        response_starts: [B] optional per-sequence start of response portion.
+                         If provided, anchors only sampled from response tokens.
 
     Returns:
         masked_ids: [B, T] with blocks masked
@@ -198,13 +289,13 @@ def create_masked_blocks(
     block_ids = torch.full((B, T), -1, dtype=torch.long, device=input_ids.device)
     block_anchors = torch.full((B, T), -1, dtype=torch.long, device=input_ids.device)
 
-    # Minimum anchor position: at inference, blocks start after the prompt.
-    # Setting min=64 ensures all blocks have meaningful context to attend to.
-    min_anchor = min(64, T // 4)
-
     for b in range(B):
-        # Sample anchor positions (between min_anchor and T-block_size)
-        valid_start = min_anchor
+        # Anchors only in response portion (DFlare: "predict only regenerated response tokens")
+        if response_starts is not None:
+            valid_start = response_starts[b].item()
+        else:
+            valid_start = min(64, T // 4)
+
         valid_end = max(valid_start + 1, T - block_size)
         valid_range = valid_end - valid_start
         n_anchors = min(num_anchors, valid_range)

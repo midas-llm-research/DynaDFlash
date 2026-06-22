@@ -59,8 +59,8 @@ def train(fresh: bool = True):
 
     sys.path.insert(0, "/root")
     from midas.data import (
-        DFlashDataset, OnlineHiddenStateExtractor,
-        build_block_attention_mask, collate_fn, create_masked_blocks,
+        SDDDataset, OnlineHiddenStateExtractor,
+        build_block_attention_mask, sdd_collate_fn, create_masked_blocks,
     )
     from baseline.model import DFlashDraftModel
 
@@ -73,7 +73,7 @@ def train(fresh: bool = True):
     NUM_EPOCHS = 1
     BATCH_SIZE = 4
     GRAD_ACCUM = 8
-    MAX_SEQ_LEN = 2048
+    MAX_SEQ_LEN = 3072
     BLOCK_SIZE = 16
     NUM_ANCHORS = 128
     WARMUP_RATIO = 0.04
@@ -82,7 +82,7 @@ def train(fresh: bool = True):
     TARGET_TEMPERATURE = 1.0
     SAVE_EVERY = 500
     LOG_EVERY = 50
-    NUM_SAMPLES = 400_000
+    SDD_PATH = "/checkpoints/sdd/sdd_100k.jsonl"
     KL_CHUNK_SIZE = 1024
 
     # Clear old checkpoints if fresh
@@ -113,13 +113,13 @@ def train(fresh: bool = True):
     )
     model.train()
 
-    # === Data ===
-    logger.info(f"Loading {NUM_SAMPLES} training samples...")
+    # === Data (from pre-generated SDD) ===
+    logger.info(f"Loading SDD data from {SDD_PATH}...")
     extractor = OnlineHiddenStateExtractor(target_model, model.target_layer_ids, device)
-    dataset = DFlashDataset(tokenizer, max_seq_len=MAX_SEQ_LEN, num_samples=NUM_SAMPLES, cache_dir="/checkpoints/data_cache")
+    dataset = SDDDataset(tokenizer, sdd_path=SDD_PATH, max_seq_len=MAX_SEQ_LEN)
     dataloader = DataLoader(
         dataset, batch_size=BATCH_SIZE, shuffle=True,
-        collate_fn=lambda batch: collate_fn(batch, tokenizer.pad_token_id or 0),
+        collate_fn=lambda batch: sdd_collate_fn(batch, tokenizer.pad_token_id or 0),
         num_workers=4, pin_memory=True,
     )
 
@@ -152,18 +152,20 @@ def train(fresh: bool = True):
     best_loss = float("inf")
 
     for epoch in range(NUM_EPOCHS):
-        for batch_idx, input_ids in enumerate(dataloader):
+        for batch_idx, (input_ids, response_starts) in enumerate(dataloader):
             if batch_idx < start_step * GRAD_ACCUM:
                 continue
 
             input_ids = input_ids.to(device)
+            response_starts = response_starts.to(device)
 
             # Target forward (frozen, no grad)
             layer_hiddens, target_logits = extractor.extract(input_ids)
 
-            # Masked blocks + attention mask
+            # Masked blocks (anchors only in response portion) + attention mask
             masked_ids, loss_mask, position_in_block, block_ids, block_anchors = create_masked_blocks(
                 input_ids, BLOCK_SIZE, NUM_ANCHORS, model.mask_token_id or 0,
+                response_starts=response_starts,
             )
             ctx_len = input_ids.shape[1]
             attn_mask = build_block_attention_mask(block_ids, block_anchors, ctx_len, dtype=torch.bfloat16)
