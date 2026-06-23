@@ -71,8 +71,8 @@ def train(fresh: bool = True):
     LR = 6e-4
     WEIGHT_DECAY = 0.01
     NUM_EPOCHS = 6              # DFlash paper: 6 epochs
-    BATCH_SIZE = 4
-    GRAD_ACCUM = 8
+    BATCH_SIZE = 8
+    GRAD_ACCUM = 4
     MAX_SEQ_LEN = 3072          # DFlash paper: 3072
     BLOCK_SIZE = 16             # DFlash paper: block size 16
     NUM_ANCHORS = 512           # DFlash paper: 512 anchors per sequence
@@ -187,22 +187,26 @@ def train(fresh: bool = True):
                     batch_idx_m = masked_indices[:, 0]
                     seq_idx = masked_indices[:, 1]
 
-                    # Draft hidden at masked positions → lm_head → logits
                     draft_hidden_masked = draft_output[batch_idx_m, seq_idx]
-                    draft_logits = target_model.lm_head(draft_hidden_masked)  # [num_masked, V]
-
-                    # Ground truth: the actual tokens at masked positions
-                    target_tokens = input_ids[batch_idx_m, seq_idx]  # [num_masked]
-
-                    # Position-weighted CE (Equation 4: w_k = exp(-(k-1)/gamma))
+                    target_tokens = input_ids[batch_idx_m, seq_idx]
                     positions_masked = position_in_block[batch_idx_m, seq_idx]
                     weights = torch.exp(-((positions_masked.float() - 1) / LOSS_GAMMA))
 
-                    # Cross-entropy per token
-                    ce = F.cross_entropy(draft_logits, target_tokens, reduction="none")  # [num_masked]
+                    # Chunked CE to avoid OOM on lm_head output [num_masked, V]
+                    num_masked = masked_indices.shape[0]
+                    CE_CHUNK = 4096
+                    total_loss = torch.tensor(0.0, device=device)
+                    total_weight = torch.tensor(0.0, device=device)
 
-                    # Weighted average
-                    loss = (ce * weights).sum() / weights.sum().clamp(min=1)
+                    for cs in range(0, num_masked, CE_CHUNK):
+                        ce_end = min(cs + CE_CHUNK, num_masked)
+                        chunk_logits = target_model.lm_head(draft_hidden_masked[cs:ce_end])
+                        chunk_ce = F.cross_entropy(chunk_logits, target_tokens[cs:ce_end], reduction="none")
+                        chunk_w = weights[cs:ce_end]
+                        total_loss = total_loss + (chunk_ce * chunk_w).sum()
+                        total_weight = total_weight + chunk_w.sum()
+
+                    loss = total_loss / total_weight.clamp(min=1)
                 else:
                     loss = torch.tensor(0.0, device=device, requires_grad=True)
 
