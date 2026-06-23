@@ -174,7 +174,7 @@ def train(fresh: bool = True):
             layer_hiddens, _ = extractor.extract(input_ids)
 
             # Extract independent blocks (no overlap waste)
-            block_token_ids, block_targets, block_pos_ids, anchor_pos, pos_in_block = extract_blocks(
+            block_token_ids, block_targets, block_pos_ids, anchor_pos, pos_in_block, block_keep_mask = extract_blocks(
                 input_ids, BLOCK_SIZE, NUM_ANCHORS, model.mask_token_id or 0,
                 response_starts=response_starts,
             )
@@ -197,8 +197,9 @@ def train(fresh: bool = True):
                     use_cache=False,
                 )
 
-                # CE loss on masked positions (positions 1..block_size-1 in each block)
-                loss_positions = pos_in_block > 0  # [B, N*block_size]
+                # CE loss on masked positions (positions 1..block_size-1 in valid blocks)
+                keep_expanded = block_keep_mask.unsqueeze(-1).expand(-1, -1, BLOCK_SIZE).reshape(input_ids.shape[0], -1)
+                loss_positions = (pos_in_block > 0) & keep_expanded  # [B, N*block_size]
                 if loss_positions.any():
                     draft_hidden_masked = draft_output[loss_positions]
                     target_tokens = block_targets[loss_positions]

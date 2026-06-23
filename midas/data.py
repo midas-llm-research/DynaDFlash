@@ -393,11 +393,14 @@ def extract_blocks(
     B, T = input_ids.shape
     device = input_ids.device
 
-    all_block_ids = []
-    all_targets = []
-    all_pos_ids = []
-    all_anchors = []
-    all_pos_in_block = []
+    total_len = num_anchors * block_size
+
+    block_ids_concat = torch.full((B, total_len), mask_token_id, dtype=torch.long, device=device)
+    block_targets = torch.zeros(B, total_len, dtype=torch.long, device=device)
+    block_position_ids = torch.zeros(B, total_len, dtype=torch.long, device=device)
+    anchor_positions = torch.zeros(B, num_anchors, dtype=torch.long, device=device)
+    position_in_block = torch.zeros(B, total_len, dtype=torch.long, device=device)
+    block_keep_mask = torch.zeros(B, num_anchors, dtype=torch.bool, device=device)
 
     for b in range(B):
         if response_starts is not None:
@@ -410,43 +413,27 @@ def extract_blocks(
         n_anchors = min(num_anchors, valid_range)
         anchors = sorted(random.sample(range(valid_start, valid_end), n_anchors))
 
-        seq_block_ids = []
-        seq_targets = []
-        seq_pos_ids = []
-        seq_pos_in_block = []
+        for block_idx, anchor in enumerate(anchors):
+            anchor_positions[b, block_idx] = anchor
+            block_keep_mask[b, block_idx] = True
+            offset = block_idx * block_size
 
-        for anchor in anchors:
             for k in range(block_size):
                 pos = anchor + k
                 if pos >= T:
-                    # Pad if block extends past sequence end
-                    seq_block_ids.append(mask_token_id)
-                    seq_targets.append(0)
-                    seq_pos_ids.append(pos)
-                    seq_pos_in_block.append(k)
+                    block_ids_concat[b, offset + k] = mask_token_id
+                    block_targets[b, offset + k] = 0
+                    block_position_ids[b, offset + k] = 0
                 else:
                     if k == 0:
-                        seq_block_ids.append(input_ids[b, pos].item())  # anchor = real token
+                        block_ids_concat[b, offset + k] = input_ids[b, pos].item()
                     else:
-                        seq_block_ids.append(mask_token_id)  # masked positions
-                    seq_targets.append(input_ids[b, pos].item())  # ground truth
-                    seq_pos_ids.append(pos)
-                    seq_pos_in_block.append(k)
+                        block_ids_concat[b, offset + k] = mask_token_id
+                    block_targets[b, offset + k] = input_ids[b, pos].item()
+                    block_position_ids[b, offset + k] = pos
+                position_in_block[b, offset + k] = k
 
-        all_block_ids.append(torch.tensor(seq_block_ids, dtype=torch.long, device=device))
-        all_targets.append(torch.tensor(seq_targets, dtype=torch.long, device=device))
-        all_pos_ids.append(torch.tensor(seq_pos_ids, dtype=torch.long, device=device))
-        all_anchors.append(torch.tensor(anchors, dtype=torch.long, device=device))
-        all_pos_in_block.append(torch.tensor(seq_pos_in_block, dtype=torch.long, device=device))
-
-    # Stack (all same length: N * block_size)
-    block_ids_concat = torch.stack(all_block_ids)       # [B, N*block_size]
-    block_targets = torch.stack(all_targets)             # [B, N*block_size]
-    block_position_ids = torch.stack(all_pos_ids)        # [B, N*block_size]
-    anchor_positions = torch.stack(all_anchors)          # [B, N]
-    position_in_block = torch.stack(all_pos_in_block)    # [B, N*block_size]
-
-    return block_ids_concat, block_targets, block_position_ids, anchor_positions, position_in_block
+    return block_ids_concat, block_targets, block_position_ids, anchor_positions, position_in_block, block_keep_mask
 
 
 def build_concat_block_attention_mask(
