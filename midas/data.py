@@ -362,3 +362,146 @@ def build_block_attention_mask(
     full_mask = torch.cat([ctx_mask.to(dtype), noise_mask.to(dtype)], dim=2)
 
     return full_mask.unsqueeze(1)  # [B, 1, T, ctx_len + T]
+
+
+def extract_blocks(
+    input_ids: torch.Tensor,
+    block_size: int,
+    num_anchors: int,
+    mask_token_id: int,
+    response_starts: torch.Tensor = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Extract independent blocks and concatenate them (DFlash paper approach).
+    Each block gets its full block_size tokens with no overlap waste.
+
+    Args:
+        input_ids: [B, T] original token ids
+        block_size: tokens per block
+        num_anchors: number of anchor positions to sample
+        mask_token_id: mask token id
+        response_starts: [B] start of response portion per sequence
+
+    Returns:
+        block_ids_concat: [B, N*block_size] — token ids for concatenated blocks
+                          (anchor token + mask tokens for each block)
+        block_targets: [B, N*block_size] — ground truth tokens at each position
+        block_position_ids: [B, N*block_size] — original position in source sequence
+        anchor_positions: [B, N] — anchor position per block (for attention mask)
+        position_in_block: [B, N*block_size] — position within block (0=anchor, 1-15=masked)
+    """
+    B, T = input_ids.shape
+    device = input_ids.device
+
+    all_block_ids = []
+    all_targets = []
+    all_pos_ids = []
+    all_anchors = []
+    all_pos_in_block = []
+
+    for b in range(B):
+        if response_starts is not None:
+            valid_start = response_starts[b].item()
+        else:
+            valid_start = min(64, T // 4)
+
+        valid_end = max(valid_start + 1, T - block_size)
+        valid_range = valid_end - valid_start
+        n_anchors = min(num_anchors, valid_range)
+        anchors = sorted(random.sample(range(valid_start, valid_end), n_anchors))
+
+        seq_block_ids = []
+        seq_targets = []
+        seq_pos_ids = []
+        seq_pos_in_block = []
+
+        for anchor in anchors:
+            for k in range(block_size):
+                pos = anchor + k
+                if pos >= T:
+                    # Pad if block extends past sequence end
+                    seq_block_ids.append(mask_token_id)
+                    seq_targets.append(0)
+                    seq_pos_ids.append(pos)
+                    seq_pos_in_block.append(k)
+                else:
+                    if k == 0:
+                        seq_block_ids.append(input_ids[b, pos].item())  # anchor = real token
+                    else:
+                        seq_block_ids.append(mask_token_id)  # masked positions
+                    seq_targets.append(input_ids[b, pos].item())  # ground truth
+                    seq_pos_ids.append(pos)
+                    seq_pos_in_block.append(k)
+
+        all_block_ids.append(torch.tensor(seq_block_ids, dtype=torch.long, device=device))
+        all_targets.append(torch.tensor(seq_targets, dtype=torch.long, device=device))
+        all_pos_ids.append(torch.tensor(seq_pos_ids, dtype=torch.long, device=device))
+        all_anchors.append(torch.tensor(anchors, dtype=torch.long, device=device))
+        all_pos_in_block.append(torch.tensor(seq_pos_in_block, dtype=torch.long, device=device))
+
+    # Stack (all same length: N * block_size)
+    block_ids_concat = torch.stack(all_block_ids)       # [B, N*block_size]
+    block_targets = torch.stack(all_targets)             # [B, N*block_size]
+    block_position_ids = torch.stack(all_pos_ids)        # [B, N*block_size]
+    anchor_positions = torch.stack(all_anchors)          # [B, N]
+    position_in_block = torch.stack(all_pos_in_block)    # [B, N*block_size]
+
+    return block_ids_concat, block_targets, block_position_ids, anchor_positions, position_in_block
+
+
+def build_concat_block_attention_mask(
+    anchor_positions: torch.Tensor,
+    num_blocks: int,
+    block_size: int,
+    ctx_len: int,
+    dtype: torch.dtype = torch.bfloat16,
+) -> torch.Tensor:
+    """
+    Build attention mask for concatenated blocks.
+
+    KV = [Context (ctx_len) | Block_0 (block_size) | Block_1 | ... | Block_{N-1}]
+    Q  = [Block_0 | Block_1 | ... | Block_{N-1}]
+
+    Rules:
+    - Each Q attends to context positions < its block's anchor
+    - Each Q attends to same-block noise positions only
+    - Cross-block noise attention is blocked
+
+    Args:
+        anchor_positions: [B, N] anchor position per block
+        num_blocks: N
+        block_size: tokens per block
+        ctx_len: context sequence length
+        dtype: mask dtype
+
+    Returns:
+        mask: [B, 1, N*block_size, ctx_len + N*block_size]
+    """
+    B = anchor_positions.shape[0]
+    N = num_blocks
+    Q_len = N * block_size
+    KV_len = ctx_len + Q_len
+    device = anchor_positions.device
+
+    # Context mask: [B, Q_len, ctx_len]
+    # Each query position belongs to a block. Block b has anchor at anchor_positions[b, block_idx].
+    # Query at position q is in block q // block_size.
+    block_idx_per_q = torch.arange(Q_len, device=device) // block_size  # [Q_len]
+    # anchor for each query position: [B, Q_len]
+    anchor_per_q = anchor_positions[:, block_idx_per_q]  # [B, Q_len]
+
+    ctx_positions = torch.arange(ctx_len, device=device).view(1, 1, ctx_len)  # [1, 1, ctx_len]
+    ctx_visible = ctx_positions < anchor_per_q.unsqueeze(2)  # [B, Q_len, ctx_len]
+    ctx_mask = torch.where(ctx_visible, 0.0, float("-inf"))
+
+    # Noise-to-noise mask: [B, Q_len, Q_len]
+    # Each query can only attend to same-block noise positions
+    q_block = torch.arange(Q_len, device=device) // block_size  # [Q_len]
+    k_block = torch.arange(Q_len, device=device) // block_size  # [Q_len]
+    same_block = (q_block.unsqueeze(1) == k_block.unsqueeze(0))  # [Q_len, Q_len]
+    noise_mask = torch.where(same_block, 0.0, float("-inf"))  # [Q_len, Q_len]
+    noise_mask = noise_mask.unsqueeze(0).expand(B, -1, -1)  # [B, Q_len, Q_len]
+
+    # Full mask: [B, 1, Q_len, KV_len]
+    full_mask = torch.cat([ctx_mask.to(dtype), noise_mask.to(dtype)], dim=2)
+    return full_mask.unsqueeze(1)

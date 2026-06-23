@@ -60,7 +60,7 @@ def train(fresh: bool = True):
     sys.path.insert(0, "/root")
     from midas.data import (
         SDDDataset, OnlineHiddenStateExtractor,
-        build_block_attention_mask, sdd_collate_fn, create_masked_blocks,
+        build_concat_block_attention_mask, sdd_collate_fn, extract_blocks,
     )
     from baseline.model import DFlashDraftModel
 
@@ -70,12 +70,12 @@ def train(fresh: bool = True):
     # === Config (matching DFlash paper exactly) ===
     LR = 6e-4
     WEIGHT_DECAY = 0.01
-    NUM_EPOCHS = 6              # DFlash paper: 6 epochs
-    BATCH_SIZE = 8
-    GRAD_ACCUM = 4
+    NUM_EPOCHS = 3
+    BATCH_SIZE = 4
+    GRAD_ACCUM = 8
     MAX_SEQ_LEN = 3072          # DFlash paper: 3072
     BLOCK_SIZE = 16             # DFlash paper: block size 16
-    NUM_ANCHORS = 512           # DFlash paper: 512 anchors per sequence
+    NUM_ANCHORS = 128
     WARMUP_RATIO = 0.04         # DFlash paper: 4% warmup
     GRAD_CLIP = 1.0             # DFlash paper: gradient clip 1.0
     LOSS_GAMMA = 7.0            # DFlash paper: gamma=7 for block_size=16
@@ -157,49 +157,50 @@ def train(fresh: bool = True):
             input_ids = input_ids.to(device)
             response_starts = response_starts.to(device)
 
-            # Target forward (frozen, no grad) — only need hidden states, not logits for loss
+            # Target forward (frozen, no grad) — need hidden states for context injection
             layer_hiddens, _ = extractor.extract(input_ids)
 
-            # Masked blocks (anchors only in response portion) + attention mask
-            masked_ids, loss_mask, position_in_block, block_ids, block_anchors = create_masked_blocks(
+            # Extract independent blocks (no overlap waste)
+            block_token_ids, block_targets, block_pos_ids, anchor_pos, pos_in_block = extract_blocks(
                 input_ids, BLOCK_SIZE, NUM_ANCHORS, model.mask_token_id or 0,
                 response_starts=response_starts,
             )
-            ctx_len = input_ids.shape[1]
-            attn_mask = build_block_attention_mask(block_ids, block_anchors, ctx_len, dtype=torch.bfloat16)
 
-            # Draft forward (autocast bf16)
-            noise_embedding = target_model.model.embed_tokens(masked_ids)
-            position_ids = torch.arange(masked_ids.shape[1], device=device).unsqueeze(0).expand(input_ids.shape[0], -1)
+            # Attention mask for concatenated blocks
+            ctx_len = input_ids.shape[1]
+            attn_mask = build_concat_block_attention_mask(
+                anchor_pos, NUM_ANCHORS, BLOCK_SIZE, ctx_len, dtype=torch.bfloat16
+            )
+
+            # Draft forward on concatenated blocks (autocast bf16)
+            noise_embedding = target_model.model.embed_tokens(block_token_ids)
 
             with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 draft_output = model(
-                    position_ids=position_ids,
+                    position_ids=block_pos_ids,
                     noise_embedding=noise_embedding,
                     target_hidden=layer_hiddens,
                     attention_mask=attn_mask,
+                    use_cache=False,
                 )
 
-                # === Cross-Entropy loss against hard tokens (DFlash paper Eq. 4) ===
-                # Draft predicts token AT position t. Target is input_ids[t] (ground truth).
-                masked_indices = loss_mask.nonzero(as_tuple=False)
-                if masked_indices.shape[0] > 0:
-                    batch_idx_m = masked_indices[:, 0]
-                    seq_idx = masked_indices[:, 1]
+                # CE loss on masked positions (positions 1..block_size-1 in each block)
+                # pos_in_block: 0=anchor (skip), 1-15=masked (compute loss)
+                loss_positions = pos_in_block > 0  # [B, N*block_size]
+                if loss_positions.any():
+                    draft_hidden_masked = draft_output[loss_positions]  # [num_loss, H]
+                    target_tokens = block_targets[loss_positions]       # [num_loss]
+                    positions = pos_in_block[loss_positions]            # [num_loss]
+                    weights = torch.exp(-((positions.float() - 1) / LOSS_GAMMA))
 
-                    draft_hidden_masked = draft_output[batch_idx_m, seq_idx]
-                    target_tokens = input_ids[batch_idx_m, seq_idx]
-                    positions_masked = position_in_block[batch_idx_m, seq_idx]
-                    weights = torch.exp(-((positions_masked.float() - 1) / LOSS_GAMMA))
-
-                    # Chunked CE to avoid OOM on lm_head output [num_masked, V]
-                    num_masked = masked_indices.shape[0]
+                    # Chunked CE
+                    num_loss = draft_hidden_masked.shape[0]
                     CE_CHUNK = 4096
                     total_loss = torch.tensor(0.0, device=device)
                     total_weight = torch.tensor(0.0, device=device)
 
-                    for cs in range(0, num_masked, CE_CHUNK):
-                        ce_end = min(cs + CE_CHUNK, num_masked)
+                    for cs in range(0, num_loss, CE_CHUNK):
+                        ce_end = min(cs + CE_CHUNK, num_loss)
                         chunk_logits = target_model.lm_head(draft_hidden_masked[cs:ce_end])
                         chunk_ce = F.cross_entropy(chunk_logits, target_tokens[cs:ce_end], reduction="none")
                         chunk_w = weights[cs:ce_end]
