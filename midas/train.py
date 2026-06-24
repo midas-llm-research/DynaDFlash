@@ -1,16 +1,19 @@
 """
 Training loop for any DFlash draft model.
 
-Works with any subclass of `DFlashDraftModel` — the loop uses the base
-interface (`extract_target_hidden`, `forward`). Subclass-specific aux losses
-(e.g. router entropy) are wired in via explicit `isinstance` checks below.
+Works with any subclass of `DFlashDraftModel`. The loop uses only the public
+model interface:
+  - `model.extract_target_hidden(...)`  — picks layers + format
+  - `model(...)`                         — forward pass
+  - `model.compute_loss(...)`            — full loss (subclasses may add aux)
 
-Implements:
-- Position-weighted KL loss (DFlash paper Eq. 4)
-- Online hidden state extraction from frozen target
-- Optional auxiliary loss from the draft model (e.g. router entropy reg)
-- Checkpointing with full resume capability
-- WandB logging
+Subclass-specific kwargs (e.g. `entropy_reg_weight` for the routed variant)
+are passed through `compute_loss`; the base class swallows them via `**_`.
+
+Pipeline pieces all live elsewhere:
+  - data: `DFlashDataProcessor`, `OnlineHiddenStateExtractor`, `prepare_draft_inputs`
+  - loss: `compute_position_weighted_ce_loss` (called inside `model.compute_loss`)
+  - block construction: `prepare_draft_inputs`
 """
 
 import json
@@ -19,10 +22,7 @@ from pathlib import Path
 from typing import Optional
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from loguru import logger
-from torch.utils.data import DataLoader
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -31,66 +31,11 @@ from transformers import (
 
 from midas.config import TrainConfig
 from midas.data import (
-    DFlashDataset,
+    DFlashDataProcessor,
     OnlineHiddenStateExtractor,
-    build_block_attention_mask,
-    collate_fn,
-    create_masked_blocks,
+    prepare_draft_inputs,
 )
 from midas.models import DFlashDraftModel, DFlashDraftModelRouted
-
-
-def compute_position_weighted_kl_loss(
-    draft_hidden: torch.Tensor,
-    target_logits: torch.Tensor,
-    loss_mask: torch.Tensor,
-    position_in_block: torch.Tensor,
-    lm_head: nn.Module,
-    gamma: float = 7.0,
-) -> torch.Tensor:
-    """
-    Position-weighted KL divergence between target and draft, computed only at
-    masked positions to avoid OOM on full [B, T, V] logit tensors.
-
-    The target is causal (logits[t] predicts t+1); the draft is diffusion
-    (hidden[t] predicts the token AT t). So the target's prediction for the
-    masked position t comes from target_logits[t-1]. Masked positions are
-    always >= 1, so t-1 >= 0.
-    """
-    masked_indices = loss_mask.nonzero(as_tuple=False)
-    if masked_indices.shape[0] == 0:
-        return torch.tensor(0.0, device=draft_hidden.device, requires_grad=True)
-
-    batch_idx = masked_indices[:, 0]
-    seq_idx = masked_indices[:, 1]
-
-    draft_hidden_masked = draft_hidden[batch_idx, seq_idx]
-    target_logits_masked = target_logits[batch_idx, seq_idx - 1]
-    positions_masked = position_in_block[batch_idx, seq_idx]
-
-    draft_logits_masked = lm_head(draft_hidden_masked)
-
-    weights = torch.exp(-((positions_masked.float() - 1) / gamma))
-
-    target_log_probs = F.log_softmax(target_logits_masked, dim=-1)
-    draft_log_probs = F.log_softmax(draft_logits_masked, dim=-1)
-
-    kl = F.kl_div(
-        draft_log_probs, target_log_probs.exp(), reduction="none"
-    ).sum(dim=-1)
-    return (kl * weights).sum() / weights.sum().clamp(min=1)
-
-
-def build_training_position_ids(
-    seq_len: int, batch_size: int, device: torch.device
-) -> torch.Tensor:
-    """
-    Position ids for training: concatenate noise positions twice, since
-    attention keys are [k_ctx, k_noise] both covering the same logical
-    sequence positions [0..T-1]. Length 2T.
-    """
-    pos = torch.arange(seq_len, device=device)
-    return torch.cat([pos, pos]).unsqueeze(0).expand(batch_size, -1)
 
 
 def save_checkpoint(
@@ -242,24 +187,10 @@ def train(
     model.train()
 
     extractor = OnlineHiddenStateExtractor(target_model, device)
-
-    logger.info(f"Loading SDD training data from {config.data_path}")
-    dataset = DFlashDataset(
-        tokenizer,
-        data_path=config.data_path,
-        max_seq_len=config.max_seq_len,
-    )
-    dataloader = DataLoader(
-        dataset,
-        batch_size=config.batch_size,
-        shuffle=True,
-        collate_fn=lambda batch: collate_fn(batch, tokenizer.pad_token_id or 0),
-        num_workers=4,
-        pin_memory=True,
-    )
+    processor = DFlashDataProcessor(tokenizer, config)
 
     total_steps = (
-        len(dataloader) * config.num_epochs // config.gradient_accumulation_steps
+        len(processor) * config.num_epochs // config.gradient_accumulation_steps
     )
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.lr, weight_decay=config.weight_decay,
@@ -279,7 +210,7 @@ def train(
 
     logger.info(
         f"Starting training: {config.num_epochs} epochs, "
-        f"{total_steps} total steps, {len(dataset)} samples"
+        f"{total_steps} total steps, {len(processor.dataset)} samples"
     )
 
     for epoch in range(start_epoch, config.num_epochs):
@@ -287,55 +218,45 @@ def train(
         epoch_loss = 0.0
         epoch_steps = 0
 
-        for batch_idx, input_ids in enumerate(dataloader):
-            if epoch == start_epoch and batch_idx < start_step % len(dataloader):
+        for batch_idx, (input_ids, seq_lengths) in enumerate(processor):
+            if epoch == start_epoch and batch_idx < start_step % len(processor):
                 continue
 
             input_ids = input_ids.to(device)
+            seq_lengths = seq_lengths.to(device)
 
+            # Frozen target forward → per-layer hidden states + logits.
             hidden_states, target_logits = extractor.extract(input_ids)
             target_hidden = model.extract_target_hidden(hidden_states)
 
-            masked_ids, loss_mask, position_in_block, block_ids, block_anchors = (
-                create_masked_blocks(
-                    input_ids,
-                    block_size=config.block_size,
-                    num_anchors=config.num_anchors,
-                    mask_token_id=model.mask_token_id or 0,
-                )
+            # Anchor sampling + block construction. seq_lengths bounds anchors
+            # away from the right-padded region per row.
+            batch = prepare_draft_inputs(
+                input_ids,
+                seq_lengths,
+                block_size=config.block_size,
+                num_anchors=config.num_anchors,
+                mask_token_id=model.mask_token_id or 0,
             )
 
-            ctx_len = input_ids.shape[1]
-            attn_mask = build_block_attention_mask(
-                block_ids, block_anchors, ctx_len, dtype=torch.bfloat16
-            )
-
-            noise_embedding = target_model.model.embed_tokens(masked_ids)
-            position_ids = build_training_position_ids(
-                masked_ids.shape[1], masked_ids.shape[0], device
-            )
-
+            # Draft forward.
+            noise_embedding = target_model.model.embed_tokens(batch.noise_token_ids)
             draft_output = model(
-                position_ids=position_ids,
+                position_ids=batch.position_ids,
                 noise_embedding=noise_embedding,
                 target_hidden=target_hidden,
-                attention_mask=attn_mask,
+                attention_mask=batch.attention_mask,
             )
 
-            loss = compute_position_weighted_kl_loss(
+            # Loss (subclass-specific terms live inside model.compute_loss).
+            loss = model.compute_loss(
                 draft_output,
                 target_logits,
-                loss_mask,
-                position_in_block,
+                batch,
                 target_model.lm_head,
-                config.loss_gamma,
+                gamma=config.loss_gamma,
+                entropy_reg_weight=config.entropy_reg_weight,
             )
-
-            # Aux loss is method-specific — only the routed variant has one.
-            aux: Optional[torch.Tensor] = None
-            if isinstance(model, DFlashDraftModelRouted) and config.entropy_reg_weight > 0:
-                aux = model.routing_aux_loss()
-                loss = loss - config.entropy_reg_weight * aux
 
             loss = loss / config.gradient_accumulation_steps
             loss.backward()
@@ -352,26 +273,12 @@ def train(
                 epoch_steps += 1
 
                 if global_step % config.logging.log_every_steps == 0:
-                    log_dict = {
-                        "loss": step_loss,
-                        "lr": scheduler.get_last_lr()[0],
-                        "epoch": epoch,
-                        "step": global_step,
-                    }
-                    if aux is not None:
-                        log_dict["aux_loss"] = aux.item()
-                    last_rw = getattr(model, "last_routing_weights", None)
-                    if last_rw is not None:
-                        mean_weights = last_rw.mean(dim=(0, 1)).tolist()
-                        for i, w in enumerate(mean_weights):
-                            log_dict[f"routing_weight_layer_{i}"] = w
-                        if hasattr(model, "context_router"):
-                            log_dict["gamma"] = (
-                                model.context_router.log_gamma.exp().item()
-                            )
-                            log_dict["tau"] = (
-                                model.context_router.log_tau.exp().item()
-                            )
+                    log_dict = model.log_metrics(
+                        loss=step_loss,
+                        lr=scheduler.get_last_lr()[0],
+                        epoch=epoch,
+                        step=global_step,
+                    )
 
                     if use_wandb:
                         wandb.log(log_dict, step=global_step)

@@ -24,8 +24,9 @@ default class:
 
 import time
 import torch
+import torch.nn.functional as F
 from types import SimpleNamespace
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 from typing_extensions import Unpack
 from torch import nn
 from transformers.models.qwen3.modeling_qwen3 import (
@@ -43,6 +44,9 @@ from transformers.models.qwen3.modeling_qwen3 import (
 from transformers import DynamicCache
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.cache_utils import Cache
+
+if TYPE_CHECKING:
+    from midas.data import DraftTrainingBatch
 
 # ---------------------------------------------------------------------------
 # Model utilities
@@ -81,6 +85,57 @@ def sample(logits: torch.Tensor, temperature: float = 0.0) -> torch.Tensor:
 def _cuda_time() -> float:
     torch.cuda.synchronize()
     return time.perf_counter()
+
+
+def compute_position_weighted_ce_loss(
+    draft_hidden: torch.Tensor,
+    target_logits: torch.Tensor,
+    batch: "DraftTrainingBatch",
+    lm_head: nn.Module,
+    gamma: float = 7.0,
+) -> torch.Tensor:
+    """
+    Position-weighted cross-entropy distillation loss (DFlash paper Eq. 4).
+
+    For each masked position k within a draft block:
+        w_k = exp(-(k - 1) / gamma)
+        loss_k = -sum_v p_target(v) * log p_draft(v)        (soft CE)
+
+    Returns the weighted mean over all masked positions in the batch. The
+    weighting emphasizes earlier positions in each block — errors there
+    invalidate everything downstream, so they matter more for acceptance.
+
+    Args:
+        draft_hidden: [B, N, H]  output of the draft model
+        target_logits: [B, T, V]  target's logits on the original sequence
+        batch: provides loss_mask, position_in_block, noise_original_positions
+        lm_head: shared LM head (target's)
+        gamma: decay rate for the position weighting
+    """
+    loss_mask = batch.loss_mask
+    masked_indices = loss_mask.nonzero(as_tuple=False)
+    if masked_indices.shape[0] == 0:
+        return torch.tensor(0.0, device=draft_hidden.device, requires_grad=True)
+
+    batch_idx = masked_indices[:, 0]
+    noise_idx = masked_indices[:, 1]
+
+    draft_hidden_masked = draft_hidden[batch_idx, noise_idx]
+    draft_logits_masked = lm_head(draft_hidden_masked)
+
+    # Target is causal: logits at position p-1 predict the token AT position p.
+    orig_positions = batch.noise_original_positions[batch_idx, noise_idx]
+    target_logits_for_pred = target_logits[batch_idx, orig_positions - 1]
+
+    # Soft cross-entropy against target's distribution.
+    target_probs = F.softmax(target_logits_for_pred, dim=-1)
+    draft_log_probs = F.log_softmax(draft_logits_masked, dim=-1)
+    ce = -(target_probs * draft_log_probs).sum(dim=-1)
+
+    pos_in_block = batch.position_in_block[batch_idx, noise_idx].float()
+    weights = torch.exp(-(pos_in_block - 1) / gamma)
+
+    return (ce * weights).sum() / weights.sum().clamp(min=1)
 
 
 @torch.inference_mode()
@@ -404,6 +459,32 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
                 **kwargs,
             )
         return self.norm(hidden_states)
+
+    # MIDAS: training-side loss method. Default is the position-weighted
+    # cross-entropy from the DFlash paper (Eq. 4). Subclasses override to add
+    # method-specific terms (e.g. router entropy regularization). The base
+    # accepts **_ so the train loop can pass kwargs that only subclasses use.
+    def compute_loss(
+        self,
+        draft_hidden: torch.Tensor,
+        target_logits: torch.Tensor,
+        batch: "DraftTrainingBatch",
+        lm_head: nn.Module,
+        *,
+        gamma: float = 7.0,
+        **_,
+    ) -> torch.Tensor:
+        return compute_position_weighted_ce_loss(
+            draft_hidden, target_logits, batch, lm_head, gamma=gamma
+        )
+
+    # MIDAS: per-step metrics for logging. The train loop passes its own state
+    # (loss, lr, epoch, step, ...) as kwargs; the model merges those with any
+    # method-specific scalars (e.g. router entropy, gamma) it wants to track.
+    # Subclasses override to add their fields without train.py needing any
+    # isinstance branching.
+    def log_metrics(self, **base) -> dict:
+        return dict(base)
 
     # MIDAS: new classmethod (not in z-lab upstream). Loads weights from a z-lab
     # DFlash checkpoint into a fresh instance of whatever class this is called on:

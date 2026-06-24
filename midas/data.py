@@ -1,21 +1,32 @@
 """
 Data pipeline for DFlash training.
 
-Loads pre-generated self-distillation data (sdd/generate.py output: a JSONL of
-(prompt, response) records where each response was sampled from the frozen
-target model). Also provides online target hidden state extraction and
-block-diffusion masking with random anchor sampling.
+- `DFlashDataset` loads pre-generated self-distillation JSONL (sdd/generate.py output).
+- `DFlashDataProcessor` wraps the dataset in a DataLoader; train.py only needs
+  to instantiate this.
+- `OnlineHiddenStateExtractor` runs the frozen target and returns its full
+  per-layer hidden states + logits.
+- `prepare_draft_inputs` samples anchors and builds the concatenated-blocks
+  noise sequence + attention mask used to train the draft.
 """
 
 import json
 import random
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
+
+from midas.config import TrainConfig
+
+
+# ---------------------------------------------------------------------------
+# Dataset + dataloader
+# ---------------------------------------------------------------------------
 
 
 class DFlashDataset(Dataset):
@@ -96,13 +107,61 @@ class DFlashDataset(Dataset):
         return self.sequences[idx]
 
 
-def collate_fn(batch: list[torch.Tensor], pad_token_id: int) -> torch.Tensor:
-    """Pad sequences to same length in batch."""
-    max_len = max(seq.shape[0] for seq in batch)
+def collate_fn(
+    batch: list[torch.Tensor], pad_token_id: int
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Right-pad variable-length sequences to the batch's max length and also
+    return the per-row real lengths so downstream block construction and
+    attention masking can ignore the padding.
+    """
+    lengths = torch.tensor([seq.shape[0] for seq in batch], dtype=torch.long)
+    max_len = int(lengths.max().item())
     padded = torch.full((len(batch), max_len), pad_token_id, dtype=torch.long)
     for i, seq in enumerate(batch):
         padded[i, : seq.shape[0]] = seq
-    return padded
+    return padded, lengths
+
+
+class DFlashDataProcessor:
+    """
+    One-stop data class: builds `DFlashDataset` from the config and wraps it in
+    a DataLoader. Train loop iterates over `self` directly.
+    """
+
+    def __init__(
+        self,
+        tokenizer: AutoTokenizer,
+        config: TrainConfig,
+        num_workers: int = 4,
+        shuffle: bool = True,
+    ):
+        self.tokenizer = tokenizer
+        self.dataset = DFlashDataset(
+            tokenizer,
+            data_path=config.data_path,
+            max_seq_len=config.max_seq_len,
+        )
+        pad_id = tokenizer.pad_token_id or 0
+        self.dataloader = DataLoader(
+            self.dataset,
+            batch_size=config.batch_size,
+            shuffle=shuffle,
+            collate_fn=lambda batch: collate_fn(batch, pad_id),
+            num_workers=num_workers,
+            pin_memory=True,
+        )
+
+    def __iter__(self):
+        return iter(self.dataloader)
+
+    def __len__(self):
+        return len(self.dataloader)
+
+
+# ---------------------------------------------------------------------------
+# Online target-model hidden state extraction
+# ---------------------------------------------------------------------------
 
 
 class OnlineHiddenStateExtractor:
@@ -126,14 +185,10 @@ class OnlineHiddenStateExtractor:
         self, input_ids: torch.Tensor
     ) -> tuple[tuple[torch.Tensor, ...], torch.Tensor]:
         """
-        Run target model, return full hidden-states tuple and logits.
-
         Args:
             input_ids: [B, T]
-
         Returns:
             hidden_states: tuple of (num_layers + 1) tensors, each [B, T, H]
-                (index 0 = embedding output, then one per layer)
             logits: [B, T, V]
         """
         input_ids = input_ids.to(self.device)
@@ -142,118 +197,199 @@ class OnlineHiddenStateExtractor:
             .unsqueeze(0)
             .expand(input_ids.shape[0], -1)
         )
-
         output = self.target_model(
             input_ids,
             position_ids=position_ids,
             output_hidden_states=True,
         )
-
         return output.hidden_states, output.logits
 
 
-def create_masked_blocks(
+# ---------------------------------------------------------------------------
+# Block-diffusion training input builder
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DraftTrainingBatch:
+    """All tensors needed for one training step beyond `target_hidden` itself.
+
+    Shapes (with B = batch, T = original sequence length,
+    N = num_anchors * block_size):
+
+    - `noise_token_ids` [B, N]: per-anchor blocks concatenated. Each block is
+      [t_anchor, MASK, MASK, ..., MASK] of length `block_size`.
+    - `position_ids` [B, T + N]: rotary positions for the context+noise key
+      stream. First T entries are [0..T-1] (target's actual positions); last N
+      entries are the original sequence positions of each noise token (so each
+      block's tokens get RoPE for [a, a+1, ..., a+block_size-1]).
+    - `attention_mask` [B, 1, N, T + N]: additive mask. Each noise query can
+      attend to (a) target hidden states at original positions < its block's
+      anchor, and (b) other noise tokens in the same block only.
+    - `noise_original_positions` [B, N]: the original position each noise token
+      corresponds to; used at loss time to gather target logits.
+    - `loss_mask` [B, N]: True at the masked positions where loss is computed.
+    - `position_in_block` [B, N]: 0 for the anchor, 1..block_size-1 for masks.
+    """
+    noise_token_ids: torch.Tensor
+    position_ids: torch.Tensor
+    attention_mask: torch.Tensor
+    noise_original_positions: torch.Tensor
+    loss_mask: torch.Tensor
+    position_in_block: torch.Tensor
+
+
+def prepare_draft_inputs(
     input_ids: torch.Tensor,
+    seq_lengths: torch.Tensor,
     block_size: int,
     num_anchors: int,
     mask_token_id: int,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    min_anchor: int = 32,
+    dtype: torch.dtype = torch.bfloat16,
+) -> DraftTrainingBatch:
     """
-    Create block-diffusion training samples by randomly masking blocks.
+    Sample anchors and build the concatenated-blocks noise sequence used for
+    block-diffusion training of the draft.
 
-    For each sequence, sample anchor positions. Each anchor is the first token
-    of a block; remaining positions in the block are masked for prediction.
+    For each sequence in the batch, sample `num_anchors` anchor positions in
+    [min_anchor, real_len - block_size]. For each anchor `a` we build a block
 
-    Args:
-        input_ids: [B, T] original token ids
-        block_size: number of tokens per block
-        num_anchors: number of anchor positions to sample per sequence
-        mask_token_id: token id used for masking
+        block = [t_a, MASK, MASK, ..., MASK]    (length `block_size`)
 
-    Returns:
-        masked_ids: [B, T] with blocks masked
-        loss_mask: [B, T] binary mask indicating positions to compute loss on
-        position_in_block: [B, T] position within block (1-indexed) for loss weighting
-        block_ids: [B, T] block assignment per position (0-indexed, -1 = not in any block)
-        block_anchors: [B, T] anchor position for each token's block (-1 if not in block)
+    where the anchor token comes from the original sequence and the rest are
+    mask tokens. All `num_anchors` blocks are concatenated into a single
+    `[B, N]` noise sequence where `N = num_anchors * block_size`.
+
+    Each block is independent at training time:
+    - It conditions only on target hidden states at original positions < `a`.
+    - Its tokens only attend to other tokens in the same block (block-diagonal
+      noise-to-noise mask).
+
+    Overlap in original sequence positions between blocks is harmless because
+    blocks live at different indices in the noise sequence and the attention
+    mask isolates them.
+
+    Padding handling: anchors per row are bounded by that row's real length
+    (`seq_lengths[b]`), so noise tokens are never pad tokens. Context positions
+    in the padding region (>= real_len) are masked out of every block's
+    cross-attention as a side-effect — the anchor < real_len bound makes
+    `ctx_positions < anchor` automatically False for any pad position.
     """
     B, T = input_ids.shape
-    masked_ids = input_ids.clone()
-    loss_mask = torch.zeros(B, T, dtype=torch.bool, device=input_ids.device)
-    position_in_block = torch.zeros(B, T, dtype=torch.long, device=input_ids.device)
-    block_ids = torch.full((B, T), -1, dtype=torch.long, device=input_ids.device)
-    block_anchors = torch.full((B, T), -1, dtype=torch.long, device=input_ids.device)
+    device = input_ids.device
+    seq_lengths = seq_lengths.to(device=device, dtype=torch.long)
 
-    # Minimum anchor position: at inference, blocks start after the prompt.
-    # Setting min=64 ensures all blocks have meaningful context to attend to.
-    min_anchor = min(64, T // 4)
-
+    # Sample anchors per row, sorted, bounded by each row's real length.
+    anchors_rows = []
     for b in range(B):
-        # Sample anchor positions (between min_anchor and T-block_size)
-        valid_start = min_anchor
-        valid_end = max(valid_start + 1, T - block_size)
-        valid_range = valid_end - valid_start
-        n_anchors = min(num_anchors, valid_range)
-        anchors = sorted(random.sample(range(valid_start, valid_end), n_anchors))
+        real_len = int(seq_lengths[b].item())
+        valid_high = real_len - block_size + 1
+        if valid_high <= min_anchor:
+            raise ValueError(
+                f"Row {b} too short: real_len={real_len}, block_size={block_size}, "
+                f"min_anchor={min_anchor}. Need real_len >= min_anchor + block_size."
+            )
+        if valid_high - min_anchor < num_anchors:
+            raise ValueError(
+                f"Row {b}: cannot sample {num_anchors} distinct anchors from "
+                f"[{min_anchor}, {valid_high}) — only {valid_high - min_anchor} "
+                "positions available. Lower num_anchors or filter shorter sequences."
+            )
+        anchors_rows.append(
+            sorted(random.sample(range(min_anchor, valid_high), num_anchors))
+        )
+    anchors = torch.tensor(anchors_rows, device=device, dtype=torch.long)
 
-        for block_idx, anchor in enumerate(anchors):
-            end = min(anchor + block_size, T)
-            block_ids[b, anchor:end] = block_idx
-            block_anchors[b, anchor:end] = anchor
-            masked_ids[b, anchor + 1 : end] = mask_token_id
-            loss_mask[b, anchor + 1 : end] = True
-            for k in range(1, end - anchor):
-                position_in_block[b, anchor + k] = k
+    N = num_anchors * block_size
+    # block_offsets[k] = k. position_in_block[b, i*block_size + k] = k.
+    block_offsets = torch.arange(block_size, device=device, dtype=torch.long)
 
-    return masked_ids, loss_mask, position_in_block, block_ids, block_anchors
+    # Original sequence position for each noise token.
+    # noise_original_positions[b, i*block_size + k] = anchors[b, i] + k.
+    noise_original_positions = (
+        anchors.unsqueeze(2) + block_offsets.view(1, 1, -1)
+    ).reshape(B, N)  # ends up being B x original position of every element in each block
 
+    # Per-noise-position metadata.
+    # B x [0,1,...,num_anchors-1,0,1,...,num_anchors-1,...,num_anchors-2,num_anchors-1]
+    position_in_block = block_offsets.repeat(num_anchors).unsqueeze(0).expand(B, -1)
 
-def build_block_attention_mask(
-    block_ids: torch.Tensor,
-    block_anchors: torch.Tensor,
-    ctx_len: int,
-    dtype: torch.dtype = torch.bfloat16,
-) -> torch.Tensor:
-    """
-    Build sparse attention mask enforcing causal consistency and inter-block
-    isolation (DFlash paper Section 4.2, Figure 4).
+    # B x [0,...,0,1,..,1,...,num_anchors-1,...,num_anchors-1] (each one repeated "block_size" number of times)
+    noise_block_idx = (
+        torch.arange(num_anchors, device=device, dtype=torch.long)
+        .repeat_interleave(block_size)
+        .unsqueeze(0)
+        .expand(B, -1)
+    )  
 
-    Rules:
-    - Queries in block b (anchor at position a) can attend to context positions < a ONLY
-      (causal consistency: no future context, matching inference behavior)
-    - Queries in a block can attend to noise positions in the SAME block only
-    - Queries not in any block cannot attend to any noise position
+    # Anchor position for the block each noise token belongs to.
+    # B x [a_0,...,a_0,a_1,...,a_1,...,a_n,...,a_n]
+    noise_block_anchor = torch.gather(anchors, 1, noise_block_idx)
 
-    Args:
-        block_ids: [B, T] block assignment (-1 = not in block)
-        block_anchors: [B, T] anchor position of the block each position belongs to (-1 if not in block)
-        ctx_len: number of context positions (prepended to keys)
-        dtype: mask dtype
+    # Build noise_token_ids: anchor positions take the original token, the
+    # block_size-1 trailing positions get the mask token.
+    noise_token_ids = torch.gather(input_ids, 1, noise_original_positions)
+    is_mask = position_in_block > 0
+    noise_token_ids = torch.where(
+        is_mask,
+        torch.tensor(mask_token_id, device=device, dtype=noise_token_ids.dtype),
+        noise_token_ids,
+    )
 
-    Returns:
-        mask: [B, 1, T, ctx_len + T] additive attention mask (0 = attend, -inf = block)
-    """
-    B, T = block_ids.shape
-    device = block_ids.device
+    # Attention mask: [B, 1, N, T + N]
+    # ctx half [B, N, T]: noise q can attend to context k iff k < q's anchor.
+    ctx_positions = torch.arange(T, device=device).view(1, 1, T)
+    ctx_visible = ctx_positions < noise_block_anchor.unsqueeze(2)
+    ctx_mask = torch.where(
+        ctx_visible,
+        torch.zeros((), device=device, dtype=dtype),
+        torch.full((), float("-inf"), device=device, dtype=dtype),
+    )
 
-    # --- Noise-to-noise mask: [B, T, T] ---
-    q_ids = block_ids.unsqueeze(2)  # [B, T, 1]
-    k_ids = block_ids.unsqueeze(1)  # [B, 1, T]
-    same_block = (q_ids == k_ids) & (q_ids != -1)
-    noise_mask = torch.where(same_block, 0.0, float("-inf"))  # [B, T, T]
+    # noise half [B, N, N]: block-diagonal — same-block visibility only.
+    same_block = noise_block_idx.unsqueeze(2) == noise_block_idx.unsqueeze(1)
+    noise_mask = torch.where(
+        same_block,
+        torch.zeros((), device=device, dtype=dtype),
+        torch.full((), float("-inf"), device=device, dtype=dtype),
+    )
 
-    # --- Context mask: [B, T, ctx_len] ---
-    # Each query position can only attend to context at positions BEFORE its block's anchor.
-    # This enforces causal consistency: at inference, context only covers verified prefix.
-    ctx_positions = torch.arange(ctx_len, device=device).view(1, 1, ctx_len)  # [1, 1, ctx_len]
-    anchor_positions = block_anchors.unsqueeze(2)  # [B, T, 1]
+    attention_mask = torch.cat([ctx_mask, noise_mask], dim=2).unsqueeze(1)
 
-    # Query can attend to context[j] if j < anchor_position of its block
-    # For non-block positions (anchor=-1), block everything (they don't contribute to loss)
-    ctx_visible = ctx_positions < anchor_positions  # [B, T, ctx_len]
-    ctx_mask = torch.where(ctx_visible, 0.0, float("-inf"))  # [B, T, ctx_len]
+    # Rotary position_ids for cat([k_ctx, k_noise]) of total length T + N.
+    # First T entries: target's actual positions [0..T-1].
+    # Last N entries: each noise token's original sequence position (so each
+    # block's RoPE encodes positions [a, a+1, ..., a+block_size-1]).
+    ctx_pos_ids = torch.arange(T, device=device).unsqueeze(0).expand(B, -1)
+    position_ids = torch.cat([ctx_pos_ids, noise_original_positions], dim=1)
 
-    # Full mask: [B, 1, T, ctx_len + T]
-    full_mask = torch.cat([ctx_mask.to(dtype), noise_mask.to(dtype)], dim=2)
+    return DraftTrainingBatch(
+        # [B, N] of actual token ids (whether actual token or mask token)
+        noise_token_ids=noise_token_ids,  
 
-    return full_mask.unsqueeze(1)  # [B, 1, T, ctx_len + T]
+        # [B, T+N] position indices:
+        # - if token is in original sequence T, then it's just its original index
+        # - if token is an anchor token in N suffix, then it's its corresponding original index
+        # - if token is a mask token in N suffix, then it's the index of the corresponding token in original sequence that it SHOULD be after prediction
+        position_ids=position_ids,  
+
+        # [B, 1, N, T + N]
+        # for each anchor/mask token in N suffix, masks attention correctly to 
+        # - tokens in the same block (which all must obv be in N suffix too)
+        # - tokens in original sequence (this masking is the masking used on the target hidden states in the T prefix)
+        attention_mask=attention_mask,
+
+        # [B, N]
+        # the suffix of position_ids
+        noise_original_positions=noise_original_positions,
+
+        # [B, N]
+        # - 0 if anchor token
+        # - 1 if mask token
+        loss_mask=is_mask,
+
+        # [B, N]
+        # the index in [0, N-1] which is the index within its block for each anchor/mask token in each block
+        position_in_block=position_in_block,
+    )
