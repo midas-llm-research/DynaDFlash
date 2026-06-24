@@ -182,11 +182,19 @@ def build_default_model(
 ) -> DFlashDraftModel:
     """
     Build a draft model from `config.draft_checkpoint`. Pass `model_cls` to
-    pick which DFlashDraftModel subclass to use; `DFlashDraftModelRouted`
-    additionally needs a router_config (pulled from `config.router`).
+    pick which DFlashDraftModel subclass to use. Method-specific configs (e.g.
+    `config.router` for the routed variant) are pulled here and forwarded as
+    constructor kwargs.
     """
     extra_kwargs: dict = {}
     if model_cls is DFlashDraftModelRouted:
+        if config.router is None:
+            raise ValueError(
+                "DFlashDraftModelRouted needs a `router` config. Add a "
+                "`router:` block to your yaml, set `config.router = "
+                "RouterConfig(...)` before calling train(), or pass "
+                "`model_cls=DFlashDraftModel` to train the base variant."
+            )
         extra_kwargs["router_config"] = config.router
     return model_cls.from_pretrained_dflash(
         config.draft_checkpoint,
