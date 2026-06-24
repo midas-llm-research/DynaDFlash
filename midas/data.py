@@ -1,7 +1,7 @@
 """
 Data pipeline for DFlash training.
 
-- `DFlashDataset` loads pre-generated self-distillation JSONL (sdd/generate.py output).
+- `DFlashDataset` loads pre-generated self-distillation JSONL (sdd/generate_sdd.py output).
 - `DFlashDataProcessor` wraps the dataset in a DataLoader; train.py only needs
   to instantiate this.
 - `OnlineHiddenStateExtractor` runs the frozen target and returns its full
@@ -33,7 +33,7 @@ class DFlashDataset(Dataset):
     """
     Tokenized self-distilled sequences for DFlash training.
 
-    Loads records from a JSONL file produced by `sdd/generate.py`, applies the
+    Loads records from a JSONL file produced by `sdd/generate_sdd.py`, applies the
     target's chat template to each (prompt, response) pair, and tokenizes the
     full conversation. Sequences match the target model's own output
     distribution because the responses were sampled from it.
@@ -63,7 +63,7 @@ class DFlashDataset(Dataset):
         if not data_path.exists():
             raise FileNotFoundError(
                 f"SDD data not found at {data_path}. "
-                "Run sdd/generate.py (or scripts/modal_generate.py) first."
+                "Run sdd/generate_sdd.py (or scripts/modal_generate_sdd.py) first."
             )
 
         kept = 0

@@ -1,9 +1,10 @@
 """
 Generate 100K SDD samples on 1x H100.
-Target model (Qwen3-4B) generates responses at temperature=0.6.
+Target model (Qwen3-4B) generates responses at temperature=0.7
+(Qwen3 non-thinking recipe: top_p=0.8, top_k=20, min_p=0).
 
 Usage:
-    modal run sdd/modal_generate.py
+    modal run scripts/modal_generate_sdd.py
 """
 
 import modal
@@ -44,7 +45,7 @@ image = (
 def generate(fresh: bool = False):
     import sys
     sys.path.insert(0, "/root")
-    from sdd.generate import generate_shard
+    from sdd.generate_sdd import generate_shard
 
     # 100K samples: 20K per Nemotron split + 20K CodeAlpaca
     result = generate_shard(
