@@ -40,7 +40,7 @@ class TrainConfig:
     gradient_accumulation_steps: int = 4
     max_seq_len: int = 3072
     block_size: int = 16
-    num_anchors: int = 512
+    max_num_anchors: int = 512
     warmup_ratio: float = 0.04
     grad_clip: float = 1.0
     loss_gamma: float = 7.0

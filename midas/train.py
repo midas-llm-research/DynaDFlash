@@ -230,12 +230,14 @@ def train(
             target_hidden = model.extract_target_hidden(hidden_states)
 
             # Anchor sampling + block construction. seq_lengths bounds anchors
-            # away from the right-padded region per row.
+            # away from the right-padded region per row. Per-batch N is decided
+            # inside the function based on the longest row's capacity (capped
+            # by config.max_num_anchors); shorter rows get sentinel-padded.
             batch = prepare_draft_inputs(
                 input_ids,
                 seq_lengths,
                 block_size=config.block_size,
-                num_anchors=config.num_anchors,
+                max_num_anchors=config.max_num_anchors,
                 mask_token_id=model.mask_token_id or 0,
             )
 
