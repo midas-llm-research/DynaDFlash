@@ -1,14 +1,16 @@
 """
-Data pipeline for DFlash router training.
+Data pipeline for DFlash training.
 
-Loads pre-existing Qwen3-generated training data from HuggingFace,
-then provides online hidden state extraction from the frozen target model
-and block-diffusion masking with random anchor sampling.
+Loads pre-generated self-distillation data (sdd/generate.py output: a JSONL of
+(prompt, response) records where each response was sampled from the frozen
+target model). Also provides online target hidden state extraction and
+block-diffusion masking with random anchor sampling.
 """
 
+import json
 import random
-from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -18,83 +20,74 @@ from transformers import AutoTokenizer
 
 class DFlashDataset(Dataset):
     """
-    Dataset of tokenized sequences for DFlash training.
+    Tokenized self-distilled sequences for DFlash training.
 
-    Uses Qwen3-generated text from public datasets (AM-Qwen3-Distilled)
-    to match the target model's output distribution.
+    Loads records from a JSONL file produced by `sdd/generate.py`, applies the
+    target's chat template to each (prompt, response) pair, and tokenizes the
+    full conversation. Sequences match the target model's own output
+    distribution because the responses were sampled from it.
     """
 
     def __init__(
         self,
         tokenizer: AutoTokenizer,
+        data_path: str,
         max_seq_len: int = 3072,
-        num_samples: int = 100_000,
-        cache_dir: str = None,
+        max_samples: Optional[int] = None,
+        min_seq_len: int = 64,
+        enable_thinking: bool = False,
     ):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
-        self.sequences = []
+        self.sequences: list[torch.Tensor] = []
+        self._load(Path(data_path), max_samples, min_seq_len, enable_thinking)
 
-        cache_path = None
-        if cache_dir:
-            cache_path = Path(cache_dir) / f"nemotron_tokenized_{num_samples}_seq{max_seq_len}.pt"
-            if cache_path.exists():
-                print(f"Loading cached data from {cache_path}")
-                self.sequences = torch.load(cache_path, weights_only=True)
-                print(f"Loaded {len(self.sequences)} cached sequences")
-                return
+    def _load(
+        self,
+        data_path: Path,
+        max_samples: Optional[int],
+        min_seq_len: int,
+        enable_thinking: bool,
+    ) -> None:
+        if not data_path.exists():
+            raise FileNotFoundError(
+                f"SDD data not found at {data_path}. "
+                "Run sdd/generate.py (or scripts/modal_generate.py) first."
+            )
 
-        self._load_data(num_samples)
-
-        if cache_path:
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            torch.save(self.sequences, cache_path)
-            print(f"Cached {len(self.sequences)} sequences to {cache_path}")
-
-    def _load_data(self, num_samples: int):
-        from datasets import load_dataset
-
-        splits = ["math", "code", "stem", "chat"]
-        per_split = num_samples // len(splits)
-
-        for split_name in splits:
-            try:
-                ds = load_dataset(
-                    "nvidia/Nemotron-Post-Training-Dataset-v2",
-                    split=split_name,
-                    streaming=True,
+        kept = 0
+        skipped_short = 0
+        skipped_long = 0
+        with open(data_path) as f:
+            for line in f:
+                if max_samples is not None and kept >= max_samples:
+                    break
+                record = json.loads(line)
+                messages = [
+                    {"role": "user", "content": record["prompt"]},
+                    {"role": "assistant", "content": record["response"]},
+                ]
+                text = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    enable_thinking=enable_thinking,
                 )
-                count = 0
-                for sample in ds:
-                    if count >= per_split:
-                        break
+                tokens = self.tokenizer(text, return_tensors="pt")
+                ids = tokens["input_ids"].squeeze(0)
+                if ids.shape[0] > self.max_seq_len:
+                    skipped_long += 1
+                    continue
+                if ids.shape[0] < min_seq_len:
+                    skipped_short += 1
+                    continue
+                self.sequences.append(ids)
+                kept += 1
 
-                    messages = sample.get("messages", [])
-                    parts = []
-                    for msg in messages:
-                        content = msg.get("content", "")
-                        if content:
-                            parts.append(content)
-                    text = "\n".join(parts)
-
-                    if not text or len(text) < 50:
-                        continue
-
-                    tokens = self.tokenizer(
-                        text,
-                        max_length=self.max_seq_len,
-                        truncation=True,
-                        return_tensors="pt",
-                    )
-                    if tokens["input_ids"].shape[1] > 64:
-                        self.sequences.append(tokens["input_ids"].squeeze(0))
-                        count += 1
-
-                print(f"Loaded {count} sequences from Nemotron/{split_name}")
-            except Exception as e:
-                print(f"Warning: Could not load Nemotron/{split_name}: {e}")
-
-        print(f"Total: {len(self.sequences)} training sequences")
+        print(
+            f"Loaded {kept} sequences from {data_path} "
+            f"(skipped {skipped_short} below {min_seq_len} tokens, "
+            f"{skipped_long} above {self.max_seq_len} tokens)"
+        )
 
     def __len__(self):
         return len(self.sequences)
