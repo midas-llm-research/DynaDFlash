@@ -14,11 +14,11 @@ import json
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Sampler
 from transformers import AutoTokenizer
 
 from midas.config import TrainConfig
@@ -99,6 +99,17 @@ class DFlashDataset(Dataset):
             f"(skipped {skipped_short} below {min_seq_len} tokens, "
             f"{skipped_long} above {self.max_seq_len} tokens)"
         )
+        if self.sequences:
+            lens = torch.tensor(
+                [int(seq.shape[0]) for seq in self.sequences], dtype=torch.float
+            )
+            qs = torch.quantile(
+                lens, torch.tensor([0.0, 0.25, 0.5, 0.75, 1.0])
+            ).long().tolist()
+            print(
+                f"  Token length distribution: "
+                f"min={qs[0]}  q25={qs[1]}  median={qs[2]}  q75={qs[3]}  max={qs[4]}"
+            )
 
     def __len__(self):
         return len(self.sequences)
@@ -123,10 +134,62 @@ def collate_fn(
     return padded, lengths
 
 
+class LengthInterleavedBatchSampler(Sampler[list[int]]):
+    """
+    Length-bucketed batching with interleaved batch order.
+
+    Construction:
+      1. Sort sample indices by sequence length (descending).
+      2. Chunk into batches of size `batch_size`.
+      3. Yield in interleaved order [0, n-1, 1, n-2, 2, n-3, ...] so the first
+         few batches mix long-and-short, keeping memory peak roughly steady
+         across the epoch instead of front-loading the largest batches.
+
+    Why: within each batch, sequences have similar lengths → padding waste in
+    `collate_fn` is minimized. Without bucketing, a single long sequence forces
+    every other sequence in the batch to pad to its length.
+    """
+
+    def __init__(
+        self,
+        lengths: list[int],
+        batch_size: int,
+        drop_last: bool = False,
+    ):
+        self.lengths = lengths
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+
+    def __iter__(self) -> Iterator[list[int]]:
+        # 1. sort indices by descending length
+        sorted_indices = sorted(
+            range(len(self.lengths)), key=lambda i: -self.lengths[i]
+        )
+        # 2. chunk into contiguous batches
+        batches: list[list[int]] = []
+        for i in range(0, len(sorted_indices), self.batch_size):
+            chunk = sorted_indices[i : i + self.batch_size]
+            if self.drop_last and len(chunk) < self.batch_size:
+                continue
+            batches.append(chunk)
+        # 3. interleave order: [0, n-1, 1, n-2, ...]
+        n = len(batches)
+        for i in range((n + 1) // 2):
+            yield batches[i]
+            if i != n - 1 - i:
+                yield batches[n - 1 - i]
+
+    def __len__(self) -> int:
+        if self.drop_last:
+            return len(self.lengths) // self.batch_size
+        return (len(self.lengths) + self.batch_size - 1) // self.batch_size
+
+
 class DFlashDataProcessor:
     """
     One-stop data class: builds `DFlashDataset` from the config and wraps it in
-    a DataLoader. Train loop iterates over `self` directly.
+    a DataLoader with the length-bucketed interleaved batch sampler. Train loop
+    iterates over `self` directly.
     """
 
     def __init__(
@@ -134,7 +197,7 @@ class DFlashDataProcessor:
         tokenizer: AutoTokenizer,
         config: TrainConfig,
         num_workers: int = 4,
-        shuffle: bool = True,
+        drop_last: bool = False,
     ):
         self.tokenizer = tokenizer
         self.dataset = DFlashDataset(
@@ -143,10 +206,14 @@ class DFlashDataProcessor:
             max_seq_len=config.max_seq_len,
         )
         pad_id = tokenizer.pad_token_id or 0
+        sampler = LengthInterleavedBatchSampler(
+            lengths=[int(seq.shape[0]) for seq in self.dataset.sequences],
+            batch_size=config.batch_size,
+            drop_last=drop_last,
+        )
         self.dataloader = DataLoader(
             self.dataset,
-            batch_size=config.batch_size,
-            shuffle=shuffle,
+            batch_sampler=sampler,
             collate_fn=lambda batch: collate_fn(batch, pad_id),
             num_workers=num_workers,
             pin_memory=True,
