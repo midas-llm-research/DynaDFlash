@@ -190,6 +190,12 @@ class DFlashDataProcessor:
     One-stop data class: builds `DFlashDataset` from the config and wraps it in
     a DataLoader with the length-bucketed interleaved batch sampler. Train loop
     iterates over `self` directly.
+
+    Filters out sequences too short to fit even one anchor (`real_len <
+    min_anchor_pos + block_size`) — `prepare_draft_inputs` cannot do anything
+    useful with them. The actual number of anchors used for each step is
+    determined *per batch* by `prepare_draft_inputs` itself (see that
+    function's docstring), so this class only handles loading + batching.
     """
 
     def __init__(
@@ -198,13 +204,37 @@ class DFlashDataProcessor:
         config: TrainConfig,
         num_workers: int = 4,
         drop_last: bool = False,
+        min_anchor_pos: int = 64,
     ):
         self.tokenizer = tokenizer
+        self.min_anchor_pos = min_anchor_pos
         self.dataset = DFlashDataset(
             tokenizer,
             data_path=config.data_path,
             max_seq_len=config.max_seq_len,
         )
+
+        # Filter sequences that can't fit even one anchor.
+        keep_idx = [
+            i
+            for i, seq in enumerate(self.dataset.sequences)
+            if int(seq.shape[0]) - config.block_size + 1 - min_anchor_pos > 0
+        ]
+        n_dropped = len(self.dataset.sequences) - len(keep_idx)
+        if n_dropped:
+            self.dataset.sequences = [self.dataset.sequences[i] for i in keep_idx]
+            print(
+                f"DataProcessor: dropped {n_dropped} sequences with 0 valid "
+                f"anchors (real_len < {min_anchor_pos} + {config.block_size})"
+            )
+
+        if not self.dataset.sequences:
+            raise ValueError(
+                f"No sequence in the dataset can fit a single anchor with "
+                f"min_anchor_pos={min_anchor_pos}, block_size={config.block_size}. "
+                f"Filter to longer sequences or reduce min_anchor_pos."
+            )
+
         pad_id = tokenizer.pad_token_id or 0
         sampler = LengthInterleavedBatchSampler(
             lengths=[int(seq.shape[0]) for seq in self.dataset.sequences],
@@ -310,63 +340,78 @@ def prepare_draft_inputs(
     input_ids: torch.Tensor,
     seq_lengths: torch.Tensor,
     block_size: int,
-    num_anchors: int,
+    max_num_anchors: int,
     mask_token_id: int,
-    min_anchor: int = 32,
+    min_anchor_pos: int = 64,
     dtype: torch.dtype = torch.bfloat16,
 ) -> DraftTrainingBatch:
     """
     Sample anchors and build the concatenated-blocks noise sequence used for
     block-diffusion training of the draft.
 
-    For each sequence in the batch, sample `num_anchors` anchor positions in
-    [min_anchor, real_len - block_size]. For each anchor `a` we build a block
+    Anchor count is decided PER BATCH (not per dataset). For each row:
+      row_max = real_len - block_size + 1 - min_anchor_pos
+    The batch's effective N is:
+      batch_num_anchors = min(max_num_anchors, max(row_max over the batch))
+    so the longest row in the batch hits its full capacity (capped by the
+    config cap `max_num_anchors`). Rows shorter than that capacity fill the
+    remaining slots with sentinel blocks.
+
+    For each anchor `a`:
 
         block = [t_a, MASK, MASK, ..., MASK]    (length `block_size`)
 
-    where the anchor token comes from the original sequence and the rest are
-    mask tokens. All `num_anchors` blocks are concatenated into a single
-    `[B, N]` noise sequence where `N = num_anchors * block_size`.
+    Sentinel padding (for rows that have fewer real anchors than the batch N):
+    - Sentinel anchors duplicate the row's last real anchor.
+    - Their blocks process exactly like real blocks (same input, same
+      attention) — wasted compute, but produces no NaN.
+    - Their `loss_mask` entries are forced to False, so they contribute
+      nothing to the gradient.
 
-    Each block is independent at training time:
-    - It conditions only on target hidden states at original positions < `a`.
-    - Its tokens only attend to other tokens in the same block (block-diagonal
-      noise-to-noise mask).
+    With length-bucketed batching, a batch's rows share similar lengths and
+    therefore similar sentinel counts → wasted compute is bounded.
 
-    Overlap in original sequence positions between blocks is harmless because
-    blocks live at different indices in the noise sequence and the attention
-    mask isolates them.
-
-    Padding handling: anchors per row are bounded by that row's real length
-    (`seq_lengths[b]`), so noise tokens are never pad tokens. Context positions
-    in the padding region (>= real_len) are masked out of every block's
-    cross-attention as a side-effect — the anchor < real_len bound makes
-    `ctx_positions < anchor` automatically False for any pad position.
+    Caller contract: every row must fit at least one real anchor
+    (`real_len >= min_anchor_pos + block_size`). `DFlashDataProcessor` filters
+    too-short sequences out before they reach this function.
     """
     B, T = input_ids.shape
     device = input_ids.device
     seq_lengths = seq_lengths.to(device=device, dtype=torch.long)
 
-    # Sample anchors per row, sorted, bounded by each row's real length.
-    anchors_rows = []
+    # Per-row real anchor capacity = max anchors that fit in this row.
+    row_max = [
+        max(0, int(seq_lengths[b].item()) - block_size + 1 - min_anchor_pos)
+        for b in range(B)
+    ]
+    if min(row_max) == 0:
+        bad = [b for b, m in enumerate(row_max) if m == 0]
+        raise ValueError(
+            f"Rows {bad}: real_len too short to fit any anchor "
+            f"(min_anchor_pos={min_anchor_pos}, block_size={block_size}). "
+            f"DFlashDataProcessor should have filtered these — did you bypass it?"
+        )
+
+    # Per-batch effective N: the longest row's capacity, capped by the cap.
+    num_anchors = min(max_num_anchors, max(row_max))
+
+    # Sample real anchors per row; pad with duplicates of the last real anchor
+    # to reach `num_anchors`. Track per-row real anchor counts so the loss can
+    # gate out the sentinel slots.
+    anchors_rows: list[list[int]] = []
+    n_real_per_row: list[int] = []
     for b in range(B):
         real_len = int(seq_lengths[b].item())
         valid_high = real_len - block_size + 1
-        if valid_high <= min_anchor:
-            raise ValueError(
-                f"Row {b} too short: real_len={real_len}, block_size={block_size}, "
-                f"min_anchor={min_anchor}. Need real_len >= min_anchor + block_size."
-            )
-        if valid_high - min_anchor < num_anchors:
-            raise ValueError(
-                f"Row {b}: cannot sample {num_anchors} distinct anchors from "
-                f"[{min_anchor}, {valid_high}) — only {valid_high - min_anchor} "
-                "positions available. Lower num_anchors or filter shorter sequences."
-            )
-        anchors_rows.append(
-            sorted(random.sample(range(min_anchor, valid_high), num_anchors))
-        )
+        n_real = min(row_max[b], num_anchors)
+        real_anchors = sorted(random.sample(range(min_anchor_pos, valid_high), n_real))
+        # Sentinels duplicate the last real anchor — produces identical compute
+        # to the real block, but loss_mask gates them out below.
+        sentinels = [real_anchors[-1]] * (num_anchors - n_real)
+        anchors_rows.append(real_anchors + sentinels)
+        n_real_per_row.append(n_real)
     anchors = torch.tensor(anchors_rows, device=device, dtype=torch.long)
+    n_real_tensor = torch.tensor(n_real_per_row, device=device, dtype=torch.long)
 
     N = num_anchors * block_size
     # block_offsets[k] = k. position_in_block[b, i*block_size + k] = k.
@@ -403,6 +448,14 @@ def prepare_draft_inputs(
         torch.tensor(mask_token_id, device=device, dtype=noise_token_ids.dtype),
         noise_token_ids,
     )
+
+    # block_active[b, i] = True iff block i in row b is a REAL block (not sentinel).
+    block_idx_range = torch.arange(num_anchors, device=device, dtype=torch.long)
+    block_active = block_idx_range.unsqueeze(0) < n_real_tensor.unsqueeze(1)  # [B, num_anchors]
+    # Expand to per-noise-position: True for every position in a real block.
+    block_active_per_noise = block_active.repeat_interleave(block_size, dim=1)  # [B, N]
+    # Loss is computed only at masked positions within REAL (non-sentinel) blocks.
+    loss_mask = is_mask & block_active_per_noise
 
     # Attention mask: [B, 1, N, T + N]
     # ctx half [B, N, T]: noise q can attend to context k iff k < q's anchor.
@@ -453,8 +506,8 @@ def prepare_draft_inputs(
 
         # [B, N]
         # - 0 if anchor token
-        # - 1 if mask token
-        loss_mask=is_mask,
+        # - 1 if mask or sentinal token
+        loss_mask=loss_mask,
 
         # [B, N]
         # the index in [0, N-1] which is the index within its block for each anchor/mask token in each block
