@@ -44,6 +44,7 @@ def save_checkpoint(
     scheduler,
     epoch: int,
     step: int,
+    prev_batch_idx: int,
     loss: float,
     save_dir: str,
     is_best: bool = False,
@@ -56,7 +57,15 @@ def save_checkpoint(
     torch.save(scheduler.state_dict(), ckpt_dir / "scheduler.pt")
 
     with open(ckpt_dir / "metadata.json", "w") as f:
-        json.dump({"epoch": epoch, "step": step, "loss": loss}, f)
+        json.dump(
+            {
+                "epoch": epoch,
+                "step": step,
+                "prev_batch_idx": prev_batch_idx,
+                "loss": loss,
+            },
+            f,
+        )
 
     latest = Path(save_dir) / "latest"
     if latest.exists() or latest.is_symlink():
@@ -77,10 +86,10 @@ def load_checkpoint(
     optimizer: torch.optim.Optimizer,
     scheduler,
     save_dir: str,
-) -> tuple[int, int]:
+) -> tuple[int, int, int]:
     latest = Path(save_dir) / "latest"
     if not latest.exists():
-        return 0, 0
+        return 0, 0, -1
 
     ckpt_dir = latest.resolve()
     model.load_state_dict(torch.load(ckpt_dir / "model.pt", weights_only=True))
@@ -97,7 +106,7 @@ def load_checkpoint(
     logger.info(
         f"Resumed from {ckpt_dir} (epoch={metadata['epoch']}, step={metadata['step']})"
     )
-    return metadata["epoch"], metadata["step"]
+    return metadata["epoch"], metadata["step"], metadata.get("prev_batch_idx", -1)
 
 
 def cleanup_old_checkpoints(save_dir: str, keep_last_n: int):
@@ -201,7 +210,7 @@ def train(
         num_training_steps=total_steps,
     )
 
-    start_epoch, start_step = load_checkpoint(
+    start_epoch, start_step, start_batch_idx = load_checkpoint(
         model, optimizer, scheduler, config.checkpoint.save_dir
     )
 
@@ -219,7 +228,7 @@ def train(
         epoch_steps = 0
 
         for batch_idx, (input_ids, seq_lengths) in enumerate(processor):
-            if epoch == start_epoch and batch_idx < start_step % len(processor):
+            if epoch == start_epoch and batch_idx <= start_batch_idx:
                 continue
 
             input_ids = input_ids.to(device)
@@ -301,7 +310,7 @@ def train(
                         best_loss = avg_loss
                     save_checkpoint(
                         model, optimizer, scheduler,
-                        epoch, global_step, avg_loss,
+                        epoch, global_step, batch_idx, avg_loss,
                         config.checkpoint.save_dir, is_best,
                     )
                     cleanup_old_checkpoints(
@@ -314,7 +323,7 @@ def train(
             best_loss = avg_loss
         save_checkpoint(
             model, optimizer, scheduler,
-            epoch + 1, global_step, avg_loss,
+            epoch + 1, global_step, -1, avg_loss,
             config.checkpoint.save_dir, is_best,
         )
         cleanup_old_checkpoints(
