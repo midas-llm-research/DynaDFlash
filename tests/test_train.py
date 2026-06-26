@@ -278,6 +278,8 @@ class TestTrainSmoke:
 
     def test_optimizer_step_changes_weights(self, tmp_path):
         """Verify that an optimizer step actually updates model weights."""
+        from midas.data import prepare_draft_inputs
+
         config = make_tiny_qwen3_config()
         model = DFlashDraftModel(config)
         model.train()

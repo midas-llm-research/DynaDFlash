@@ -419,11 +419,22 @@ class TestPrepareDraftInputs:
 
 
 class TestDFlashDataProcessor:
-    def test_creates_dataloader(self, tmp_jsonl):
+    def test_creates_dataloader(self, tmp_path):
         from transformers import AutoTokenizer
         tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B")
+
+        # Create data with longer responses so they pass min_seq_len
+        data = [
+            {"prompt": "Tell me about machine learning in great detail.", "response": "Machine learning is a subset of artificial intelligence that focuses on building systems that learn from data. It encompasses supervised learning, unsupervised learning, and reinforcement learning paradigms. Each approach has its own strengths and applications in the real world, from image classification to natural language processing to game playing."},
+            {"prompt": "Explain the history of computing from the beginning.", "response": "Computing has a rich history dating back to ancient abacuses and mechanical calculators. Charles Babbage designed the Analytical Engine in the 1830s, which is considered the first general-purpose computer design. Ada Lovelace wrote what is recognized as the first computer program for it. The modern electronic computer era began in the 1940s with machines like ENIAC and Colossus."},
+        ]
+        path = tmp_path / "long_data.jsonl"
+        with open(path, "w") as f:
+            for record in data:
+                f.write(json.dumps(record) + "\n")
+
         config = TrainConfig(
-            data_path=tmp_jsonl,
+            data_path=str(path),
             max_seq_len=4096,
             batch_size=2,
             block_size=4,
@@ -440,12 +451,12 @@ class TestDFlashDataProcessor:
         from transformers import AutoTokenizer
         tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B")
 
-        # Create data with one very short response
+        # Create data: one long response (survives) and one short (filtered by DataProcessor)
         data = [
-            {"prompt": "Hi", "response": "Hello there, this is a longer response to make sure it has enough tokens for the test to work properly."},
-            {"prompt": "Short", "response": "Y"},  # likely too short
+            {"prompt": "Tell me about the entire history of mathematics from ancient times to the modern era.", "response": "Mathematics has evolved over thousands of years, starting with basic counting in ancient civilizations. The Babylonians developed a base-60 number system, while the Egyptians used geometry for building pyramids. Greek mathematicians like Euclid and Archimedes formalized proofs and geometry. The Islamic golden age preserved and extended Greek work, introducing algebra. The Renaissance brought calculus from Newton and Leibniz. Modern mathematics includes abstract algebra, topology, and computer science."},
+            {"prompt": "Short", "response": "Yes."},  # very short — won't fit an anchor
         ]
-        path = tmp_path / "short_data.jsonl"
+        path = tmp_path / "mixed_data.jsonl"
         with open(path, "w") as f:
             for record in data:
                 f.write(json.dumps(record) + "\n")
@@ -454,13 +465,14 @@ class TestDFlashDataProcessor:
             data_path=str(path),
             max_seq_len=4096,
             batch_size=2,
-            block_size=16,
+            block_size=4,
             max_num_anchors=8,
         )
-        # With min_anchor_pos=64 and block_size=16, sequences need at least 80 tokens
-        processor = DFlashDataProcessor(tokenizer, config, num_workers=0, min_anchor_pos=64)
-        # Should have filtered some or all sequences without crashing
-        assert len(processor.dataset) >= 0
+        # Use min_seq_len=1 so the dataset loads both, but DataProcessor filters
+        # sequences too short to fit an anchor (min_anchor_pos + block_size).
+        processor = DFlashDataProcessor(tokenizer, config, num_workers=0, min_anchor_pos=10)
+        # The long one should survive, the short one may or may not depending on tokenization
+        assert len(processor.dataset) >= 1
 
 
 # ---------------------------------------------------------------------------
