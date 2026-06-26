@@ -5,3 +5,6 @@ __pycache__/
 papers/
 
 midas-router/
+volume/
+checkpoints/
+.pytest_cache/
