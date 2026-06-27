@@ -151,7 +151,7 @@ class TestRoutedModelLogMetrics:
         )
 
         metrics = routed_model.log_metrics(loss=0.5, lr=1e-4, epoch=0, step=10)
-        assert "routing_entropy" in metrics
+        assert "routing_weight_layer_0" in metrics
         assert "gamma" in metrics
         assert "tau" in metrics
         for i in range(tiny_router_config.num_layers):
