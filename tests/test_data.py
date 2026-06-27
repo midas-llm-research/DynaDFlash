@@ -178,14 +178,15 @@ class TestDFlashDataset:
 class TestPrepareDraftInputs:
     def _make_inputs(self, B=2, T=256, block_size=4, max_num_anchors=8):
         input_ids = torch.randint(0, 1000, (B, T))
-        seq_lengths = torch.tensor([200, 220])
-        return input_ids, seq_lengths, block_size, max_num_anchors
+        seq_lengths = torch.tensor([200, 220][:B])
+        response_starts = torch.tensor([10] * B)
+        return input_ids, seq_lengths, block_size, max_num_anchors, response_starts
 
     def test_output_types(self):
-        input_ids, seq_lengths, block_size, max_num_anchors = self._make_inputs()
+        input_ids, seq_lengths, block_size, max_num_anchors, response_starts = self._make_inputs()
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=max_num_anchors, mask_token_id=999,
+            max_num_anchors=max_num_anchors, mask_token_id=999, response_starts=response_starts,
         )
         assert isinstance(batch, DraftTrainingBatch)
         assert isinstance(batch.noise_token_ids, torch.Tensor)
@@ -201,7 +202,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=max_num_anchors, mask_token_id=999,
+            max_num_anchors=max_num_anchors, mask_token_id=999, response_starts=torch.tensor([10] * B),
         )
 
         num_anchors = batch.noise_token_ids.shape[1] // block_size
@@ -222,7 +223,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=4, mask_token_id=999,
+            max_num_anchors=4, mask_token_id=999, response_starts=torch.tensor([10] * B),
         )
 
         # At position_in_block == 0, the token should be the original input token
@@ -240,7 +241,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=4, mask_token_id=mask_token_id,
+            max_num_anchors=4, mask_token_id=mask_token_id, response_starts=torch.tensor([10]),
         )
 
         N = batch.noise_token_ids.shape[1]
@@ -255,7 +256,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=4,
-            max_num_anchors=4, mask_token_id=999, min_anchor_pos=10,
+            max_num_anchors=4, mask_token_id=999, response_starts=torch.tensor([10, 10]),
         )
 
         # First T entries of position_ids should be 0..T-1
@@ -269,7 +270,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=4,
-            max_num_anchors=4, mask_token_id=999,
+            max_num_anchors=4, mask_token_id=999, response_starts=torch.tensor([10] * B),
         )
 
         # Noise portion of position_ids should equal noise_original_positions
@@ -285,7 +286,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=2, mask_token_id=999, min_anchor_pos=10,
+            max_num_anchors=2, mask_token_id=999, response_starts=torch.tensor([10]),
         )
 
         N = batch.noise_token_ids.shape[1]
@@ -314,7 +315,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=3, mask_token_id=999,
+            max_num_anchors=3, mask_token_id=999, response_starts=torch.tensor([10] * B),
         )
 
         N = batch.noise_token_ids.shape[1]
@@ -341,7 +342,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=4, mask_token_id=999,
+            max_num_anchors=4, mask_token_id=999, response_starts=torch.tensor([10] * B),
         )
 
         N = batch.noise_token_ids.shape[1]
@@ -359,7 +360,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=32, mask_token_id=999, min_anchor_pos=64,
+            max_num_anchors=32, mask_token_id=999, response_starts=torch.tensor([64, 64]),
         )
 
         N = batch.noise_token_ids.shape[1]
@@ -382,7 +383,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=3, mask_token_id=999,
+            max_num_anchors=3, mask_token_id=999, response_starts=torch.tensor([10] * B),
         )
 
         N = batch.noise_token_ids.shape[1]
@@ -398,7 +399,7 @@ class TestPrepareDraftInputs:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=8, mask_token_id=999, min_anchor_pos=64,
+            max_num_anchors=8, mask_token_id=999, response_starts=torch.tensor([64, 64, 64]),
         )
         # Should not raise and should produce valid shapes
         N = batch.noise_token_ids.shape[1]
@@ -410,13 +411,13 @@ class TestPrepareDraftInputs:
         B, T = 2, 256
         block_size = 4
         input_ids = torch.randint(0, 1000, (B, T))
-        # Row 0 has length 10, with min_anchor_pos=64 it can't fit any anchor
+        # Row 0 has length 10, with response_start=64 it can't fit any anchor
         seq_lengths = torch.tensor([10, 200])
 
         with pytest.raises(ValueError):
             prepare_draft_inputs(
                 input_ids, seq_lengths, block_size=block_size,
-                max_num_anchors=8, mask_token_id=999, min_anchor_pos=64,
+                max_num_anchors=8, mask_token_id=999, response_starts=torch.tensor([64, 64]),
             )
 
 
@@ -477,7 +478,7 @@ class TestDFlashDataProcessor:
             max_num_anchors=8,
         )
         # Use min_seq_len=1 so the dataset loads both, but DataProcessor filters
-        # sequences too short to fit an anchor (min_anchor_pos + block_size).
+        # sequences too short to fit an anchor (response_start + block_size).
         processor = DFlashDataProcessor(tokenizer, config, num_workers=0, )
         # The long one should survive, the short one may or may not depending on tokenization
         assert len(processor.dataset) >= 1

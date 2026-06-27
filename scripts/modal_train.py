@@ -77,12 +77,12 @@ def train(
 
     if variant == "router":
         model_cls = DFlashDraftModelRouted
-        config.checkpoint.save_dir = "/checkpoints/midas-router-v3"
+        config.checkpoint.save_dir = "/checkpoints/midas-router-v4"
         logger.info("Training ROUTED variant (MIDAS context router)")
     elif variant == "base":
         model_cls = DFlashDraftModel
-        config.router = None  # base model doesn't need router config
-        config.checkpoint.save_dir = "/checkpoints/midas-base-v3"
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-base-v4"
         logger.info("Training BASE variant (z-lab fc+hidden_norm)")
     else:
         raise ValueError(f"Unknown variant '{variant}'. Use 'router' or 'base'.")

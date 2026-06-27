@@ -245,7 +245,7 @@ class TestTrainSmoke:
         # Prepare draft inputs
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=8, mask_token_id=0, min_anchor_pos=10,
+            max_num_anchors=8, mask_token_id=0, response_starts=torch.tensor([10, 10]),
         )
 
         # Embed noise tokens (simulate target embedding)
@@ -301,7 +301,7 @@ class TestTrainSmoke:
 
         batch = prepare_draft_inputs(
             input_ids, seq_lengths, block_size=block_size,
-            max_num_anchors=8, mask_token_id=0, min_anchor_pos=10,
+            max_num_anchors=8, mask_token_id=0, response_starts=torch.tensor([10, 10]),
         )
 
         embed = nn.Embedding(V, H)
