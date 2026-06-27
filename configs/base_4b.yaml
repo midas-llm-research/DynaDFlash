@@ -11,16 +11,15 @@ router:
 training:
   lr: 6.0e-4
   weight_decay: 0.01
-  num_epochs: 1
-  batch_size: 1
-  gradient_accumulation_steps: 32
-  max_seq_len: 2048
+  num_epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  max_seq_len: 3072
   block_size: 16
   max_num_anchors: 128
   warmup_ratio: 0.04
   grad_clip: 1.0
   loss_gamma: 7.0
-  entropy_reg_weight: 0.01
 
 checkpointing:
   save_every_steps: 500
