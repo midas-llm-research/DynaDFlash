@@ -89,25 +89,23 @@ def _cuda_time() -> float:
 
 def compute_position_weighted_ce_loss(
     draft_hidden: torch.Tensor,
-    target_logits: torch.Tensor,
+    input_ids: torch.Tensor,
     batch: "DraftTrainingBatch",
     lm_head: nn.Module,
     gamma: float = 7.0,
 ) -> torch.Tensor:
     """
-    Position-weighted cross-entropy distillation loss (DFlash paper Eq. 4).
+    Position-weighted cross-entropy loss (DFlash paper Eq. 4).
 
     For each masked position k within a draft block:
         w_k = exp(-(k - 1) / gamma)
-        loss_k = -sum_v p_target(v) * log p_draft(v)        (soft CE)
+        loss_k = CE(draft_logits, ground_truth_token)
 
-    Returns the weighted mean over all masked positions in the batch. The
-    weighting emphasizes earlier positions in each block — errors there
-    invalidate everything downstream, so they matter more for acceptance.
+    Returns the weighted mean over all masked positions in the batch.
 
     Args:
         draft_hidden: [B, N, H]  output of the draft model
-        target_logits: [B, T, V]  target's logits on the original sequence
+        input_ids: [B, T]  original token ids (ground truth)
         batch: provides loss_mask, position_in_block, noise_original_positions
         lm_head: shared LM head (target's)
         gamma: decay rate for the position weighting
@@ -123,14 +121,11 @@ def compute_position_weighted_ce_loss(
     draft_hidden_masked = draft_hidden[batch_idx, noise_idx]
     draft_logits_masked = lm_head(draft_hidden_masked)
 
-    # Target is causal: logits at position p-1 predict the token AT position p.
+    # Ground truth: the actual token at this position in the original sequence.
     orig_positions = batch.noise_original_positions[batch_idx, noise_idx]
-    target_logits_for_pred = target_logits[batch_idx, orig_positions - 1]
+    target_tokens = input_ids[batch_idx, orig_positions]
 
-    # Soft cross-entropy against target's distribution.
-    target_probs = F.softmax(target_logits_for_pred, dim=-1)
-    draft_log_probs = F.log_softmax(draft_logits_masked, dim=-1)
-    ce = -(target_probs * draft_log_probs).sum(dim=-1)
+    ce = F.cross_entropy(draft_logits_masked, target_tokens, reduction="none")
 
     pos_in_block = batch.position_in_block[batch_idx, noise_idx].float()
     weights = torch.exp(-(pos_in_block - 1) / gamma)
@@ -467,7 +462,7 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
     def compute_loss(
         self,
         draft_hidden: torch.Tensor,
-        target_logits: torch.Tensor,
+        input_ids: torch.Tensor,
         batch: "DraftTrainingBatch",
         lm_head: nn.Module,
         *,
@@ -475,7 +470,7 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         **_,
     ) -> torch.Tensor:
         return compute_position_weighted_ce_loss(
-            draft_hidden, target_logits, batch, lm_head, gamma=gamma
+            draft_hidden, input_ids, batch, lm_head, gamma=gamma
         )
 
     # MIDAS: per-step metrics for logging. The train loop passes its own state
@@ -535,6 +530,28 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
             f"Any modules unique to this subclass keep their fresh init. "
             f"Model on {device}, {dtype}."
         )
+        return model
+
+    @classmethod
+    def from_config_random(
+        cls,
+        dflash_checkpoint: str,
+        *,
+        device: Optional[torch.device] = None,
+        dtype: torch.dtype = torch.bfloat16,
+        **constructor_kwargs,
+    ) -> "DFlashDraftModel":
+        """Create model with random weights using config from a DFlash checkpoint."""
+        from transformers import AutoConfig
+
+        config = AutoConfig.from_pretrained(dflash_checkpoint, trust_remote_code=True)
+        config._attn_implementation = "sdpa"
+
+        model = cls(config, **constructor_kwargs)
+        if device is not None:
+            model = model.to(device=device, dtype=dtype)
+        print(f"Created {cls.__name__} with random weights. "
+              f"{sum(p.numel() for p in model.parameters()):,} params on {device}, {dtype}.")
         return model
 
     @torch.inference_mode()

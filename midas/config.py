@@ -44,7 +44,6 @@ class TrainConfig:
     warmup_ratio: float = 0.04
     grad_clip: float = 1.0
     loss_gamma: float = 7.0
-    entropy_reg_weight: float = 0.01
 
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)

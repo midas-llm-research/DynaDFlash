@@ -123,7 +123,7 @@ class TestSample:
 class TestComputePositionWeightedCELoss:
     def _make_loss_inputs(self, B=2, N=8, T=32, H=128, V=1000):
         draft_hidden = torch.randn(B, N, H, requires_grad=True)
-        target_logits = torch.randn(B, T, V)
+        input_ids = torch.randint(0, V, (B, T))
         lm_head = MockLMHead(H, V)
 
         block_size = 4
@@ -143,12 +143,12 @@ class TestComputePositionWeightedCELoss:
             loss_mask=loss_mask,
             position_in_block=position_in_block,
         )
-        return draft_hidden, target_logits, batch, lm_head
+        return draft_hidden, input_ids, batch, lm_head
 
     def test_zero_mask_returns_zero(self):
         B, N, T, H, V = 2, 8, 32, 128, 1000
         draft_hidden = torch.randn(B, N, H)
-        target_logits = torch.randn(B, T, V)
+        input_ids = torch.randint(0, V, (B, T))
         lm_head = MockLMHead(H, V)
 
         from midas.data import DraftTrainingBatch
@@ -160,35 +160,33 @@ class TestComputePositionWeightedCELoss:
             loss_mask=torch.zeros(B, N, dtype=torch.bool),  # all False
             position_in_block=torch.zeros(B, N, dtype=torch.long),
         )
-        loss = compute_position_weighted_ce_loss(draft_hidden, target_logits, batch, lm_head)
+        loss = compute_position_weighted_ce_loss(draft_hidden, input_ids, batch, lm_head)
         assert loss.item() == 0.0
 
     def test_returns_scalar(self):
-        draft_hidden, target_logits, batch, lm_head = self._make_loss_inputs()
-        loss = compute_position_weighted_ce_loss(draft_hidden, target_logits, batch, lm_head)
+        draft_hidden, input_ids, batch, lm_head = self._make_loss_inputs()
+        loss = compute_position_weighted_ce_loss(draft_hidden, input_ids, batch, lm_head)
         assert loss.dim() == 0
 
     def test_loss_is_positive(self):
-        draft_hidden, target_logits, batch, lm_head = self._make_loss_inputs()
-        loss = compute_position_weighted_ce_loss(draft_hidden, target_logits, batch, lm_head)
+        draft_hidden, input_ids, batch, lm_head = self._make_loss_inputs()
+        loss = compute_position_weighted_ce_loss(draft_hidden, input_ids, batch, lm_head)
         assert loss.item() > 0
 
     def test_gradient_flows(self):
-        draft_hidden, target_logits, batch, lm_head = self._make_loss_inputs()
-        loss = compute_position_weighted_ce_loss(draft_hidden, target_logits, batch, lm_head)
+        draft_hidden, input_ids, batch, lm_head = self._make_loss_inputs()
+        loss = compute_position_weighted_ce_loss(draft_hidden, input_ids, batch, lm_head)
         loss.backward()
         assert draft_hidden.grad is not None
         assert draft_hidden.grad.abs().sum() > 0
 
     def test_position_weighting_effect(self):
-        """Earlier positions should have higher weight (smaller k → larger weight)."""
-        B, H, V = 1, 64, 100
+        B, H, V, T = 1, 64, 100, 20
         lm_head = MockLMHead(H, V)
-        target_logits = torch.randn(1, 20, V)
+        input_ids = torch.randint(0, V, (B, T))
 
         from midas.data import DraftTrainingBatch
 
-        # Batch with only position 1 masked
         batch_early = DraftTrainingBatch(
             noise_token_ids=torch.zeros(B, 4, dtype=torch.long),
             position_ids=torch.zeros(B, 24, dtype=torch.long),
@@ -197,7 +195,6 @@ class TestComputePositionWeightedCELoss:
             loss_mask=torch.tensor([[False, True, False, False]]),
             position_in_block=torch.tensor([[0, 1, 2, 3]]),
         )
-        # Batch with only position 3 masked
         batch_late = DraftTrainingBatch(
             noise_token_ids=torch.zeros(B, 4, dtype=torch.long),
             position_ids=torch.zeros(B, 24, dtype=torch.long),
@@ -207,14 +204,9 @@ class TestComputePositionWeightedCELoss:
             position_in_block=torch.tensor([[0, 1, 2, 3]]),
         )
 
-        # Use same draft hidden for both to isolate weight effect
         draft_hidden = torch.randn(1, 4, H)
-        loss_early = compute_position_weighted_ce_loss(draft_hidden, target_logits, batch_early, lm_head, gamma=7.0)
-        loss_late = compute_position_weighted_ce_loss(draft_hidden, target_logits, batch_late, lm_head, gamma=7.0)
-
-        # Weight for pos 1: exp(0/7)=1.0, weight for pos 3: exp(-2/7)≈0.75
-        # The losses themselves differ because they look at different target logits,
-        # but both should be finite and positive.
+        loss_early = compute_position_weighted_ce_loss(draft_hidden, input_ids, batch_early, lm_head, gamma=7.0)
+        loss_late = compute_position_weighted_ce_loss(draft_hidden, input_ids, batch_late, lm_head, gamma=7.0)
         assert loss_early.isfinite()
         assert loss_late.isfinite()
 
@@ -368,10 +360,10 @@ class TestDFlashDraftModel:
         V = 1000
 
         draft_hidden = torch.randn(B, N, H)
-        target_logits = torch.randn(B, T, V)
+        input_ids = torch.randint(0, V, (B, T))
 
         loss = draft_model.compute_loss(
-            draft_hidden, target_logits, dummy_draft_batch, mock_lm_head, gamma=7.0
+            draft_hidden, input_ids, dummy_draft_batch, mock_lm_head, gamma=7.0
         )
         assert loss.dim() == 0
         assert loss.isfinite()
