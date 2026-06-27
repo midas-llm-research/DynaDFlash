@@ -141,13 +141,12 @@ def build_default_model(
     weights start random (for fair from-scratch comparisons).
     """
     extra_kwargs: dict = {}
-    if model_cls is DFlashDraftModelRouted:
+    if model_cls is not DFlashDraftModel:
         if config.router is None:
             raise ValueError(
-                "DFlashDraftModelRouted needs a `router` config. Add a "
-                "`router:` block to your yaml, set `config.router = "
-                "RouterConfig(...)` before calling train(), or pass "
-                "`model_cls=DFlashDraftModel` to train the base variant."
+                f"{model_cls.__name__} needs a `router` config. Add a "
+                "`router:` block to your yaml or set `config.router = "
+                "RouterConfig(...)` before calling train()."
             )
         extra_kwargs["router_config"] = config.router
 
