@@ -155,7 +155,7 @@ def build_default_model(
     return factory(
         config.draft_checkpoint,
         device=device,
-        dtype=torch.bfloat16,
+        dtype=torch.float32,
         **extra_kwargs,
     )
 
@@ -252,23 +252,22 @@ def train(
                 response_starts=response_starts,
             )
 
-            # Draft forward.
+            # Draft forward + loss in bf16 autocast (fast), optimizer in fp32 (precise).
             noise_embedding = target_model.model.embed_tokens(batch.noise_token_ids)
-            draft_output = model(
-                position_ids=batch.position_ids,
-                noise_embedding=noise_embedding,
-                target_hidden=target_hidden,
-                attention_mask=batch.attention_mask,
-            )
-
-            # Loss: position-weighted hard CE against ground truth tokens.
-            loss = model.compute_loss(
-                draft_output,
-                input_ids,
-                batch,
-                target_model.lm_head,
-                gamma=config.loss_gamma,
-            )
+            with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+                draft_output = model(
+                    position_ids=batch.position_ids,
+                    noise_embedding=noise_embedding,
+                    target_hidden=target_hidden,
+                    attention_mask=batch.attention_mask,
+                )
+                loss = model.compute_loss(
+                    draft_output,
+                    input_ids,
+                    batch,
+                    target_model.lm_head,
+                    gamma=config.loss_gamma,
+                )
 
             loss = loss / config.gradient_accumulation_steps
             loss.backward()
