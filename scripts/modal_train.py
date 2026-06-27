@@ -42,7 +42,7 @@ image = (
 
 @app.function(
     image=image,
-    gpu="A100-40GB",
+    gpu="H100",
     volumes={
         "/models": model_volume,
         "/checkpoints": checkpoint_volume,
@@ -99,7 +99,7 @@ def train(
 
 @app.function(
     image=image,
-    gpu="A100-40GB",
+    gpu="H100",
     volumes={"/models": model_volume},
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=3600,
