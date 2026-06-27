@@ -7,7 +7,7 @@ Supports both the routed variant (MIDAS context router) and the base variant
 Usage:
     modal run scripts/modal_train.py --variant router         # Train router variant
     modal run scripts/modal_train.py --variant base           # Train base variant
-    modal run scripts/modal_train.py --variant router --config configs/test_small.yaml
+    modal run scripts/modal_train.py --variant router --config configs/base_4b.yaml
     modal run scripts/modal_train.py --download               # (one-time) download models
 """
 
@@ -53,7 +53,7 @@ image = (
     timeout=86400,
 )
 def train(
-    config_path: str = "/root/configs/test_small.yaml",
+    config_path: str = "/root/configs/base_4b.yaml",
     variant: str = "router",
     fresh: bool = True,
 ):
@@ -93,7 +93,7 @@ def train(
             shutil.rmtree(ckpt_dir)
             logger.info(f"Cleared old checkpoints at {ckpt_dir}")
 
-    run_training(config, model_cls=model_cls)
+    run_training(config, model_cls=model_cls, random_init=True)
     checkpoint_volume.commit()
 
 
@@ -120,7 +120,7 @@ def download_models():
 @app.local_entrypoint()
 def main(
     variant: str = "router",
-    config: str = "configs/test_small.yaml",
+    config: str = "configs/base_4b.yaml",
     download: bool = False,
     fresh: bool = True,
 ):

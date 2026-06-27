@@ -51,6 +51,7 @@ class DFlashDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.sequences: list[torch.Tensor] = []
+        self.response_starts: list[int] = []
         self._load(Path(data_path), max_samples, min_seq_len, enable_thinking)
 
     def _load(
@@ -91,7 +92,15 @@ class DFlashDataset(Dataset):
                 if ids.shape[0] < min_seq_len:
                     skipped_short += 1
                     continue
+                # Find where response starts by tokenizing just the prompt.
+                prompt_messages = [{"role": "user", "content": record["prompt"]}]
+                prompt_text = self.tokenizer.apply_chat_template(
+                    prompt_messages, tokenize=False,
+                    add_generation_prompt=True, enable_thinking=enable_thinking,
+                )
+                prompt_len = self.tokenizer(prompt_text, return_tensors="pt")["input_ids"].shape[1]
                 self.sequences.append(ids)
+                self.response_starts.append(prompt_len)
                 kept += 1
 
         print(
@@ -115,23 +124,24 @@ class DFlashDataset(Dataset):
         return len(self.sequences)
 
     def __getitem__(self, idx):
-        return self.sequences[idx]
+        return self.sequences[idx], self.response_starts[idx]
 
 
 def collate_fn(
-    batch: list[torch.Tensor], pad_token_id: int
-) -> tuple[torch.Tensor, torch.Tensor]:
+    batch: list[tuple[torch.Tensor, int]], pad_token_id: int
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
-    Right-pad variable-length sequences to the batch's max length and also
-    return the per-row real lengths so downstream block construction and
-    attention masking can ignore the padding.
+    Right-pad variable-length sequences to the batch's max length.
+    Returns (padded_ids, lengths, response_starts).
     """
-    lengths = torch.tensor([seq.shape[0] for seq in batch], dtype=torch.long)
+    sequences = [item[0] for item in batch]
+    response_starts = torch.tensor([item[1] for item in batch], dtype=torch.long)
+    lengths = torch.tensor([seq.shape[0] for seq in sequences], dtype=torch.long)
     max_len = int(lengths.max().item())
-    padded = torch.full((len(batch), max_len), pad_token_id, dtype=torch.long)
-    for i, seq in enumerate(batch):
+    padded = torch.full((len(sequences), max_len), pad_token_id, dtype=torch.long)
+    for i, seq in enumerate(sequences):
         padded[i, : seq.shape[0]] = seq
-    return padded, lengths
+    return padded, lengths, response_starts
 
 
 class LengthInterleavedBatchSampler(Sampler[list[int]]):
@@ -204,35 +214,34 @@ class DFlashDataProcessor:
         config: TrainConfig,
         num_workers: int = 4,
         drop_last: bool = False,
-        min_anchor_pos: int = 64,
     ):
         self.tokenizer = tokenizer
-        self.min_anchor_pos = min_anchor_pos
         self.dataset = DFlashDataset(
             tokenizer,
             data_path=config.data_path,
             max_seq_len=config.max_seq_len,
         )
 
-        # Filter sequences that can't fit even one anchor.
+        # Filter sequences that can't fit even one anchor in the response.
         keep_idx = [
             i
-            for i, seq in enumerate(self.dataset.sequences)
-            if int(seq.shape[0]) - config.block_size + 1 - min_anchor_pos > 0
+            for i, (seq, rs) in enumerate(zip(self.dataset.sequences, self.dataset.response_starts))
+            if int(seq.shape[0]) - config.block_size + 1 - rs > 0
         ]
         n_dropped = len(self.dataset.sequences) - len(keep_idx)
         if n_dropped:
             self.dataset.sequences = [self.dataset.sequences[i] for i in keep_idx]
+            self.dataset.response_starts = [self.dataset.response_starts[i] for i in keep_idx]
             print(
                 f"DataProcessor: dropped {n_dropped} sequences with 0 valid "
-                f"anchors (real_len < {min_anchor_pos} + {config.block_size})"
+                f"anchors (response too short for block_size={config.block_size})"
             )
 
         if not self.dataset.sequences:
             raise ValueError(
                 f"No sequence in the dataset can fit a single anchor with "
-                f"min_anchor_pos={min_anchor_pos}, block_size={config.block_size}. "
-                f"Filter to longer sequences or reduce min_anchor_pos."
+                f"block_size={config.block_size}. "
+                f"Filter to longer sequences or use shorter block_size."
             )
 
         pad_id = tokenizer.pad_token_id or 0
@@ -342,53 +351,38 @@ def prepare_draft_inputs(
     block_size: int,
     max_num_anchors: int,
     mask_token_id: int,
+    response_starts: Optional[torch.Tensor] = None,
     min_anchor_pos: int = 64,
     dtype: torch.dtype = torch.bfloat16,
 ) -> DraftTrainingBatch:
     """
-    Sample anchors and build the concatenated-blocks noise sequence used for
-    block-diffusion training of the draft.
+    Sample anchors from the response portion and build concatenated-blocks
+    noise sequence for block-diffusion training.
 
-    Anchor count is decided PER BATCH (not per dataset). For each row:
-      row_max = real_len - block_size + 1 - min_anchor_pos
-    The batch's effective N is:
-      batch_num_anchors = min(max_num_anchors, max(row_max over the batch))
-    so the longest row in the batch hits its full capacity (capped by the
-    config cap `max_num_anchors`). Rows shorter than that capacity fill the
-    remaining slots with sentinel blocks.
-
-    For each anchor `a`:
-
-        block = [t_a, MASK, MASK, ..., MASK]    (length `block_size`)
-
-    Sentinel padding (for rows that have fewer real anchors than the batch N):
-    - Sentinel anchors duplicate the row's last real anchor.
-    - Their blocks process exactly like real blocks (same input, same
-      attention) — wasted compute, but produces no NaN.
-    - Their `loss_mask` entries are forced to False, so they contribute
-      nothing to the gradient.
-
-    With length-bucketed batching, a batch's rows share similar lengths and
-    therefore similar sentinel counts → wasted compute is bounded.
-
-    Caller contract: every row must fit at least one real anchor
-    (`real_len >= min_anchor_pos + block_size`). `DFlashDataProcessor` filters
-    too-short sequences out before they reach this function.
+    Anchors are sampled from [response_start, real_len - block_size + 1) per
+    row. If response_starts is None, falls back to min_anchor_pos.
     """
     B, T = input_ids.shape
     device = input_ids.device
     seq_lengths = seq_lengths.to(device=device, dtype=torch.long)
 
+    # Per-row anchor start position.
+    if response_starts is not None:
+        response_starts = response_starts.to(device=device, dtype=torch.long)
+        anchor_starts = [int(response_starts[b].item()) for b in range(B)]
+    else:
+        anchor_starts = [min_anchor_pos] * B
+
     # Per-row real anchor capacity = max anchors that fit in this row.
     row_max = [
-        max(0, int(seq_lengths[b].item()) - block_size + 1 - min_anchor_pos)
+        max(0, int(seq_lengths[b].item()) - block_size + 1 - anchor_starts[b])
         for b in range(B)
     ]
     if min(row_max) == 0:
         bad = [b for b, m in enumerate(row_max) if m == 0]
         raise ValueError(
             f"Rows {bad}: real_len too short to fit any anchor "
-            f"(min_anchor_pos={min_anchor_pos}, block_size={block_size}). "
+            f"(anchor_start={[anchor_starts[b] for b in bad]}, block_size={block_size}). "
             f"DFlashDataProcessor should have filtered these — did you bypass it?"
         )
 
@@ -404,7 +398,7 @@ def prepare_draft_inputs(
         real_len = int(seq_lengths[b].item())
         valid_high = real_len - block_size + 1
         n_real = min(row_max[b], num_anchors)
-        real_anchors = sorted(random.sample(range(min_anchor_pos, valid_high), n_real))
+        real_anchors = sorted(random.sample(range(anchor_starts[b], valid_high), n_real))
         # Sentinels duplicate the last real anchor — produces identical compute
         # to the real block, but loss_mask gates them out below.
         sentinels = [real_anchors[-1]] * (num_anchors - n_real)

@@ -25,33 +25,38 @@ from midas.config import TrainConfig
 
 class TestCollateFn:
     def test_padding_to_max_length(self):
-        batch = [torch.tensor([1, 2, 3]), torch.tensor([4, 5, 6, 7, 8])]
-        padded, lengths = collate_fn(batch, pad_token_id=0)
+        batch = [(torch.tensor([1, 2, 3]), 1), (torch.tensor([4, 5, 6, 7, 8]), 2)]
+        padded, lengths, rs = collate_fn(batch, pad_token_id=0)
         assert padded.shape == (2, 5)
         assert torch.equal(padded[0], torch.tensor([1, 2, 3, 0, 0]))
         assert torch.equal(padded[1], torch.tensor([4, 5, 6, 7, 8]))
 
     def test_lengths_correct(self):
-        batch = [torch.tensor([1, 2]), torch.tensor([3, 4, 5, 6])]
-        padded, lengths = collate_fn(batch, pad_token_id=99)
+        batch = [(torch.tensor([1, 2]), 0), (torch.tensor([3, 4, 5, 6]), 1)]
+        padded, lengths, rs = collate_fn(batch, pad_token_id=99)
         assert torch.equal(lengths, torch.tensor([2, 4]))
 
     def test_single_item(self):
-        batch = [torch.tensor([10, 20, 30])]
-        padded, lengths = collate_fn(batch, pad_token_id=0)
+        batch = [(torch.tensor([10, 20, 30]), 1)]
+        padded, lengths, rs = collate_fn(batch, pad_token_id=0)
         assert padded.shape == (1, 3)
         assert lengths[0] == 3
 
     def test_equal_lengths_no_padding(self):
-        batch = [torch.tensor([1, 2, 3]), torch.tensor([4, 5, 6])]
-        padded, lengths = collate_fn(batch, pad_token_id=0)
+        batch = [(torch.tensor([1, 2, 3]), 0), (torch.tensor([4, 5, 6]), 1)]
+        padded, lengths, rs = collate_fn(batch, pad_token_id=0)
         assert padded.shape == (2, 3)
         assert (padded != 0).all()
 
     def test_pad_token_id_used(self):
-        batch = [torch.tensor([1, 2]), torch.tensor([3, 4, 5])]
-        padded, _ = collate_fn(batch, pad_token_id=42)
+        batch = [(torch.tensor([1, 2]), 0), (torch.tensor([3, 4, 5]), 1)]
+        padded, _, _ = collate_fn(batch, pad_token_id=42)
         assert padded[0, 2] == 42
+
+    def test_response_starts_returned(self):
+        batch = [(torch.tensor([1, 2, 3]), 5), (torch.tensor([4, 5, 6, 7]), 10)]
+        _, _, rs = collate_fn(batch, pad_token_id=0)
+        assert torch.equal(rs, torch.tensor([5, 10]))
 
 
 # ---------------------------------------------------------------------------
@@ -158,9 +163,11 @@ class TestDFlashDataset:
         from transformers import AutoTokenizer
         tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B")
         ds = DFlashDataset(tokenizer, tmp_jsonl, max_seq_len=4096, min_seq_len=1)
-        item = ds[0]
-        assert isinstance(item, torch.Tensor)
-        assert item.dim() == 1
+        ids, response_start = ds[0]
+        assert isinstance(ids, torch.Tensor)
+        assert ids.dim() == 1
+        assert isinstance(response_start, int)
+        assert response_start > 0
 
 
 # ---------------------------------------------------------------------------
@@ -440,11 +447,12 @@ class TestDFlashDataProcessor:
             block_size=4,
             max_num_anchors=8,
         )
-        processor = DFlashDataProcessor(tokenizer, config, num_workers=0, min_anchor_pos=10)
+        processor = DFlashDataProcessor(tokenizer, config, num_workers=0, )
         batch_iter = iter(processor)
-        input_ids, lengths = next(batch_iter)
+        input_ids, lengths, response_starts = next(batch_iter)
         assert input_ids.dim() == 2
         assert lengths.dim() == 1
+        assert response_starts.dim() == 1
         assert input_ids.shape[0] == lengths.shape[0]
 
     def test_filters_too_short_sequences(self, tmp_path):
@@ -470,7 +478,7 @@ class TestDFlashDataProcessor:
         )
         # Use min_seq_len=1 so the dataset loads both, but DataProcessor filters
         # sequences too short to fit an anchor (min_anchor_pos + block_size).
-        processor = DFlashDataProcessor(tokenizer, config, num_workers=0, min_anchor_pos=10)
+        processor = DFlashDataProcessor(tokenizer, config, num_workers=0, )
         # The long one should survive, the short one may or may not depending on tokenization
         assert len(processor.dataset) >= 1
 
