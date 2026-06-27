@@ -42,7 +42,7 @@ image = (
 
 @app.function(
     image=image,
-    gpu="A100-40GB",
+    gpu="H100",
     volumes={
         "/models": model_volume,
         "/checkpoints": checkpoint_volume,
@@ -66,7 +66,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted
+    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelRoutedNoFC
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -79,13 +79,17 @@ def train(
         model_cls = DFlashDraftModelRouted
         config.checkpoint.save_dir = "/checkpoints/midas-router-v3"
         logger.info("Training ROUTED variant (MIDAS context router)")
+    elif variant == "router-nofc":
+        model_cls = DFlashDraftModelRoutedNoFC
+        config.checkpoint.save_dir = "/checkpoints/midas-router-nofc-v3"
+        logger.info("Training ROUTED-NOFC variant (router without FC mixing)")
     elif variant == "base":
         model_cls = DFlashDraftModel
-        config.router = None  # base model doesn't need router config
+        config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-base-v3"
         logger.info("Training BASE variant (z-lab fc+hidden_norm)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router' or 'base'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', or 'base'.")
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -99,7 +103,7 @@ def train(
 
 @app.function(
     image=image,
-    gpu="A100-40GB",
+    gpu="H100",
     volumes={"/models": model_volume},
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=3600,
