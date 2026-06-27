@@ -140,26 +140,6 @@ class DFlashDraftModelRouted(DFlashDraftModel):
         rw = self.last_routing_weights
         return -(rw * rw.clamp(min=1e-8).log()).sum(dim=-1).mean()
 
-    def compute_loss(
-        self,
-        draft_hidden: torch.Tensor,
-        target_logits: torch.Tensor,
-        batch,
-        lm_head: nn.Module,
-        *,
-        gamma: float = 7.0,
-        entropy_reg_weight: float = 0.0,
-        **_,
-    ) -> torch.Tensor:
-        """Position-weighted CE + (optional) router-entropy regularization."""
-        main_loss = super().compute_loss(
-            draft_hidden, target_logits, batch, lm_head, gamma=gamma
-        )
-        aux = self.routing_aux_loss()
-        if aux is not None and entropy_reg_weight > 0:
-            return main_loss - entropy_reg_weight * aux
-        return main_loss
-
     def log_metrics(self, **base) -> dict:
         """Base training fields + router entropy, per-layer routing weights, gamma/tau."""
         metrics = super().log_metrics(**base)

@@ -238,7 +238,6 @@ class TestTrainSmoke:
         # Fake hidden states from target
         num_target_layers = config.num_target_layers
         hidden_states = tuple(torch.randn(B, T, H) for _ in range(num_target_layers + 1))
-        target_logits = torch.randn(B, T, V)
 
         # Extract target hidden
         target_hidden = model.extract_target_hidden(hidden_states)
@@ -264,7 +263,7 @@ class TestTrainSmoke:
         # Compute loss
         lm_head = nn.Linear(H, V, bias=False)
         loss = model.compute_loss(
-            draft_output, target_logits, batch, lm_head, gamma=7.0,
+            draft_output, input_ids, batch, lm_head, gamma=7.0,
         )
 
         assert loss.isfinite()
@@ -298,7 +297,6 @@ class TestTrainSmoke:
         input_ids = torch.randint(0, V, (B, T))
         seq_lengths = torch.tensor([T, T])
         hidden_states = tuple(torch.randn(B, T, H) for _ in range(config.num_target_layers + 1))
-        target_logits = torch.randn(B, T, V)
         target_hidden = model.extract_target_hidden(hidden_states)
 
         batch = prepare_draft_inputs(
@@ -317,7 +315,7 @@ class TestTrainSmoke:
         )
 
         lm_head = nn.Linear(H, V, bias=False)
-        loss = model.compute_loss(draft_output, target_logits, batch, lm_head, gamma=7.0)
+        loss = model.compute_loss(draft_output, input_ids, batch, lm_head, gamma=7.0)
         loss.backward()
         optimizer.step()
 
