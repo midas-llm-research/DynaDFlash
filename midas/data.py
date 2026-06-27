@@ -353,27 +353,20 @@ def prepare_draft_inputs(
     block_size: int,
     max_num_anchors: int,
     mask_token_id: int,
-    response_starts: Optional[torch.Tensor] = None,
-    min_anchor_pos: int = 64,
+    response_starts: torch.Tensor,
     dtype: torch.dtype = torch.bfloat16,
 ) -> DraftTrainingBatch:
     """
     Sample anchors from the response portion and build concatenated-blocks
     noise sequence for block-diffusion training.
 
-    Anchors are sampled from [response_start, real_len - block_size + 1) per
-    row. If response_starts is None, falls back to min_anchor_pos.
+    Anchors are sampled from [response_start, real_len - block_size + 1) per row.
     """
     B, T = input_ids.shape
     device = input_ids.device
     seq_lengths = seq_lengths.to(device=device, dtype=torch.long)
-
-    # Per-row anchor start position.
-    if response_starts is not None:
-        response_starts = response_starts.to(device=device, dtype=torch.long)
-        anchor_starts = [int(response_starts[b].item()) for b in range(B)]
-    else:
-        anchor_starts = [min_anchor_pos] * B
+    response_starts = response_starts.to(device=device, dtype=torch.long)
+    anchor_starts = [int(response_starts[b].item()) for b in range(B)]
 
     # Per-row real anchor capacity = max anchors that fit in this row.
     row_max = [
