@@ -133,19 +133,8 @@ class DFlashDraftModelRouted(DFlashDraftModel):
         self.last_routing_weights = routing_weights
         return context
 
-    def routing_aux_loss(self) -> Optional[torch.Tensor]:
-        """Routing entropy. Higher = more spread across layers. Encourage by subtracting."""
-        if self.last_routing_weights is None:
-            return None
-        rw = self.last_routing_weights
-        return -(rw * rw.clamp(min=1e-8).log()).sum(dim=-1).mean()
-
     def log_metrics(self, **base) -> dict:
-        """Base training fields + router entropy, per-layer routing weights, gamma/tau."""
         metrics = super().log_metrics(**base)
-        aux = self.routing_aux_loss()
-        if aux is not None:
-            metrics["routing_entropy"] = aux.item()
         if self.last_routing_weights is not None:
             mean_weights = self.last_routing_weights.mean(dim=(0, 1)).tolist()
             for i, w in enumerate(mean_weights):

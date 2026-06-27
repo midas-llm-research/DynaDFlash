@@ -80,50 +80,6 @@ class TestRoutedModelForward:
         assert (rw >= 0).all()
 
 
-# ---------------------------------------------------------------------------
-# Routing auxiliary loss
-# ---------------------------------------------------------------------------
-
-
-class TestRoutingAuxLoss:
-    def test_returns_none_before_forward(self, routed_model):
-        assert routed_model.routing_aux_loss() is None
-
-    def test_returns_scalar_after_forward(self, routed_model, tiny_config):
-        B, N, T = 2, 8, 16
-        H = tiny_config.hidden_size
-        num_target_layer_ids = len(routed_model.target_layer_ids)
-
-        noise_embedding = torch.randn(B, N, H)
-        target_hidden = torch.randn(B, T, num_target_layer_ids * H)
-        position_ids = torch.arange(T + N).unsqueeze(0).expand(B, -1)
-
-        routed_model(
-            position_ids=position_ids,
-            noise_embedding=noise_embedding,
-            target_hidden=target_hidden,
-        )
-        aux = routed_model.routing_aux_loss()
-        assert aux is not None
-        assert aux.dim() == 0
-
-    def test_entropy_is_positive(self, routed_model, tiny_config):
-        B, N, T = 2, 8, 16
-        H = tiny_config.hidden_size
-        num_target_layer_ids = len(routed_model.target_layer_ids)
-
-        noise_embedding = torch.randn(B, N, H)
-        target_hidden = torch.randn(B, T, num_target_layer_ids * H)
-        position_ids = torch.arange(T + N).unsqueeze(0).expand(B, -1)
-
-        routed_model(
-            position_ids=position_ids,
-            noise_embedding=noise_embedding,
-            target_hidden=target_hidden,
-        )
-        aux = routed_model.routing_aux_loss()
-        assert aux.item() > 0
-
 
 class TestRoutedModelComputeLoss:
     def test_loss_matches_base(self, tiny_config, tiny_router_config):
