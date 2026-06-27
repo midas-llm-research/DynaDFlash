@@ -133,12 +133,12 @@ def build_default_model(
     config: TrainConfig,
     device: torch.device,
     model_cls: type[DFlashDraftModel] = DFlashDraftModelRouted,
+    random_init: bool = False,
 ) -> DFlashDraftModel:
     """
     Build a draft model from `config.draft_checkpoint`. Pass `model_cls` to
-    pick which DFlashDraftModel subclass to use. Method-specific configs (e.g.
-    `config.router` for the routed variant) are pulled here and forwarded as
-    constructor kwargs.
+    pick which DFlashDraftModel subclass to use. If `random_init=True`, all
+    weights start random (for fair from-scratch comparisons).
     """
     extra_kwargs: dict = {}
     if model_cls is DFlashDraftModelRouted:
@@ -150,10 +150,12 @@ def build_default_model(
                 "`model_cls=DFlashDraftModel` to train the base variant."
             )
         extra_kwargs["router_config"] = config.router
-    return model_cls.from_pretrained_dflash(
+
+    factory = model_cls.from_config_random if random_init else model_cls.from_pretrained_dflash
+    return factory(
         config.draft_checkpoint,
         device=device,
-        dtype=torch.bfloat16,
+        dtype=torch.float32,
         **extra_kwargs,
     )
 
@@ -162,6 +164,7 @@ def train(
     config: TrainConfig,
     model: Optional[DFlashDraftModel] = None,
     model_cls: type[DFlashDraftModel] = DFlashDraftModelRouted,
+    random_init: bool = False,
 ):
     """Main training loop. `model` can be any DFlashDraftModel subclass."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -192,7 +195,7 @@ def train(
         logger.info(
             f"Building {model_cls.__name__} from {config.draft_checkpoint}"
         )
-        model = build_default_model(config, device, model_cls=model_cls)
+        model = build_default_model(config, device, model_cls=model_cls, random_init=random_init)
     model.train()
 
     extractor = OnlineHiddenStateExtractor(target_model, device)
@@ -227,47 +230,44 @@ def train(
         epoch_loss = 0.0
         epoch_steps = 0
 
-        for batch_idx, (input_ids, seq_lengths) in enumerate(processor):
+        for batch_idx, (input_ids, seq_lengths, response_starts) in enumerate(processor):
             if epoch == start_epoch and batch_idx <= start_batch_idx:
                 continue
 
             input_ids = input_ids.to(device)
             seq_lengths = seq_lengths.to(device)
+            response_starts = response_starts.to(device)
 
-            # Frozen target forward → per-layer hidden states + logits.
-            hidden_states, target_logits = extractor.extract(input_ids)
+            # Frozen target forward → per-layer hidden states.
+            hidden_states = extractor.extract(input_ids)
             target_hidden = model.extract_target_hidden(hidden_states)
 
-            # Anchor sampling + block construction. seq_lengths bounds anchors
-            # away from the right-padded region per row. Per-batch N is decided
-            # inside the function based on the longest row's capacity (capped
-            # by config.max_num_anchors); shorter rows get sentinel-padded.
+            # Anchor sampling from response portion + block construction.
             batch = prepare_draft_inputs(
                 input_ids,
                 seq_lengths,
                 block_size=config.block_size,
                 max_num_anchors=config.max_num_anchors,
                 mask_token_id=model.mask_token_id or 0,
+                response_starts=response_starts,
             )
 
-            # Draft forward.
+            # Draft forward + loss in bf16 autocast (fast), optimizer in fp32 (precise).
             noise_embedding = target_model.model.embed_tokens(batch.noise_token_ids)
-            draft_output = model(
-                position_ids=batch.position_ids,
-                noise_embedding=noise_embedding,
-                target_hidden=target_hidden,
-                attention_mask=batch.attention_mask,
-            )
-
-            # Loss (subclass-specific terms live inside model.compute_loss).
-            loss = model.compute_loss(
-                draft_output,
-                target_logits,
-                batch,
-                target_model.lm_head,
-                gamma=config.loss_gamma,
-                entropy_reg_weight=config.entropy_reg_weight,
-            )
+            with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+                draft_output = model(
+                    position_ids=batch.position_ids,
+                    noise_embedding=noise_embedding,
+                    target_hidden=target_hidden,
+                    attention_mask=batch.attention_mask,
+                )
+                loss = model.compute_loss(
+                    draft_output,
+                    input_ids,
+                    batch,
+                    target_model.lm_head,
+                    gamma=config.loss_gamma,
+                )
 
             loss = loss / config.gradient_accumulation_steps
             loss.backward()
