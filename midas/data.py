@@ -98,7 +98,10 @@ class DFlashDataset(Dataset):
                     prompt_messages, tokenize=False,
                     add_generation_prompt=True, enable_thinking=enable_thinking,
                 )
-                prompt_len = self.tokenizer(prompt_text, return_tensors="pt")["input_ids"].shape[1]
+                prompt_ids = self.tokenizer(prompt_text, return_tensors="pt")["input_ids"].squeeze(0)
+                prompt_len = prompt_ids.shape[0]
+                assert torch.equal(ids[:prompt_len], prompt_ids), \
+                    "Prompt tokenization mismatch — response_start boundary is unreliable"
                 self.sequences.append(ids)
                 self.response_starts.append(prompt_len)
                 kept += 1
@@ -289,13 +292,12 @@ class OnlineHiddenStateExtractor:
     @torch.no_grad()
     def extract(
         self, input_ids: torch.Tensor
-    ) -> tuple[tuple[torch.Tensor, ...], torch.Tensor]:
+    ) -> tuple[torch.Tensor, ...]:
         """
         Args:
             input_ids: [B, T]
         Returns:
             hidden_states: tuple of (num_layers + 1) tensors, each [B, T, H]
-            logits: [B, T, V]
         """
         input_ids = input_ids.to(self.device)
         position_ids = (
@@ -303,12 +305,12 @@ class OnlineHiddenStateExtractor:
             .unsqueeze(0)
             .expand(input_ids.shape[0], -1)
         )
-        output = self.target_model(
+        output = self.target_model.model(
             input_ids,
             position_ids=position_ids,
             output_hidden_states=True,
         )
-        return output.hidden_states, output.logits
+        return output.hidden_states
 
 
 # ---------------------------------------------------------------------------
