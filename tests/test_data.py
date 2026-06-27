@@ -493,26 +493,25 @@ class TestOnlineHiddenStateExtractor:
         import torch.nn as nn
         from types import SimpleNamespace
 
+        class FakeInnerModel(nn.Module):
+            def forward(self, input_ids, position_ids=None, output_hidden_states=False):
+                B, T = input_ids.shape
+                H = 64
+                num_layers = 4
+                hidden_states = tuple(torch.randn(B, T, H) for _ in range(num_layers + 1))
+                return SimpleNamespace(hidden_states=hidden_states)
+
         class FakeTargetModel(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.linear = nn.Linear(10, 10)
-
-            def forward(self, input_ids, position_ids=None, output_hidden_states=False):
-                B, T = input_ids.shape
-                H, V = 64, 100
-                num_layers = 4
-                hidden_states = tuple(torch.randn(B, T, H) for _ in range(num_layers + 1))
-                logits = torch.randn(B, T, V)
-                return SimpleNamespace(hidden_states=hidden_states, logits=logits)
+                self.model = FakeInnerModel()
 
         model = FakeTargetModel()
         extractor = OnlineHiddenStateExtractor(model, device=torch.device("cpu"))
 
         input_ids = torch.randint(0, 100, (2, 16))
-        hidden_states, logits = extractor.extract(input_ids)
+        hidden_states = extractor.extract(input_ids)
 
         assert isinstance(hidden_states, tuple)
         assert len(hidden_states) == 5  # num_layers + 1
         assert hidden_states[0].shape == (2, 16, 64)
-        assert logits.shape == (2, 16, 100)
