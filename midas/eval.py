@@ -115,50 +115,54 @@ def evaluate(
     max_new_tokens: int = 2048,
     temperature: float = 0.0,
     num_warmup: int = 3,
-    num_ar_prompts: int = 10,
 ) -> dict:
     """
-    Evaluate a single draft model's speculative decoding throughput.
+    Evaluate speculative decoding throughput against autoregressive baseline.
 
-    Measures autoregressive baseline on the first `num_ar_prompts` prompts,
-    warms up the draft model, then evaluates on all prompts with timing.
+    Both AR and speculative decoding are measured on the same prompts with the
+    same max_new_tokens to ensure a fair comparison. Warmup runs exercise both
+    code paths before any timing begins.
 
-    Returns a dict with: tokens_per_second, mean_acceptance_length,
-    speedup_over_ar, autoregressive_tps, total_tokens, total_time_s.
+    Returns metrics dict with throughput, acceptance length, and speedup.
     """
     import time
 
     device = next(target.parameters()).device
+    eos = [tokenizer.eos_token_id]
 
-    # 1. Measure autoregressive baseline
-    logger.info("Measuring autoregressive baseline...")
+    # Phase 0: Warmup — exercise both AR and spec-decode paths so CUDA kernels
+    # are compiled and memory pools are allocated before timing begins.
+    logger.info("Warmup (AR + speculative)...")
+    wids = tokenizer("Solve: 2+2=", return_tensors="pt").input_ids.to(device)
+    for _ in range(num_warmup):
+        with torch.no_grad():
+            target.generate(wids, max_new_tokens=32, do_sample=False)
+            dflash_generate(draft, target, wids, max_new_tokens=32,
+                          stop_token_ids=eos, temperature=0.0)
+    torch.cuda.empty_cache()
+
+    # Phase 1: Autoregressive baseline — same prompts, same max_new_tokens.
+    logger.info(f"Measuring autoregressive baseline ({len(prompts)} prompts, max_new_tokens={max_new_tokens})...")
     ar_times, ar_tokens = [], []
-    for prompt in prompts[:num_ar_prompts]:
+    for i, prompt in enumerate(prompts):
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
         torch.cuda.synchronize()
         t0 = time.perf_counter()
         with torch.no_grad():
-            out = target.generate(input_ids, max_new_tokens=256, do_sample=False)
+            out = target.generate(input_ids, max_new_tokens=max_new_tokens, do_sample=False)
         torch.cuda.synchronize()
         t1 = time.perf_counter()
         ar_tokens.append(out.shape[1] - input_ids.shape[1])
         ar_times.append(t1 - t0)
+        if (i + 1) % 10 == 0:
+            logger.info(f"  AR: {i+1}/{len(prompts)}")
     ar_tps = sum(ar_tokens) / sum(ar_times)
-    logger.info(f"Autoregressive: {ar_tps:.1f} tok/s")
+    logger.info(f"Autoregressive: {ar_tps:.1f} tok/s ({sum(ar_tokens)} tokens, {sum(ar_times):.1f}s)")
+    torch.cuda.empty_cache()
 
-    # 2. Warmup
-    logger.info("Warmup...")
-    wids = tokenizer("Solve: 1+1=", return_tensors="pt").input_ids.to(device)
-    for _ in range(num_warmup):
-        with torch.no_grad():
-            dflash_generate(
-                draft, target, wids, max_new_tokens=64,
-                stop_token_ids=[tokenizer.eos_token_id], temperature=0.0,
-            )
-
-    # 3. Evaluate
-    logger.info(f"Evaluating on {len(prompts)} prompts...")
-    results = []
+    # Phase 2: Speculative decoding — same prompts, same max_new_tokens.
+    logger.info(f"Measuring speculative decoding ({len(prompts)} prompts)...")
+    spec_results = []
     for i, prompt in enumerate(prompts):
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
         torch.cuda.synchronize()
@@ -167,36 +171,42 @@ def evaluate(
             stats = dflash_generate(
                 draft, target, input_ids,
                 max_new_tokens=max_new_tokens,
-                stop_token_ids=[tokenizer.eos_token_id],
+                stop_token_ids=eos,
                 temperature=temperature, return_stats=True,
             )
         torch.cuda.synchronize()
         t1 = time.perf_counter()
-        results.append({
+        spec_results.append({
             "tokens": stats.num_output_tokens,
             "time": t1 - t0,
             "acceptance": stats.acceptance_lengths,
         })
         if (i + 1) % 10 == 0:
-            logger.info(f"  {i+1}/{len(prompts)}")
+            logger.info(f"  Spec: {i+1}/{len(prompts)}")
 
-    # 4. Compute metrics
-    total_tokens = sum(r["tokens"] for r in results)
-    total_time = sum(r["time"] for r in results)
-    tps = total_tokens / total_time
-    all_acc = [a for r in results for a in r["acceptance"]]
+    # Phase 3: Compute metrics.
+    spec_total_tokens = sum(r["tokens"] for r in spec_results)
+    spec_total_time = sum(r["time"] for r in spec_results)
+    spec_tps = spec_total_tokens / spec_total_time
+    all_acc = [a for r in spec_results for a in r["acceptance"]]
     mean_acc = float(np.mean(all_acc))
-    speedup = tps / ar_tps
+    speedup = spec_tps / ar_tps
 
-    logger.info(f"Results: {tps:.1f} tok/s, τ={mean_acc:.2f}, {speedup:.2f}x speedup")
+    logger.info(f"Speculative: {spec_tps:.1f} tok/s ({spec_total_tokens} tokens, {spec_total_time:.1f}s)")
+    logger.info(f"Acceptance length (τ): {mean_acc:.2f}")
+    logger.info(f"Speedup over AR: {speedup:.2f}x")
 
     return {
-        "tokens_per_second": round(tps, 1),
+        "tokens_per_second": round(spec_tps, 1),
         "mean_acceptance_length": round(mean_acc, 2),
         "speedup_over_ar": round(speedup, 2),
         "autoregressive_tps": round(ar_tps, 1),
-        "total_tokens": total_tokens,
-        "total_time_s": round(total_time, 1),
+        "total_tokens": spec_total_tokens,
+        "total_time_s": round(spec_total_time, 1),
+        "ar_total_tokens": sum(ar_tokens),
+        "ar_total_time_s": round(sum(ar_times), 1),
+        "num_prompts": len(prompts),
+        "max_new_tokens": max_new_tokens,
     }
 
 

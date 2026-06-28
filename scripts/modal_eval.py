@@ -66,7 +66,6 @@ def evaluate(variant: str = "baseline"):
     from midas.eval import evaluate
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
-    from midas.models.model_context_router_nofc import DFlashDraftModelRoutedNoFC
 
     device = torch.device("cuda")
     router_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0)
@@ -85,7 +84,8 @@ def evaluate(variant: str = "baseline"):
     elif variant == "router":
         model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=router_config)
     elif variant == "router-nofc":
-        model = DFlashDraftModelRoutedNoFC.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=router_config)
+        nofc_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0, use_fc=False)
+        model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=nofc_config)
     else:
         raise ValueError(f"Unknown variant: {variant}")
 

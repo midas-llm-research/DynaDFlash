@@ -207,3 +207,76 @@ class TestRoutedModelGradients:
         for name, param in router.named_parameters():
             assert param.grad is not None, f"No gradient for router.{name}"
             assert param.grad.abs().sum() > 0, f"Zero gradient for router.{name}"
+
+
+# ---------------------------------------------------------------------------
+# DFlashDraftModelRouted with use_fc=False (nofc mode)
+# ---------------------------------------------------------------------------
+
+
+class TestRoutedModelNoFC:
+    def test_has_context_router(self, routed_model_nofc):
+        assert hasattr(routed_model_nofc, "context_router")
+        assert isinstance(routed_model_nofc.context_router, ContextRouter)
+
+    def test_router_has_no_fc(self, routed_model_nofc):
+        assert not hasattr(routed_model_nofc.context_router, "fc")
+
+    def test_output_shape(self, routed_model_nofc, tiny_config):
+        B, N, T = 2, 8, 16
+        H = tiny_config.hidden_size
+        num_target_layer_ids = len(routed_model_nofc.target_layer_ids)
+
+        noise_embedding = torch.randn(B, N, H)
+        target_hidden = torch.randn(B, T, num_target_layer_ids * H)
+        position_ids = torch.arange(T + N).unsqueeze(0).expand(B, -1)
+
+        output = routed_model_nofc(
+            position_ids=position_ids,
+            noise_embedding=noise_embedding,
+            target_hidden=target_hidden,
+        )
+        assert output.shape == (B, N, H)
+
+    def test_routing_weights_sum_to_one(self, routed_model_nofc, tiny_config):
+        B, N, T = 2, 8, 16
+        H = tiny_config.hidden_size
+        num_target_layer_ids = len(routed_model_nofc.target_layer_ids)
+
+        noise_embedding = torch.randn(B, N, H)
+        target_hidden = torch.randn(B, T, num_target_layer_ids * H)
+        position_ids = torch.arange(T + N).unsqueeze(0).expand(B, -1)
+
+        routed_model_nofc(
+            position_ids=position_ids,
+            noise_embedding=noise_embedding,
+            target_hidden=target_hidden,
+        )
+        rw = routed_model_nofc.last_routing_weights
+        sums = rw.sum(dim=-1)
+        assert torch.allclose(sums, torch.ones_like(sums), atol=1e-5)
+
+    def test_gradient_flows_to_router(self, tiny_config, tiny_router_config_nofc):
+        model = DFlashDraftModelRouted(tiny_config, router_config=tiny_router_config_nofc)
+        model.train()
+
+        B, N, T = 2, 8, 16
+        H = tiny_config.hidden_size
+        num_target_layer_ids = len(model.target_layer_ids)
+
+        noise_embedding = torch.randn(B, N, H)
+        target_hidden = torch.randn(B, T, num_target_layer_ids * H)
+        position_ids = torch.arange(T + N).unsqueeze(0).expand(B, -1)
+
+        output = model(
+            position_ids=position_ids,
+            noise_embedding=noise_embedding,
+            target_hidden=target_hidden,
+        )
+        loss = output.sum()
+        loss.backward()
+
+        router = model.context_router
+        for name, param in router.named_parameters():
+            assert param.grad is not None, f"No gradient for router.{name}"
+            assert param.grad.abs().sum() > 0, f"Zero gradient for router.{name}"
