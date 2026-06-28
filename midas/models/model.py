@@ -542,14 +542,10 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         **constructor_kwargs,
     ) -> "DFlashDraftModel":
         """Create model with random weights using config from a DFlash checkpoint."""
-        from transformers import AutoModel
+        from transformers import AutoConfig
 
-        original = AutoModel.from_pretrained(
-            dflash_checkpoint, trust_remote_code=True, attn_implementation="sdpa",
-        )
-        config = original.config
+        config = AutoConfig.from_pretrained(dflash_checkpoint, trust_remote_code=True)
         config._attn_implementation = "sdpa"
-        del original
 
         model = cls(config, **constructor_kwargs)
         if device is not None:

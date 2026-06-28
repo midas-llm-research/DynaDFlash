@@ -98,7 +98,10 @@ class DFlashDataset(Dataset):
                     prompt_messages, tokenize=False,
                     add_generation_prompt=True, enable_thinking=enable_thinking,
                 )
-                prompt_len = self.tokenizer(prompt_text, return_tensors="pt")["input_ids"].shape[1]
+                prompt_ids = self.tokenizer(prompt_text, return_tensors="pt")["input_ids"].squeeze(0)
+                prompt_len = prompt_ids.shape[0]
+                assert torch.equal(ids[:prompt_len], prompt_ids), \
+                    "Prompt tokenization mismatch — response_start boundary is unreliable"
                 self.sequences.append(ids)
                 self.response_starts.append(prompt_len)
                 kept += 1
@@ -289,13 +292,12 @@ class OnlineHiddenStateExtractor:
     @torch.no_grad()
     def extract(
         self, input_ids: torch.Tensor
-    ) -> tuple[tuple[torch.Tensor, ...], torch.Tensor]:
+    ) -> tuple[torch.Tensor, ...]:
         """
         Args:
             input_ids: [B, T]
         Returns:
             hidden_states: tuple of (num_layers + 1) tensors, each [B, T, H]
-            logits: [B, T, V]
         """
         input_ids = input_ids.to(self.device)
         position_ids = (
@@ -303,12 +305,12 @@ class OnlineHiddenStateExtractor:
             .unsqueeze(0)
             .expand(input_ids.shape[0], -1)
         )
-        output = self.target_model(
+        output = self.target_model.model(
             input_ids,
             position_ids=position_ids,
             output_hidden_states=True,
         )
-        return output.hidden_states, output.logits
+        return output.hidden_states
 
 
 # ---------------------------------------------------------------------------
@@ -351,27 +353,20 @@ def prepare_draft_inputs(
     block_size: int,
     max_num_anchors: int,
     mask_token_id: int,
-    response_starts: Optional[torch.Tensor] = None,
-    min_anchor_pos: int = 64,
+    response_starts: torch.Tensor,
     dtype: torch.dtype = torch.bfloat16,
 ) -> DraftTrainingBatch:
     """
     Sample anchors from the response portion and build concatenated-blocks
     noise sequence for block-diffusion training.
 
-    Anchors are sampled from [response_start, real_len - block_size + 1) per
-    row. If response_starts is None, falls back to min_anchor_pos.
+    Anchors are sampled from [response_start, real_len - block_size + 1) per row.
     """
     B, T = input_ids.shape
     device = input_ids.device
     seq_lengths = seq_lengths.to(device=device, dtype=torch.long)
-
-    # Per-row anchor start position.
-    if response_starts is not None:
-        response_starts = response_starts.to(device=device, dtype=torch.long)
-        anchor_starts = [int(response_starts[b].item()) for b in range(B)]
-    else:
-        anchor_starts = [min_anchor_pos] * B
+    response_starts = response_starts.to(device=device, dtype=torch.long)
+    anchor_starts = [int(response_starts[b].item()) for b in range(B)]
 
     # Per-row real anchor capacity = max anchors that fit in this row.
     row_max = [

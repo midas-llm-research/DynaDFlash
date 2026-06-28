@@ -238,7 +238,7 @@ def train(
             response_starts = response_starts.to(device)
 
             # Frozen target forward → per-layer hidden states.
-            hidden_states, _ = extractor.extract(input_ids)
+            hidden_states = extractor.extract(input_ids)
             target_hidden = model.extract_target_hidden(hidden_states)
 
             # Anchor sampling from response portion + block construction.
