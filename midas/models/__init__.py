@@ -10,10 +10,10 @@ from midas.models.model_context_router import (
     ContextRouter,
     DFlashDraftModelRouted,
 )
-from midas.models.model_context_router_nofc import (
-    ContextRouterNoFC,
-    DFlashDraftModelRoutedNoFC,
-)
+
+# Backward-compat aliases — use ContextRouter(config) with use_fc=False instead
+ContextRouterNoFC = ContextRouter
+DFlashDraftModelRoutedNoFC = DFlashDraftModelRouted
 
 __all__ = [
     "ContextRouter",

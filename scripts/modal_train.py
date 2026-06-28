@@ -66,7 +66,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelRoutedNoFC
+    from midas.models import DFlashDraftModel, DFlashDraftModelRouted
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -80,7 +80,11 @@ def train(
         config.checkpoint.save_dir = "/checkpoints/midas-router-v3"
         logger.info("Training ROUTED variant (MIDAS context router)")
     elif variant == "router-nofc":
-        model_cls = DFlashDraftModelRoutedNoFC
+        model_cls = DFlashDraftModelRouted
+        if config.router is None:
+            from midas.config import RouterConfig
+            config.router = RouterConfig()
+        config.router.use_fc = False
         config.checkpoint.save_dir = "/checkpoints/midas-router-nofc-v3"
         logger.info("Training ROUTED-NOFC variant (router without FC mixing)")
     elif variant == "base":

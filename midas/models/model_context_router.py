@@ -36,6 +36,7 @@ class ContextRouter(nn.Module):
         self.num_layers = config.num_layers
         self.hidden_size = config.hidden_size
         self.rank = config.rank
+        self.use_fc = config.use_fc
 
         self.layer_norms = nn.ModuleList(
             [nn.RMSNorm(config.hidden_size) for _ in range(self.num_layers)]
@@ -46,7 +47,8 @@ class ContextRouter(nn.Module):
         self.log_prior = nn.Parameter(torch.zeros(self.num_layers))
         self.log_gamma = nn.Parameter(torch.tensor(math.log(config.gamma_init)))
         self.log_tau = nn.Parameter(torch.tensor(math.log(config.temperature_init)))
-        self.fc = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
+        if self.use_fc:
+            self.fc = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
         self.output_norm = nn.RMSNorm(config.hidden_size)
 
         self._init_weights()
@@ -54,7 +56,8 @@ class ContextRouter(nn.Module):
     def _init_weights(self):
         nn.init.xavier_normal_(self.W_q.weight, gain=0.1)
         nn.init.xavier_normal_(self.W_k.weight, gain=0.1)
-        nn.init.xavier_normal_(self.fc.weight)
+        if self.use_fc:
+            nn.init.xavier_normal_(self.fc.weight)
         nn.init.zeros_(self.layer_embeddings)
 
     def forward(
@@ -95,7 +98,10 @@ class ContextRouter(nn.Module):
         context = torch.einsum("btn,btnh->bth", alpha, x)
 
         # Cross-dimension mixing + normalize
-        context = self.output_norm(self.fc(context))
+        if self.use_fc:
+            context = self.output_norm(self.fc(context))
+        else:
+            context = self.output_norm(context)
 
         return context, alpha
 
