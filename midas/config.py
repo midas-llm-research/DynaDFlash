@@ -11,6 +11,7 @@ class RouterConfig:
     rank: int = 128
     gamma_init: float = 0.01
     temperature_init: float = 1.0
+    use_fc: bool = True
 
 
 @dataclass

@@ -65,9 +65,22 @@ def draft_model(tiny_config):
 
 
 @pytest.fixture
+def tiny_router_config_nofc():
+    return RouterConfig(hidden_size=128, num_layers=2, rank=32, gamma_init=0.01, temperature_init=1.0, use_fc=False)
+
+
+@pytest.fixture
 def routed_model(tiny_config, tiny_router_config):
     from midas.models.model_context_router import DFlashDraftModelRouted
     model = DFlashDraftModelRouted(tiny_config, router_config=tiny_router_config)
+    model.eval()
+    return model
+
+
+@pytest.fixture
+def routed_model_nofc(tiny_config, tiny_router_config_nofc):
+    from midas.models.model_context_router import DFlashDraftModelRouted
+    model = DFlashDraftModelRouted(tiny_config, router_config=tiny_router_config_nofc)
     model.eval()
     return model
 
