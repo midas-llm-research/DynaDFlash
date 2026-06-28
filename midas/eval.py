@@ -22,19 +22,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
-from itertools import chain
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import torch
 from loguru import logger
-from tqdm import tqdm
 
 from midas.models import DFlashDraftModel, DFlashDraftModelRouted, dflash_generate
-
-random.seed(42)
 
 CACHE_DIR = Path(__file__).parent.parent / "cache"
 
@@ -107,94 +102,102 @@ def load_benchmark(name: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Throughput evaluation (used by modal eval scripts)
+# ---------------------------------------------------------------------------
+
+
 def evaluate(
-    target: torch.nn.Module,
     draft: DFlashDraftModel,
+    target: torch.nn.Module,
     tokenizer,
-    dataset_name: str,
-    block_size: Optional[int] = None,
+    prompts: list[str],
     max_new_tokens: int = 2048,
     temperature: float = 0.0,
-    max_samples: Optional[int] = None,
-    enable_thinking: bool = False,
-) -> tuple[list[dict], int]:
+    num_warmup: int = 3,
+    num_ar_prompts: int = 10,
+) -> dict:
     """
-    Run baseline (block_size=1) and speculative (block_size=N) decoding on every
-    sample in `dataset_name`. Returns `(responses, block_size)` where each
-    response is `{1: stats_baseline, N: stats_spec}` from `dflash_generate`.
-    """
-    block_size = block_size or draft.block_size
-    dataset = load_benchmark(dataset_name)
-    if max_samples is not None and len(dataset) > max_samples:
-        random.shuffle(dataset)
-        dataset = dataset[:max_samples]
+    Evaluate a single draft model's speculative decoding throughput.
 
-    responses: list[dict] = []
-    for instance in tqdm(dataset, desc=f"eval/{dataset_name}"):
-        messages: list[dict] = []
-        for user_content in instance["turns"]:
-            messages.append({"role": "user", "content": user_content})
-            input_text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True,
-                enable_thinking=enable_thinking,
+    Measures autoregressive baseline on the first `num_ar_prompts` prompts,
+    warms up the draft model, then evaluates on all prompts with timing.
+
+    Returns a dict with: tokens_per_second, mean_acceptance_length,
+    speedup_over_ar, autoregressive_tps, total_tokens, total_time_s.
+    """
+    import time
+
+    device = next(target.parameters()).device
+
+    # 1. Measure autoregressive baseline
+    logger.info("Measuring autoregressive baseline...")
+    ar_times, ar_tokens = [], []
+    for prompt in prompts[:num_ar_prompts]:
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        with torch.no_grad():
+            out = target.generate(input_ids, max_new_tokens=256, do_sample=False)
+        torch.cuda.synchronize()
+        t1 = time.perf_counter()
+        ar_tokens.append(out.shape[1] - input_ids.shape[1])
+        ar_times.append(t1 - t0)
+    ar_tps = sum(ar_tokens) / sum(ar_times)
+    logger.info(f"Autoregressive: {ar_tps:.1f} tok/s")
+
+    # 2. Warmup
+    logger.info("Warmup...")
+    wids = tokenizer("Solve: 1+1=", return_tensors="pt").input_ids.to(device)
+    for _ in range(num_warmup):
+        with torch.no_grad():
+            dflash_generate(
+                draft, target, wids, max_new_tokens=64,
+                stop_token_ids=[tokenizer.eos_token_id], temperature=0.0,
             )
-            input_ids = tokenizer.encode(input_text, return_tensors="pt").to(target.device)
 
-            sample_stats: dict = {}
-            for bs in (1, block_size):
-                sample_stats[bs] = dflash_generate(
-                    draft,
-                    target=target,
-                    input_ids=input_ids,
-                    max_new_tokens=max_new_tokens,
-                    stop_token_ids=[tokenizer.eos_token_id],
-                    temperature=temperature,
-                    block_size=bs,
-                    return_stats=True,
-                )
+    # 3. Evaluate
+    logger.info(f"Evaluating on {len(prompts)} prompts...")
+    results = []
+    for i, prompt in enumerate(prompts):
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        with torch.no_grad():
+            stats = dflash_generate(
+                draft, target, input_ids,
+                max_new_tokens=max_new_tokens,
+                stop_token_ids=[tokenizer.eos_token_id],
+                temperature=temperature, return_stats=True,
+            )
+        torch.cuda.synchronize()
+        t1 = time.perf_counter()
+        results.append({
+            "tokens": stats.num_output_tokens,
+            "time": t1 - t0,
+            "acceptance": stats.acceptance_lengths,
+        })
+        if (i + 1) % 10 == 0:
+            logger.info(f"  {i+1}/{len(prompts)}")
 
-            # Append assistant turn so multi-turn datasets see realistic context
-            spec = sample_stats[block_size]
-            generated_ids = spec.output_ids[0, spec.num_input_tokens:]
-            output_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
-            messages.append({"role": "assistant", "content": output_text})
-            responses.append(sample_stats)
+    # 4. Compute metrics
+    total_tokens = sum(r["tokens"] for r in results)
+    total_time = sum(r["time"] for r in results)
+    tps = total_tokens / total_time
+    all_acc = [a for r in results for a in r["acceptance"]]
+    mean_acc = float(np.mean(all_acc))
+    speedup = tps / ar_tps
 
-    return responses, block_size
+    logger.info(f"Results: {tps:.1f} tok/s, τ={mean_acc:.2f}, {speedup:.2f}x speedup")
 
-
-def report(responses: list[dict], block_size: int) -> dict:
-    """Print + return a summary of throughput, speedup, and acceptance stats."""
-    baseline_tpot = float(np.mean([r[1].time_per_output_token for r in responses]))
-    dflash_tpot = float(np.mean([r[block_size].time_per_output_token for r in responses]))
-    mean_accept = float(np.mean([np.mean(r[block_size].acceptance_lengths) for r in responses]))
-
-    accept_all = list(chain.from_iterable(r[block_size].acceptance_lengths for r in responses))
-    histogram = [accept_all.count(b) / len(accept_all) for b in range(block_size + 1)]
-
-    summary = {
-        "baseline_tps": 1.0 / baseline_tpot,
-        "dflash_tps": 1.0 / dflash_tpot,
-        "speedup": baseline_tpot / dflash_tpot,
-        "mean_acceptance_length": mean_accept,
-        "acceptance_histogram": histogram,
-        "num_samples": len(responses),
-        "block_size": block_size,
+    return {
+        "tokens_per_second": round(tps, 1),
+        "mean_acceptance_length": round(mean_acc, 2),
+        "speedup_over_ar": round(speedup, 2),
+        "autoregressive_tps": round(ar_tps, 1),
+        "total_tokens": total_tokens,
+        "total_time_s": round(total_time, 1),
     }
-
-    print()
-    print("=" * 50)
-    print(f"Samples evaluated:      {summary['num_samples']}")
-    print(f"Block size:             {block_size}")
-    print(f"Baseline throughput:    {summary['baseline_tps']:,.2f} tok/s")
-    print(f"DFlash throughput:      {summary['dflash_tps']:,.2f} tok/s")
-    print(f"Decoding speedup:       {summary['speedup']:.2f}x")
-    print(f"Mean acceptance length: {mean_accept:.2f}")
-    print(f"Acceptance histogram:   {[f'{x * 100:.1f}%' for x in histogram]}")
-    print("=" * 50)
-    return summary
 
 
 # ---------------------------------------------------------------------------
@@ -257,13 +260,10 @@ def main() -> None:
     )
     parser.add_argument("--target", required=True, help="Target model name/path")
     parser.add_argument("--draft", required=True, help="Draft model checkpoint (DFlash format)")
-    parser.add_argument("--dataset", default="gsm8k", choices=list(DATASETS))
+    parser.add_argument("--dataset", default="math500", choices=list(DATASETS))
     parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--block-size", type=int, default=None,
-                        help="Override draft.block_size (default uses model config)")
-    parser.add_argument("--max-samples", type=int, default=None)
-    parser.add_argument("--enable-thinking", action="store_true")
+    parser.add_argument("--max-samples", type=int, default=50)
     parser.add_argument("--routed", action="store_true",
                         help="Use DFlashDraftModelRouted instead of base DFlashDraftModel")
     parser.add_argument("--router-ckpt", type=str, default=None,
@@ -275,20 +275,7 @@ def main() -> None:
     if args.router_ckpt and not args.routed:
         args.routed = True
 
-    if args.enable_thinking and any(
-        s in args.target.lower() for s in ["qwen3-4b", "qwen3-8b"]
-    ):
-        raise ValueError(
-            "DFlash drafts for Qwen3-4B/8B were not trained with thinking traces — "
-            "--enable-thinking will produce poor speedups."
-        )
-
     from transformers import AutoModelForCausalLM, AutoTokenizer
-
-    torch.manual_seed(0)
-    torch.cuda.manual_seed_all(0)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     attn_impl = _get_attn_impl()
@@ -296,9 +283,7 @@ def main() -> None:
     logger.info(f"Loading target: {args.target}")
     target = (
         AutoModelForCausalLM.from_pretrained(
-            args.target,
-            attn_implementation=attn_impl,
-            torch_dtype=torch.bfloat16,
+            args.target, attn_implementation=attn_impl, torch_dtype=torch.bfloat16,
         )
         .to(device)
         .eval()
@@ -311,18 +296,18 @@ def main() -> None:
     )
     draft.eval()
 
-    responses, block_size = evaluate(
-        target,
-        draft,
-        tokenizer,
-        dataset_name=args.dataset,
-        block_size=args.block_size,
+    # Load prompts
+    dataset = load_benchmark(args.dataset)
+    if args.max_samples and len(dataset) > args.max_samples:
+        dataset = dataset[:args.max_samples]
+    prompts = [d["turns"][0] for d in dataset]
+
+    results = evaluate(
+        draft, target, tokenizer, prompts,
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
-        max_samples=args.max_samples,
-        enable_thinking=args.enable_thinking,
     )
-    report(responses, block_size)
+    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":
