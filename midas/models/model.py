@@ -87,6 +87,46 @@ def _cuda_time() -> float:
     return time.perf_counter()
 
 
+def _evict_sink_window(cache: Cache, sink: int, window: int) -> None:
+    """
+    Sparse-attention KV eviction for the draft's context cache (eval-only).
+
+    Keeps the first `sink` entries (attention sinks — typically the start of the
+    prompt) plus the most recent `window` entries, and drops everything in
+    between. No-op until the cache exceeds `sink + window`, so short generations
+    are unaffected.
+
+    This is the StreamingLLM sink+window pattern without retraining: kept entries
+    retain the rotary phases they were cached with (no position remapping, no
+    learned softmax sink). Faithful as long as the sequence stays within the
+    model's trained context length.
+
+    Mutates `cache` in place. Handles both the transformers>=4.54 `.layers`
+    layout and the older `key_cache`/`value_cache` lists.
+    """
+    if sink < 0 or window < 0:
+        raise ValueError(f"sink/window must be non-negative, got sink={sink}, window={window}")
+    if cache.get_seq_length() <= sink + window:
+        return
+
+    def _trim(t: torch.Tensor) -> torch.Tensor:
+        # cache tensors are [batch, num_heads, seq, head_dim]
+        if window == 0:
+            return t[:, :, :sink, :]
+        return torch.cat([t[:, :, :sink, :], t[:, :, -window:, :]], dim=2)
+
+    layers = getattr(cache, "layers", None)
+    if layers is not None:
+        for layer in layers:
+            if getattr(layer, "keys", None) is not None:
+                layer.keys = _trim(layer.keys)
+                layer.values = _trim(layer.values)
+    else:  # older transformers cache layout
+        for i in range(len(cache.key_cache)):
+            cache.key_cache[i] = _trim(cache.key_cache[i])
+            cache.value_cache[i] = _trim(cache.value_cache[i])
+
+
 def compute_position_weighted_ce_loss(
     draft_hidden: torch.Tensor,
     input_ids: torch.Tensor,
@@ -144,7 +184,18 @@ def dflash_generate(
     block_size: Optional[int] = None,
     mask_token_id: Optional[int] = None,
     return_stats: bool = False,
+    sink_tokens: Optional[int] = None,
+    sliding_window: Optional[int] = None,
+    profile_draft_latency: bool = False,
 ):
+    # MIDAS: `profile_draft_latency` times each draft-model forward pass with CUDA
+    # events (async, no extra host sync → does not distort throughput). Collected
+    # times are returned as `draft_forward_times` (seconds) when return_stats=True.
+    # MIDAS: `sink_tokens`/`sliding_window` enable sparse-attention KV eviction on
+    # the draft's context cache (eval-only). When set, after each block the draft
+    # context KV is pruned to [first sink_tokens] + [last sliding_window] entries.
+    # Both None (default) → dense full-context draft, identical to z-lab.
+    sparse_draft = sink_tokens is not None and sliding_window is not None
     num_input_tokens = input_ids.shape[1]
     max_length = num_input_tokens + max_new_tokens
     block_size = model.block_size if block_size is None else block_size
@@ -178,6 +229,8 @@ def dflash_generate(
 
     decode_start = _cuda_time() if return_stats else None
     acceptance_lengths = []
+    draft_fwd_events: list[tuple] = []
+    profiling = profile_draft_latency and target.device.type == "cuda"
     start = num_input_tokens
     draft_prefill = True
 
@@ -186,15 +239,33 @@ def dflash_generate(
         block_position_ids = position_ids[:, start : start + block_size]
         if block_size > 1:
             noise_embedding = target.model.embed_tokens(block_output_ids)
-            draft_logits = target.lm_head(model(
+            # MIDAS: position start was `past_key_values_draft.get_seq_length()`.
+            # Re-expressed as `start - ctx_len` (absolute) so it stays correct once
+            # the cache is shrunk by sparse eviction; identical value when dense.
+            ctx_len = target_hidden.shape[1]
+            if profiling:
+                ev_start = torch.cuda.Event(enable_timing=True)
+                ev_end = torch.cuda.Event(enable_timing=True)
+                ev_start.record()
+            draft_hidden = model(
                 target_hidden=target_hidden,
                 noise_embedding=noise_embedding,
-                position_ids=position_ids[:, past_key_values_draft.get_seq_length(): start + block_size],
+                position_ids=position_ids[:, start - ctx_len: start + block_size],
                 past_key_values=past_key_values_draft,
                 use_cache=True,
                 is_causal=False,
-            )[:, 1 - block_size :, :])
-            past_key_values_draft.crop(start)
+            )
+            if profiling:
+                ev_end.record()
+                draft_fwd_events.append((ev_start, ev_end))
+            draft_logits = target.lm_head(draft_hidden[:, 1 - block_size :, :])
+            # MIDAS: drop the just-appended noise (block_size entries) by relative
+            # count rather than absolute `crop(start)`, since after eviction the
+            # cache length no longer equals the absolute position. Equivalent to
+            # crop(start) in the dense case.
+            past_key_values_draft.crop(past_key_values_draft.get_seq_length() - block_size)
+            if sparse_draft:
+                _evict_sink_window(past_key_values_draft, sink_tokens, sliding_window)
             block_output_ids[:, 1:] = sample(draft_logits)
             if draft_prefill and return_stats:
                 draft_prefill = False
@@ -239,6 +310,9 @@ def dflash_generate(
 
     num_output_tokens = output_ids.shape[1] - num_input_tokens
     total_decode_time = _cuda_time() - decode_start
+    # _cuda_time synced the stream, so all timing events are complete.
+    # elapsed_time returns milliseconds; convert to seconds for consistency.
+    draft_forward_times = [s.elapsed_time(e) / 1000.0 for s, e in draft_fwd_events]
     return SimpleNamespace(
         output_ids=output_ids,
         num_input_tokens=num_input_tokens,
@@ -246,6 +320,7 @@ def dflash_generate(
         time_to_first_token=time_to_first_token,
         time_per_output_token=total_decode_time / num_output_tokens,
         acceptance_lengths=acceptance_lengths,
+        draft_forward_times=draft_forward_times,
     )
 
 

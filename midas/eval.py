@@ -101,10 +101,49 @@ def load_benchmark(name: str) -> list[dict]:
 # Eval loop
 # ---------------------------------------------------------------------------
 
+def _log_length_stats(
+    prompt_lens: list[int],
+    output_lens: list[int],
+    sink_tokens: Optional[int] = None,
+    sliding_window: Optional[int] = None,
+) -> None:
+    """Log a summary of prompt/generation token lengths across the eval set."""
+    def _fmt(name: str, vals: list[int]) -> str:
+        a = np.asarray(vals)
+        return (
+            f"{name}: n={len(a)} min={a.min()} mean={a.mean():.0f} "
+            f"median={int(np.median(a))} p90={int(np.percentile(a, 90))} max={a.max()}"
+        )
 
-# ---------------------------------------------------------------------------
-# Throughput evaluation (used by modal eval scripts)
-# ---------------------------------------------------------------------------
+    logger.info("=" * 50)
+    logger.info("Sample length summary (tokens)")
+    logger.info(_fmt("  prompt   ", prompt_lens))
+    logger.info(_fmt("  generated", output_lens))
+    if sink_tokens is not None and sliding_window is not None:
+        budget = sink_tokens + sliding_window
+        n_evicted = int(np.sum(np.asarray(output_lens) > budget))
+        logger.info(
+            f"  sparse draft: {n_evicted}/{len(output_lens)} generations exceed "
+            f"sink+window={budget} (eviction actually fires on those)"
+        )
+    logger.info("=" * 50)
+
+
+def _log_draft_latency_stats(times_s: list[float]) -> None:
+    """Log per-draft-forward latency (ms) aggregated over a whole eval run."""
+    if not times_s:
+        logger.info("Draft forward latency: none recorded (CPU run or profiling off)")
+        return
+    ms = np.asarray(times_s) * 1000.0
+    logger.info("=" * 50)
+    logger.info("Draft forward latency (ms), per speculative block")
+    logger.info(
+        f"  n={len(ms)} min={ms.min():.2f} mean={ms.mean():.2f} "
+        f"median={np.median(ms):.2f} p90={np.percentile(ms, 90):.2f} "
+        f"p99={np.percentile(ms, 99):.2f} max={ms.max():.2f}"
+    )
+    logger.info(f"  total draft-forward time: {ms.sum() / 1000.0:.2f} s over {len(ms)} forwards")
+    logger.info("=" * 50)
 
 
 def evaluate(
@@ -115,6 +154,9 @@ def evaluate(
     max_new_tokens: int = 2048,
     temperature: float = 0.0,
     num_warmup: int = 3,
+    sink_tokens: Optional[int] = None,
+    sliding_window: Optional[int] = None,
+    profile_draft_latency: bool = True,
 ) -> dict:
     """
     Evaluate speculative decoding throughput against autoregressive baseline.
@@ -274,6 +316,12 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-samples", type=int, default=50)
+    parser.add_argument("--sliding-window", type=int, default=None,
+                        help="Sparse draft: keep only the last N context tokens in the "
+                             "draft's KV cache (plus --sink-tokens). Omit for dense full context.")
+    parser.add_argument("--sink-tokens", type=int, default=4,
+                        help="Sparse draft: number of leading context tokens (attention sinks) "
+                             "always kept. Only used when --sliding-window is set.")
     parser.add_argument("--routed", action="store_true",
                         help="Use DFlashDraftModelRouted instead of base DFlashDraftModel")
     parser.add_argument("--router-ckpt", type=str, default=None,
