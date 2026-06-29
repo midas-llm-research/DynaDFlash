@@ -39,7 +39,7 @@ class ContextRouter(nn.Module):
         self.use_fc = config.use_fc
 
         self.layer_norms = nn.ModuleList(
-            [nn.RMSNorm(config.hidden_size) for _ in range(self.num_layers)]
+            [nn.RMSNorm(config.hidden_size, eps=1e-6) for _ in range(self.num_layers)]
         )
         self.W_q = nn.Linear(config.hidden_size, config.rank, bias=False)
         self.W_k = nn.Linear(config.hidden_size, config.rank, bias=False)
@@ -49,7 +49,7 @@ class ContextRouter(nn.Module):
         self.log_tau = nn.Parameter(torch.tensor(math.log(config.temperature_init)))
         if self.use_fc:
             self.fc = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
-        self.output_norm = nn.RMSNorm(config.hidden_size)
+        self.output_norm = nn.RMSNorm(config.hidden_size, eps=1e-6)
 
         self._init_weights()
 

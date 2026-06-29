@@ -55,7 +55,7 @@ DATASETS = {
         "load_kwargs": {"split": "test"},
         "format": lambda x: x["prompt"],
     },
-    "mt-bench": {
+    "mt_bench": {
         "load_args": ("HuggingFaceH4/mt_bench_prompts",),
         "load_kwargs": {"split": "train"},
         "format": lambda x: x["prompt"],
@@ -143,7 +143,12 @@ def evaluate(
     import time
 
     device = next(target.parameters()).device
+    use_cuda = device.type == "cuda"
     eos = [tokenizer.eos_token_id]
+
+    def sync():
+        if use_cuda:
+            sync()
 
     # Phase 0: Warmup — exercise both AR and spec-decode paths so CUDA kernels
     # are compiled and memory pools are allocated before timing begins.
@@ -161,11 +166,11 @@ def evaluate(
     ar_times, ar_tokens = [], []
     for i, prompt in enumerate(prompts):
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
-        torch.cuda.synchronize()
+        sync()
         t0 = time.perf_counter()
         with torch.no_grad():
             out = target.generate(input_ids, max_new_tokens=max_new_tokens, do_sample=False)
-        torch.cuda.synchronize()
+        sync()
         t1 = time.perf_counter()
         ar_tokens.append(out.shape[1] - input_ids.shape[1])
         ar_times.append(t1 - t0)
@@ -180,7 +185,7 @@ def evaluate(
     spec_results = []
     for i, prompt in enumerate(prompts):
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
-        torch.cuda.synchronize()
+        sync()
         t0 = time.perf_counter()
         with torch.no_grad():
             stats = dflash_generate(
@@ -189,7 +194,7 @@ def evaluate(
                 stop_token_ids=eos,
                 temperature=temperature, return_stats=True,
             )
-        torch.cuda.synchronize()
+        sync()
         t1 = time.perf_counter()
         spec_results.append({
             "tokens": stats.num_output_tokens,

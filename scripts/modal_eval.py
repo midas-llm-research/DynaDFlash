@@ -54,6 +54,7 @@ CHECKPOINTS = {
 )
 def run_eval(
     variant: str = "baseline",
+    checkpoint: str = "",
     benchmarks: str = "math500,humaneval,mt_bench",
     seed: int = 42,
     n_prompts: int = 50,
@@ -74,7 +75,7 @@ def run_eval(
 
     device = torch.device("cuda")
     router_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0)
-    ckpt_path = CHECKPOINTS[variant]
+    ckpt_path = checkpoint or CHECKPOINTS[variant]
     benchmark_list = [b.strip() for b in benchmarks.split(",")]
     logger.info(f"Evaluating variant={variant}, benchmarks={benchmark_list}, seed={seed}")
 
@@ -147,8 +148,8 @@ def run_eval(
 
 
 @app.local_entrypoint()
-def main(variant: str = "baseline", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50):
-    output = run_eval.remote(variant=variant, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts)
+def main(variant: str = "baseline", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50):
+    output = run_eval.remote(variant=variant, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts)
     agg = output["aggregate"]
     print(f"\n{'=' * 60}")
     print(f"  {variant.upper()} — AGGREGATE RESULTS")
