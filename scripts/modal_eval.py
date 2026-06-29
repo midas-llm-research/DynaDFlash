@@ -52,25 +52,31 @@ CHECKPOINTS = {
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=7200,
 )
-def evaluate(variant: str = "baseline"):
+def run_eval(
+    variant: str = "baseline",
+    benchmarks: str = "math500,humaneval,mt_bench",
+    seed: int = 42,
+    n_prompts: int = 50,
+):
     import json
     import sys
+    from datetime import datetime, timezone
 
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
-    from datasets import load_dataset
     from loguru import logger
 
     sys.path.insert(0, "/root")
     from midas.config import RouterConfig
-    from midas.eval import evaluate
+    from midas.eval import evaluate, load_eval_prompts
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
 
     device = torch.device("cuda")
     router_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0)
     ckpt_path = CHECKPOINTS[variant]
-    logger.info(f"Evaluating variant={variant}, checkpoint={ckpt_path}")
+    benchmark_list = [b.strip() for b in benchmarks.split(",")]
+    logger.info(f"Evaluating variant={variant}, benchmarks={benchmark_list}, seed={seed}")
 
     # Load target
     target = AutoModelForCausalLM.from_pretrained(
@@ -101,29 +107,57 @@ def evaluate(variant: str = "baseline"):
         meta = json.load(f)
     logger.info(f"Loaded: step={meta['step']}, loss={meta['loss']:.4f}")
 
-    # Load prompts
-    math500 = load_dataset("HuggingFaceH4/MATH-500", split="test")
-    prompts = [s["problem"] for s in list(math500)[:50]]
+    # Evaluate each benchmark
+    benchmark_results = {}
+    for bench in benchmark_list:
+        logger.info(f"\n{'='*60}\n  Benchmark: {bench}\n{'='*60}")
+        prompts = load_eval_prompts(bench, n=n_prompts, seed=seed)
+        benchmark_results[bench] = evaluate(model, target, tokenizer, prompts)
 
-    # Evaluate
-    results = evaluate(model, target, tokenizer, prompts)
-    results.update({"variant": variant, "checkpoint": ckpt_path, "training_step": meta["step"], "training_loss": meta["loss"]})
+    # Aggregate across benchmarks
+    total_tokens = sum(r["total_tokens"] for r in benchmark_results.values())
+    total_time = sum(r["total_time_s"] for r in benchmark_results.values())
+    all_acc = [a for r in benchmark_results.values() for a in r["all_acceptance_lengths"]]
+
+    import numpy as np
+    output = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "variant": variant,
+        "checkpoint": ckpt_path,
+        "training_step": meta["step"],
+        "training_loss": meta["loss"],
+        "seed": seed,
+        "n_prompts_per_benchmark": n_prompts,
+        "benchmarks": benchmark_list,
+        "aggregate": {
+            "tokens_per_second": round(total_tokens / total_time, 1),
+            "mean_acceptance_length": round(float(np.mean(all_acc)), 2),
+            "speedup_over_ar": round(np.mean([r["speedup_over_ar"] for r in benchmark_results.values()]), 2),
+        },
+        "results": benchmark_results,
+    }
 
     # Save
-    with open(f"/checkpoints/eval_{variant}.json", "w") as f:
-        json.dump(results, f, indent=2)
+    out_path = f"/checkpoints/eval_{variant}_full.json"
+    with open(out_path, "w") as f:
+        json.dump(output, f, indent=2)
     checkpoint_volume.commit()
-    return results
+    logger.info(f"Saved to {out_path}")
+    return output
 
 
 @app.local_entrypoint()
-def main(variant: str = "baseline"):
-    results = evaluate.remote(variant=variant)
+def main(variant: str = "baseline", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50):
+    output = run_eval.remote(variant=variant, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts)
+    agg = output["aggregate"]
     print(f"\n{'=' * 60}")
-    print(f"  {variant.upper()} RESULTS")
+    print(f"  {variant.upper()} — AGGREGATE RESULTS")
+    print(f"  Benchmarks: {output['benchmarks']}")
     print(f"{'=' * 60}")
-    print(f"  Tokens/sec:           {results['tokens_per_second']}")
-    print(f"  Acceptance length:    {results['mean_acceptance_length']}")
-    print(f"  Speedup over AR:      {results['speedup_over_ar']}x")
-    print(f"  AR baseline:          {results['autoregressive_tps']} tok/s")
+    print(f"  Tokens/sec:           {agg['tokens_per_second']}")
+    print(f"  Acceptance length:    {agg['mean_acceptance_length']}")
+    print(f"  Speedup over AR:      {agg['speedup_over_ar']}x")
+    print(f"{'=' * 60}")
+    for bench, res in output["results"].items():
+        print(f"  {bench:<15} τ={res['mean_acceptance_length']:.2f}  {res['tokens_per_second']} tok/s  {res['speedup_over_ar']}x")
     print(f"{'=' * 60}")

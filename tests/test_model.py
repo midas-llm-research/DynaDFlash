@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.model
+
 """Tests for midas/models/model.py — utilities, layers, and DFlashDraftModel."""
 
 import torch

@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.train
+
 """Tests for midas/train.py — checkpoint utilities and train loop smoke test."""
 
 import json

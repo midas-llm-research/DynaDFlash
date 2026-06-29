@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.data
+
 """Tests for midas/data.py — dataset, collate, sampler, prepare_draft_inputs."""
 
 import json
