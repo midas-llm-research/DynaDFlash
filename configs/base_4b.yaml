@@ -1,5 +1,6 @@
 target_model: "Qwen/Qwen3-4B"
 draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
+data_path: "/checkpoints/sdd/sdd_100k.jsonl"
 
 router:
   hidden_size: 2560

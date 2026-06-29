@@ -47,6 +47,7 @@ from transformers.cache_utils import Cache
 
 if TYPE_CHECKING:
     from midas.data import DraftTrainingBatch
+    from midas.config import SparseAttentionConfig
 
 # ---------------------------------------------------------------------------
 # Model utilities
@@ -85,6 +86,60 @@ def sample(logits: torch.Tensor, temperature: float = 0.0) -> torch.Tensor:
 def _cuda_time() -> float:
     torch.cuda.synchronize()
     return time.perf_counter()
+
+
+def _evict_sink_window(cache: Cache, sink: int, window: int) -> None:
+    """
+    Sparse-attention KV eviction for the draft's context cache (eval-only).
+
+    Keeps the first `sink` entries (attention sinks — typically the start of the
+    prompt) plus the most recent `window` entries, and drops everything in
+    between. No-op until the cache exceeds `sink + window`, so short generations
+    are unaffected.
+
+    This is the StreamingLLM sink+window pattern without retraining: kept entries
+    retain the rotary phases they were cached with (no position remapping, no
+    learned softmax sink). Faithful as long as the sequence stays within the
+    model's trained context length.
+
+    Mutates `cache` in place. Handles both the transformers>=4.54 `.layers`
+    layout and the older `key_cache`/`value_cache` lists.
+    """
+    if sink < 0 or window < 0:
+        raise ValueError(f"sink/window must be non-negative, got sink={sink}, window={window}")
+    if cache.get_seq_length() <= sink + window:
+        return
+
+    def _trim(t: torch.Tensor) -> torch.Tensor:
+        # cache tensors are [batch, num_heads, seq, head_dim]
+        if window == 0:
+            return t[:, :, :sink, :]
+        return torch.cat([t[:, :, :sink, :], t[:, :, -window:, :]], dim=2)
+
+    layers = getattr(cache, "layers", None)
+    if layers is not None:
+        for layer in layers:
+            if getattr(layer, "keys", None) is not None:
+                layer.keys = _trim(layer.keys)
+                layer.values = _trim(layer.values)
+    else:  # older transformers cache layout
+        for i in range(len(cache.key_cache)):
+            cache.key_cache[i] = _trim(cache.key_cache[i])
+            cache.value_cache[i] = _trim(cache.value_cache[i])
+
+
+def _apply_sparse_eviction(cache: Cache, cfg: "SparseAttentionConfig") -> None:
+    """Dispatch draft KV eviction to the policy named by `cfg.type`.
+
+    To add a new policy: add a value to `SparseAttentionType` and a branch here.
+    """
+    from midas.config import SparseAttentionType
+
+    policy = SparseAttentionType(cfg.type)  # accept a raw string or the enum
+    if policy is SparseAttentionType.SLIDING_WINDOW:
+        _evict_sink_window(cache, cfg.sink_tokens, cfg.window)
+    else:
+        raise ValueError(f"No eviction implementation for sparse_attention type {policy}")
 
 
 def compute_position_weighted_ce_loss(
@@ -144,7 +199,9 @@ def dflash_generate(
     block_size: Optional[int] = None,
     mask_token_id: Optional[int] = None,
     return_stats: bool = False,
+    sparse_attention: "SparseAttentionConfig" = None,
 ):
+    sparse = sparse_attention is not None
     num_input_tokens = input_ids.shape[1]
     max_length = num_input_tokens + max_new_tokens
     block_size = model.block_size if block_size is None else block_size
@@ -186,15 +243,25 @@ def dflash_generate(
         block_position_ids = position_ids[:, start : start + block_size]
         if block_size > 1:
             noise_embedding = target.model.embed_tokens(block_output_ids)
+            # MIDAS: position start was `past_key_values_draft.get_seq_length()`.
+            # Re-expressed as `start - ctx_len` (absolute) so it stays correct once
+            # the cache is shrunk by sparse eviction; identical value when dense.
+            ctx_len = target_hidden.shape[1]
             draft_logits = target.lm_head(model(
                 target_hidden=target_hidden,
                 noise_embedding=noise_embedding,
-                position_ids=position_ids[:, past_key_values_draft.get_seq_length(): start + block_size],
+                position_ids=position_ids[:, start - ctx_len: start + block_size],
                 past_key_values=past_key_values_draft,
                 use_cache=True,
                 is_causal=False,
             )[:, 1 - block_size :, :])
-            past_key_values_draft.crop(start)
+            # MIDAS: drop the just-appended noise (block_size entries) by relative
+            # count rather than absolute `crop(start)`, since after eviction the
+            # cache length no longer equals the absolute position. Equivalent to
+            # crop(start) in the dense case.
+            past_key_values_draft.crop(past_key_values_draft.get_seq_length() - block_size)
+            if sparse:
+                _apply_sparse_eviction(past_key_values_draft, sparse_attention)
             block_output_ids[:, 1:] = sample(draft_logits)
             if draft_prefill and return_stats:
                 draft_prefill = False

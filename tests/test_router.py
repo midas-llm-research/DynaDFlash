@@ -81,3 +81,40 @@ def test_different_inputs_give_different_routing():
 
     # Different inputs should produce different routing
     assert not torch.allclose(alpha_a, alpha_b, atol=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# ContextRouter with use_fc=False
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def router_nofc():
+    config = RouterConfig(hidden_size=256, num_layers=5, rank=64, use_fc=False)
+    return ContextRouter(config)
+
+
+def test_nofc_has_no_fc_layer(router_nofc):
+    assert not hasattr(router_nofc, "fc")
+
+
+def test_nofc_output_shape(router_nofc, dummy_input):
+    context, alpha = router_nofc(dummy_input)
+    B, T, H = 2, 10, 256
+    assert context.shape == (B, T, H)
+    assert alpha.shape == (B, T, 5)
+
+
+def test_nofc_routing_weights_sum_to_one(router_nofc, dummy_input):
+    _, alpha = router_nofc(dummy_input)
+    sums = alpha.sum(dim=-1)
+    assert torch.allclose(sums, torch.ones_like(sums), atol=1e-5)
+
+
+def test_nofc_gradient_flows_through_all_params(router_nofc, dummy_input):
+    context, _ = router_nofc(dummy_input)
+    loss = context.sum()
+    loss.backward()
+
+    for name, param in router_nofc.named_parameters():
+        assert param.grad is not None, f"No gradient for {name}"

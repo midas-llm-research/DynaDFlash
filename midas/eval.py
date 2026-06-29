@@ -22,19 +22,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
-from itertools import chain
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import torch
 from loguru import logger
-from tqdm import tqdm
 
+from midas.config import SparseAttentionConfig, SparseAttentionType
 from midas.models import DFlashDraftModel, DFlashDraftModelRouted, dflash_generate
-
-random.seed(42)
 
 CACHE_DIR = Path(__file__).parent.parent / "cache"
 
@@ -106,95 +103,153 @@ def load_benchmark(name: str) -> list[dict]:
 # Eval loop
 # ---------------------------------------------------------------------------
 
+def _log_length_stats(
+    prompt_lens: list[int],
+    output_lens: list[int],
+    sparse_attention: SparseAttentionConfig = None,
+) -> None:
+    """Log a summary of prompt/generation token lengths across the eval set."""
+    def _fmt(name: str, vals: list[int]) -> str:
+        a = np.asarray(vals)
+        return (
+            f"{name}: n={len(a)} min={a.min()} mean={a.mean():.0f} "
+            f"median={int(np.median(a))} p90={int(np.percentile(a, 90))} max={a.max()}"
+        )
+
+    logger.info("=" * 50)
+    logger.info("Sample length summary (tokens)")
+    logger.info(_fmt("  prompt   ", prompt_lens))
+    logger.info(_fmt("  generated", output_lens))
+    if sparse_attention is not None:
+        budget = sparse_attention.sink_tokens + sparse_attention.window
+        n_evicted = int(np.sum(np.asarray(output_lens) > budget))
+        logger.info(
+            f"  sparse draft: {n_evicted}/{len(output_lens)} generations exceed "
+            f"budget={budget} (eviction actually fires on those)"
+        )
+    logger.info("=" * 50)
+
 
 def evaluate(
-    target: torch.nn.Module,
     draft: DFlashDraftModel,
+    target: torch.nn.Module,
     tokenizer,
-    dataset_name: str,
-    block_size: Optional[int] = None,
+    prompts: list[str],
     max_new_tokens: int = 2048,
     temperature: float = 0.0,
-    max_samples: Optional[int] = None,
-    enable_thinking: bool = False,
-) -> tuple[list[dict], int]:
+    num_warmup: int = 3,
+    sparse_attention: SparseAttentionConfig = None,
+) -> dict:
     """
-    Run baseline (block_size=1) and speculative (block_size=N) decoding on every
-    sample in `dataset_name`. Returns `(responses, block_size)` where each
-    response is `{1: stats_baseline, N: stats_spec}` from `dflash_generate`.
-    """
-    block_size = block_size or draft.block_size
-    dataset = load_benchmark(dataset_name)
-    if max_samples is not None and len(dataset) > max_samples:
-        random.shuffle(dataset)
-        dataset = dataset[:max_samples]
+    Evaluate speculative decoding throughput against autoregressive baseline.
 
-    responses: list[dict] = []
-    for instance in tqdm(dataset, desc=f"eval/{dataset_name}"):
-        messages: list[dict] = []
-        for user_content in instance["turns"]:
-            messages.append({"role": "user", "content": user_content})
-            input_text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True,
-                enable_thinking=enable_thinking,
+    Both AR and speculative decoding are measured on the same prompts with the
+    same max_new_tokens to ensure a fair comparison. Warmup runs exercise both
+    code paths before any timing begins.
+
+    `sparse_attention` (a SparseAttentionConfig) optionally enables KV-cache
+    eviction on the draft's context cache; None means dense full-context drafting.
+
+    Returns metrics dict with throughput, acceptance length, and speedup.
+    """
+    import time
+
+    device = next(target.parameters()).device
+    eos = [tokenizer.eos_token_id]
+
+    if sparse_attention is not None:
+        logger.info(
+            f"Sparse draft enabled: type={sparse_attention.type.value}, "
+            f"sink_tokens={sparse_attention.sink_tokens}, window={sparse_attention.window} "
+            f"(draft context capped at {sparse_attention.sink_tokens + sparse_attention.window} entries)"
+        )
+
+    # Phase 0: Warmup — exercise both AR and spec-decode paths so CUDA kernels
+    # are compiled and memory pools are allocated before timing begins.
+    logger.info("Warmup (AR + speculative)...")
+    wids = tokenizer("Solve: 2+2=", return_tensors="pt").input_ids.to(device)
+    for _ in range(num_warmup):
+        with torch.no_grad():
+            target.generate(wids, max_new_tokens=32, do_sample=False)
+            dflash_generate(draft, target, wids, max_new_tokens=32,
+                          stop_token_ids=eos, temperature=0.0)
+    torch.cuda.empty_cache()
+
+    # Phase 1: Autoregressive baseline — same prompts, same max_new_tokens.
+    logger.info(f"Measuring autoregressive baseline ({len(prompts)} prompts, max_new_tokens={max_new_tokens})...")
+    ar_times, ar_tokens = [], []
+    for i, prompt in enumerate(prompts):
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        with torch.no_grad():
+            out = target.generate(input_ids, max_new_tokens=max_new_tokens, do_sample=False)
+        torch.cuda.synchronize()
+        t1 = time.perf_counter()
+        ar_tokens.append(out.shape[1] - input_ids.shape[1])
+        ar_times.append(t1 - t0)
+        if (i + 1) % 10 == 0:
+            logger.info(f"  AR: {i+1}/{len(prompts)}")
+    ar_tps = sum(ar_tokens) / sum(ar_times)
+    logger.info(f"Autoregressive: {ar_tps:.1f} tok/s ({sum(ar_tokens)} tokens, {sum(ar_times):.1f}s)")
+    torch.cuda.empty_cache()
+
+    # Phase 2: Speculative decoding — same prompts, same max_new_tokens.
+    logger.info(f"Measuring speculative decoding ({len(prompts)} prompts)...")
+    spec_results = []
+    prompt_lens: list[int] = []
+    output_lens: list[int] = []
+    for i, prompt in enumerate(prompts):
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
+        prompt_lens.append(input_ids.shape[1])
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        with torch.no_grad():
+            stats = dflash_generate(
+                draft, target, input_ids,
+                max_new_tokens=max_new_tokens,
+                stop_token_ids=eos,
+                temperature=temperature, return_stats=True,
+                sparse_attention=sparse_attention,
             )
-            input_ids = tokenizer.encode(input_text, return_tensors="pt").to(target.device)
+        torch.cuda.synchronize()
+        t1 = time.perf_counter()
+        spec_results.append({
+            "tokens": stats.num_output_tokens,
+            "time": t1 - t0,
+            "acceptance": stats.acceptance_lengths,
+        })
+        output_lens.append(stats.num_output_tokens)
+        if (i + 1) % 10 == 0:
+            logger.info(f"  Spec: {i+1}/{len(prompts)}")
 
-            sample_stats: dict = {}
-            for bs in (1, block_size):
-                sample_stats[bs] = dflash_generate(
-                    draft,
-                    target=target,
-                    input_ids=input_ids,
-                    max_new_tokens=max_new_tokens,
-                    stop_token_ids=[tokenizer.eos_token_id],
-                    temperature=temperature,
-                    block_size=bs,
-                    return_stats=True,
-                )
+    # Phase 3: Compute metrics.
+    spec_total_tokens = sum(r["tokens"] for r in spec_results)
+    spec_total_time = sum(r["time"] for r in spec_results)
+    spec_tps = spec_total_tokens / spec_total_time
+    all_acc = [a for r in spec_results for a in r["acceptance"]]
+    mean_acc = float(np.mean(all_acc))
+    speedup = spec_tps / ar_tps
 
-            # Append assistant turn so multi-turn datasets see realistic context
-            spec = sample_stats[block_size]
-            generated_ids = spec.output_ids[0, spec.num_input_tokens:]
-            output_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
-            messages.append({"role": "assistant", "content": output_text})
-            responses.append(sample_stats)
+    logger.info(f"Speculative: {spec_tps:.1f} tok/s ({spec_total_tokens} tokens, {spec_total_time:.1f}s)")
+    logger.info(f"Acceptance length (τ): {mean_acc:.2f}")
+    logger.info(f"Speedup over AR: {speedup:.2f}x")
 
-    return responses, block_size
+    _log_length_stats(prompt_lens, output_lens, sparse_attention)
 
-
-def report(responses: list[dict], block_size: int) -> dict:
-    """Print + return a summary of throughput, speedup, and acceptance stats."""
-    baseline_tpot = float(np.mean([r[1].time_per_output_token for r in responses]))
-    dflash_tpot = float(np.mean([r[block_size].time_per_output_token for r in responses]))
-    mean_accept = float(np.mean([np.mean(r[block_size].acceptance_lengths) for r in responses]))
-
-    accept_all = list(chain.from_iterable(r[block_size].acceptance_lengths for r in responses))
-    histogram = [accept_all.count(b) / len(accept_all) for b in range(block_size + 1)]
-
-    summary = {
-        "baseline_tps": 1.0 / baseline_tpot,
-        "dflash_tps": 1.0 / dflash_tpot,
-        "speedup": baseline_tpot / dflash_tpot,
-        "mean_acceptance_length": mean_accept,
-        "acceptance_histogram": histogram,
-        "num_samples": len(responses),
-        "block_size": block_size,
+    return {
+        "tokens_per_second": round(spec_tps, 1),
+        "mean_acceptance_length": round(mean_acc, 2),
+        "speedup_over_ar": round(speedup, 2),
+        "autoregressive_tps": round(ar_tps, 1),
+        "total_tokens": spec_total_tokens,
+        "total_time_s": round(spec_total_time, 1),
+        "ar_total_tokens": sum(ar_tokens),
+        "ar_total_time_s": round(sum(ar_times), 1),
+        "num_prompts": len(prompts),
+        "max_new_tokens": max_new_tokens,
+        "sparse_attention": None if sparse_attention is None else asdict(sparse_attention),
     }
-
-    print()
-    print("=" * 50)
-    print(f"Samples evaluated:      {summary['num_samples']}")
-    print(f"Block size:             {block_size}")
-    print(f"Baseline throughput:    {summary['baseline_tps']:,.2f} tok/s")
-    print(f"DFlash throughput:      {summary['dflash_tps']:,.2f} tok/s")
-    print(f"Decoding speedup:       {summary['speedup']:.2f}x")
-    print(f"Mean acceptance length: {mean_accept:.2f}")
-    print(f"Acceptance histogram:   {[f'{x * 100:.1f}%' for x in histogram]}")
-    print("=" * 50)
-    return summary
 
 
 # ---------------------------------------------------------------------------
@@ -257,13 +312,20 @@ def main() -> None:
     )
     parser.add_argument("--target", required=True, help="Target model name/path")
     parser.add_argument("--draft", required=True, help="Draft model checkpoint (DFlash format)")
-    parser.add_argument("--dataset", default="gsm8k", choices=list(DATASETS))
+    parser.add_argument("--dataset", default="math500", choices=list(DATASETS))
     parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--block-size", type=int, default=None,
-                        help="Override draft.block_size (default uses model config)")
-    parser.add_argument("--max-samples", type=int, default=None)
-    parser.add_argument("--enable-thinking", action="store_true")
+    parser.add_argument("--max-samples", type=int, default=50)
+    parser.add_argument("--sparse-attention", type=str, default=None,
+                        choices=[t.value for t in SparseAttentionType],
+                        help="Sparse-attention KV eviction policy for the draft cache "
+                             "(e.g. 'sliding_window'). Omit for dense full context.")
+    parser.add_argument("--sink-tokens", type=int, default=4,
+                        help="Leading context tokens (attention sinks) always kept. "
+                             "Only used with --sparse-attention.")
+    parser.add_argument("--sliding-window-size", type=int, default=512,
+                        help="Number of non-sink context entries kept. "
+                             "Only used with --sparse-attention.")
     parser.add_argument("--routed", action="store_true",
                         help="Use DFlashDraftModelRouted instead of base DFlashDraftModel")
     parser.add_argument("--router-ckpt", type=str, default=None,
@@ -275,20 +337,7 @@ def main() -> None:
     if args.router_ckpt and not args.routed:
         args.routed = True
 
-    if args.enable_thinking and any(
-        s in args.target.lower() for s in ["qwen3-4b", "qwen3-8b"]
-    ):
-        raise ValueError(
-            "DFlash drafts for Qwen3-4B/8B were not trained with thinking traces — "
-            "--enable-thinking will produce poor speedups."
-        )
-
     from transformers import AutoModelForCausalLM, AutoTokenizer
-
-    torch.manual_seed(0)
-    torch.cuda.manual_seed_all(0)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     attn_impl = _get_attn_impl()
@@ -296,9 +345,7 @@ def main() -> None:
     logger.info(f"Loading target: {args.target}")
     target = (
         AutoModelForCausalLM.from_pretrained(
-            args.target,
-            attn_implementation=attn_impl,
-            torch_dtype=torch.bfloat16,
+            args.target, attn_implementation=attn_impl, torch_dtype=torch.bfloat16,
         )
         .to(device)
         .eval()
@@ -311,18 +358,28 @@ def main() -> None:
     )
     draft.eval()
 
-    responses, block_size = evaluate(
-        target,
-        draft,
-        tokenizer,
-        dataset_name=args.dataset,
-        block_size=args.block_size,
+    # Load prompts
+    dataset = load_benchmark(args.dataset)
+    if args.max_samples and len(dataset) > args.max_samples:
+        dataset = dataset[:args.max_samples]
+    prompts = [d["turns"][0] for d in dataset]
+
+    sparse_attention = (
+        SparseAttentionConfig(
+            type=SparseAttentionType(args.sparse_attention),
+            sink_tokens=args.sink_tokens,
+            window=args.sliding_window_size,
+        )
+        if args.sparse_attention is not None else None
+    )
+
+    results = evaluate(
+        draft, target, tokenizer, prompts,
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
-        max_samples=args.max_samples,
-        enable_thinking=args.enable_thinking,
+        sparse_attention=sparse_attention,
     )
-    report(responses, block_size)
+    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":

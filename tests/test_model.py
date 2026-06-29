@@ -3,6 +3,8 @@
 import torch
 import pytest
 
+from transformers import DynamicCache
+
 from midas.models.model import (
     build_target_layer_ids,
     extract_context_feature,
@@ -12,6 +14,7 @@ from midas.models.model import (
     Qwen3DFlashAttention,
     Qwen3DFlashDecoderLayer,
     DFlashDraftModel,
+    _evict_sink_window,
 )
 from tests.conftest import make_tiny_qwen3_config, MockLMHead
 
@@ -400,3 +403,73 @@ class TestApplyRotaryPosEmb:
         q_out, k_out = apply_rotary_pos_emb(q, k, cos, sin)
         assert q_out.shape == (B, num_heads, q_len, head_dim)
         assert k_out.shape == (B, num_heads, k_len, head_dim)
+
+
+# ---------------------------------------------------------------------------
+# _evict_sink_window — sparse-attention KV eviction for the draft (eval-only)
+# ---------------------------------------------------------------------------
+
+
+def _make_cache(seq_len: int, num_layers: int = 2, num_heads: int = 2, head_dim: int = 4):
+    """DynamicCache holding `seq_len` entries whose key/value at position i equal i,
+    so eviction can be checked by which positions survive."""
+    cache = DynamicCache()
+    for layer_idx in range(num_layers):
+        idx = torch.arange(seq_len, dtype=torch.float32)
+        k = idx.view(1, 1, seq_len, 1).expand(1, num_heads, seq_len, head_dim).contiguous()
+        v = k.clone()
+        cache.update(k, v, layer_idx)
+    return cache
+
+
+def _kept_positions(cache, head_dim_col: int = 0):
+    return cache.layers[0].keys[0, 0, :, head_dim_col].tolist()
+
+
+class TestEvictSinkWindow:
+    def test_noop_when_within_budget(self):
+        cache = _make_cache(seq_len=10)
+        _evict_sink_window(cache, sink=4, window=8)  # 4 + 8 >= 10
+        assert cache.get_seq_length() == 10
+        assert _kept_positions(cache) == list(range(10))
+
+    def test_keeps_sink_and_window(self):
+        cache = _make_cache(seq_len=100)
+        _evict_sink_window(cache, sink=4, window=8)
+        assert cache.get_seq_length() == 12
+        # first 4 (sinks) + last 8 (recent window) of the original positions
+        assert _kept_positions(cache) == [0, 1, 2, 3, 92, 93, 94, 95, 96, 97, 98, 99]
+
+    def test_all_layers_evicted_consistently(self):
+        cache = _make_cache(seq_len=50, num_layers=3)
+        _evict_sink_window(cache, sink=2, window=5)
+        for layer in cache.layers:
+            assert layer.keys.shape[2] == 7
+            assert layer.values.shape[2] == 7
+
+    def test_window_zero_keeps_only_sink(self):
+        cache = _make_cache(seq_len=20)
+        _evict_sink_window(cache, sink=3, window=0)
+        assert _kept_positions(cache) == [0, 1, 2]
+
+    def test_repeated_eviction_is_stable(self):
+        # Mimics the per-block loop: append new entries, then re-evict each round.
+        cache = _make_cache(seq_len=20)
+        _evict_sink_window(cache, sink=4, window=8)
+        assert cache.get_seq_length() == 12
+        # append 5 fresh entries (positions 100..104) and evict again
+        for layer_idx, layer in enumerate(cache.layers):
+            fresh = torch.arange(100, 105, dtype=torch.float32)
+            k = fresh.view(1, 1, 5, 1).expand(1, layer.keys.shape[1], 5, layer.keys.shape[3]).contiguous()
+            cache.update(k, k.clone(), layer_idx)
+        _evict_sink_window(cache, sink=4, window=8)
+        assert cache.get_seq_length() == 12
+        # sinks still pinned at the front; window now holds the freshest entries.
+        # After round 1 the cache is [0,1,2,3, 12..19]; appending 100..104 then
+        # re-evicting keeps [0,1,2,3] + the last 8 = [17,18,19,100,101,102,103,104].
+        assert _kept_positions(cache) == [0, 1, 2, 3, 17, 18, 19, 100, 101, 102, 103, 104]
+
+    def test_negative_args_rejected(self):
+        cache = _make_cache(seq_len=10)
+        with pytest.raises(ValueError):
+            _evict_sink_window(cache, sink=-1, window=4)

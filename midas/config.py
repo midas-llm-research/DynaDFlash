@@ -1,7 +1,19 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
 
 import yaml
+
+
+class SparseAttentionType(str, Enum):
+    SLIDING_WINDOW = "sliding_window"
+
+
+@dataclass
+class SparseAttentionConfig:
+    type: SparseAttentionType = SparseAttentionType.SLIDING_WINDOW
+    sink_tokens: int = 4
+    window: int = 512
 
 
 @dataclass
@@ -11,6 +23,7 @@ class RouterConfig:
     rank: int = 128
     gamma_init: float = 0.01
     temperature_init: float = 1.0
+    use_fc: bool = True
 
 
 @dataclass

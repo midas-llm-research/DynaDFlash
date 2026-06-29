@@ -79,13 +79,21 @@ def train(
         model_cls = DFlashDraftModelRouted
         config.checkpoint.save_dir = "/checkpoints/midas-router-v4"
         logger.info("Training ROUTED variant (MIDAS context router)")
+    elif variant == "router-nofc":
+        model_cls = DFlashDraftModelRouted
+        if config.router is None:
+            from midas.config import RouterConfig
+            config.router = RouterConfig()
+        config.router.use_fc = False
+        config.checkpoint.save_dir = "/checkpoints/midas-router-nofc-v3"
+        logger.info("Training ROUTED-NOFC variant (router without FC mixing)")
     elif variant == "base":
         model_cls = DFlashDraftModel
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-base-v4"
         logger.info("Training BASE variant (z-lab fc+hidden_norm)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router' or 'base'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', or 'base'.")
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
