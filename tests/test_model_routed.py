@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.router
+
 """Tests for midas/models/model_context_router.py — DFlashDraftModelRouted."""
 
 import torch

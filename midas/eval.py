@@ -98,12 +98,27 @@ def load_benchmark(name: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Eval loop
+# Prompt loading
 # ---------------------------------------------------------------------------
 
 
+def load_eval_prompts(dataset_name: str, n: int = 50, seed: int = 42) -> list[str]:
+    """Load n prompts from a benchmark with a fixed seed for reproducibility."""
+    import random as _rng
+
+    dataset = load_benchmark(dataset_name)
+    rng = _rng.Random(seed)
+    samples = rng.sample(dataset, min(n, len(dataset)))
+
+    prompts = []
+    for item in samples:
+        turns = item["turns"]
+        prompts.append(turns[0])  # first turn only (handles multi-turn like mt-bench)
+    return prompts
+
+
 # ---------------------------------------------------------------------------
-# Throughput evaluation (used by modal eval scripts)
+# Throughput evaluation
 # ---------------------------------------------------------------------------
 
 
@@ -196,6 +211,13 @@ def evaluate(
     logger.info(f"Acceptance length (τ): {mean_acc:.2f}")
     logger.info(f"Speedup over AR: {speedup:.2f}x")
 
+    per_prompt = [
+        {"tokens": r["tokens"], "time_s": round(r["time"], 3),
+         "tps": round(r["tokens"] / r["time"], 1) if r["time"] > 0 else 0,
+         "acceptance_lengths": r["acceptance"]}
+        for r in spec_results
+    ]
+
     return {
         "tokens_per_second": round(spec_tps, 1),
         "mean_acceptance_length": round(mean_acc, 2),
@@ -207,6 +229,8 @@ def evaluate(
         "ar_total_time_s": round(sum(ar_times), 1),
         "num_prompts": len(prompts),
         "max_new_tokens": max_new_tokens,
+        "per_prompt": per_prompt,
+        "all_acceptance_lengths": all_acc,
     }
 
 
