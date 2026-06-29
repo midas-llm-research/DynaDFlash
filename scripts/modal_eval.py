@@ -32,6 +32,9 @@ image = (
         "huggingface_hub",
     )
     .add_local_dir(str(PROJECT_ROOT / "midas"), "/root/midas", copy=True)
+    # Put /root on the path at container startup so Modal can unpickle the
+    # SparseAttentionConfig argument (deserialized before the function body runs).
+    .env({"PYTHONPATH": "/root"})
 )
 
 
@@ -52,7 +55,10 @@ CHECKPOINTS = {
     secrets=[modal.Secret.from_name("huggingface")],
     timeout=7200,
 )
-def evaluate(variant: str = "baseline"):
+def evaluate(
+    variant: str = "baseline",
+    sparse_attention: "SparseAttentionConfig" = None,
+):
     import json
     import sys
 
@@ -105,8 +111,17 @@ def evaluate(variant: str = "baseline"):
     math500 = load_dataset("HuggingFaceH4/MATH-500", split="test")
     prompts = [s["problem"] for s in list(math500)[:50]]
 
-    # Evaluate
-    results = evaluate(model, target, tokenizer, prompts)
+    # Evaluate (sparse_attention is a SparseAttentionConfig or None for dense)
+    if sparse_attention is not None:
+        logger.info(
+            f"Sparse draft: type={sparse_attention.type.value}, sink_tokens={sparse_attention.sink_tokens}, "
+            f"window={sparse_attention.window} "
+            f"(draft context capped at {sparse_attention.sink_tokens + sparse_attention.window} entries)"
+        )
+    results = evaluate(
+        model, target, tokenizer, prompts,
+        sparse_attention=sparse_attention,
+    )
     results.update({"variant": variant, "checkpoint": ckpt_path, "training_step": meta["step"], "training_loss": meta["loss"]})
 
     # Save
@@ -117,8 +132,24 @@ def evaluate(variant: str = "baseline"):
 
 
 @app.local_entrypoint()
-def main(variant: str = "baseline"):
-    results = evaluate.remote(variant=variant)
+def main(
+    variant: str = "baseline",
+    sparse_attention: str = None,
+    sink_tokens: int = 4,
+    sliding_window_size: int = 512,
+):
+    # Build the config locally from CLI flags and ship the object to the remote.
+    from midas.config import SparseAttentionConfig, SparseAttentionType
+
+    sparse_cfg = (
+        SparseAttentionConfig(
+            type=SparseAttentionType(sparse_attention),
+            sink_tokens=sink_tokens,
+            window=sliding_window_size,
+        )
+        if sparse_attention is not None else None
+    )
+    results = evaluate.remote(variant=variant, sparse_attention=sparse_cfg)
     print(f"\n{'=' * 60}")
     print(f"  {variant.upper()} RESULTS")
     print(f"{'=' * 60}")
@@ -126,4 +157,7 @@ def main(variant: str = "baseline"):
     print(f"  Acceptance length:    {results['mean_acceptance_length']}")
     print(f"  Speedup over AR:      {results['speedup_over_ar']}x")
     print(f"  AR baseline:          {results['autoregressive_tps']} tok/s")
+    sa = results.get("sparse_attention")
+    if sa is not None:
+        print(f"  Sparse draft:         type={sa['type']} sink={sa['sink_tokens']} window={sa['window']}")
     print(f"{'=' * 60}")

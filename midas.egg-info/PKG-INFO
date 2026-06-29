@@ -1,0 +1,18 @@
+ Metadata-Version: 2.4
+Name: midas
+Version: 0.1.0
+Summary: MoE-inspired dynamic context routing for DFlash speculative decoding
+Requires-Python: >=3.10
+Requires-Dist: torch>=2.2.0
+Requires-Dist: transformers>=4.57.0
+Requires-Dist: accelerate
+Requires-Dist: datasets
+Requires-Dist: wandb
+Requires-Dist: pyyaml
+Requires-Dist: numpy
+Requires-Dist: tqdm
+Requires-Dist: loguru
+Provides-Extra: modal
+Requires-Dist: modal; extra == "modal"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
