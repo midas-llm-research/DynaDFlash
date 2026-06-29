@@ -42,6 +42,7 @@ CHECKPOINTS = {
     "baseline": "/checkpoints/midas-baseline/checkpoint_step9276",
     "router": "/checkpoints/midas-router-v2/checkpoint_step9276",
     "router-nofc": "/checkpoints/midas-router-nofc-v3/best",
+    "skip": "/checkpoints/midas-skip/best",
 }
 
 
@@ -92,6 +93,16 @@ def evaluate(
     elif variant == "router-nofc":
         nofc_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0, use_fc=False)
         model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=nofc_config)
+    elif variant == "skip":
+        from midas.config import SkipConfig
+        from midas.models.model_skip import DFlashDraftModelSkip
+        # Inference only uses the trained gates (latency drives TRAINING labels, not
+        # inference), so latency_path is irrelevant here. Early-exit runs automatically
+        # under model.eval(); the trained gate weights come from the checkpoint below.
+        model = DFlashDraftModelSkip.from_config_random(
+            "/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16,
+            skip_config=SkipConfig(),
+        )
     else:
         raise ValueError(f"Unknown variant: {variant}")
 

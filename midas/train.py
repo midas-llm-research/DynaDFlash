@@ -35,7 +35,7 @@ from midas.data import (
     OnlineHiddenStateExtractor,
     prepare_draft_inputs,
 )
-from midas.models import DFlashDraftModel, DFlashDraftModelRouted
+from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSkip
 
 
 def save_checkpoint(
@@ -141,7 +141,14 @@ def build_default_model(
     weights start random (for fair from-scratch comparisons).
     """
     extra_kwargs: dict = {}
-    if model_cls is not DFlashDraftModel:
+    if model_cls is DFlashDraftModelSkip:
+        if config.skip is None:
+            raise ValueError(
+                "DFlashDraftModelSkip needs a `skip` config. Add a `skip:` block "
+                "to your yaml or set `config.skip = SkipConfig(...)` before train()."
+            )
+        extra_kwargs["skip_config"] = config.skip
+    elif model_cls is not DFlashDraftModel:
         if config.router is None:
             raise ValueError(
                 f"{model_cls.__name__} needs a `router` config. Add a "

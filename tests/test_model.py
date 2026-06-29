@@ -473,3 +473,4 @@ class TestEvictSinkWindow:
         cache = _make_cache(seq_len=10)
         with pytest.raises(ValueError):
             _evict_sink_window(cache, sink=-1, window=4)
+

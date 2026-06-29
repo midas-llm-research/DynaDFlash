@@ -16,6 +16,30 @@ class SparseAttentionConfig:
     window: int = 512
 
 
+class BlockAggregationType(str, Enum):
+    """How a draft block's per-token hidden states are collapsed to one vector
+    before the layer-skip gate scores it."""
+    EXP_DECAY = "exp_decay"   # fixed weights ~ exp(-(pos-1)/gamma) over drafted tokens (anchor excluded)
+    ATTENTION = "attention"   # per-layer attention pool (query = most-recent context hidden)
+
+
+@dataclass
+class SkipConfig:
+    """Layer-skip (early-exit) for the draft, used by DFlashDraftModelSkip.
+
+    After each decoder layer, the block hidden is aggregated to one vector and a
+    per-layer linear gate decides whether to exit. Training adds an LM head at
+    every depth (multi-layer CE) plus a BCE gate loss whose labels come from a
+    latency-vs-acceptance speedup score (see midas.latency.LatencyModel).
+    """
+    aggregation: BlockAggregationType = BlockAggregationType.ATTENTION
+    gamma: float = 7.0            # exp_decay: position weight ~ exp(-pos / gamma)
+    rank: int = 128               # attention: q/k projection rank
+    gate_loss_weight: float = 1.0  # weight of gate BCE relative to multi-layer CE
+    exit_threshold: float = 0.0   # inference: exit when gate logit > threshold
+    latency_path: Optional[str] = None  # JSON of fitted latency coefficients (None -> defaults)
+
+
 @dataclass
 class RouterConfig:
     hidden_size: int = 2560
@@ -67,6 +91,7 @@ class TrainConfig:
     # `train()`, or include a top-level block of the same name in your yaml.
     # Add new method configs as new `Optional[...] = None` fields below.
     router: Optional[RouterConfig] = None
+    skip: Optional[SkipConfig] = None
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -83,6 +108,9 @@ class TrainConfig:
         router_raw = raw.pop("router", None)
         if router_raw is not None:
             method_kwargs["router"] = RouterConfig(**router_raw)
+        skip_raw = raw.pop("skip", None)
+        if skip_raw is not None:
+            method_kwargs["skip"] = SkipConfig(**skip_raw)
 
         return cls(
             target_model=raw.get("target_model", cls.target_model),

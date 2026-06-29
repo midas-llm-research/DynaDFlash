@@ -401,6 +401,38 @@ class Qwen3DFlashAttention(nn.Module):
         attn_output = self.o_proj(attn_output)
         return attn_output, attn_weights
 
+    # MIDAS: append ONLY this layer's context K/V to the cache, skipping the block
+    # attention + MLP. Used by early-exit drafting (model_skip): when a block exits
+    # at a shallow layer, the deeper layers still need this block's context keys
+    # cached so a future (deeper) block attends over a complete cache. The context
+    # K/V is a pure projection of `target_hidden` (independent of the evolving block
+    # hidden), so this is cheap. Mirrors the k_ctx/v_ctx path of `forward` exactly.
+    def cache_context_kv(
+        self,
+        target_hidden: torch.Tensor,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor],
+        past_key_values: Cache,
+        cache_position: Optional[torch.LongTensor] = None,
+    ) -> None:
+        # Shape legend: B=batch, C=ctx_len, P=cos/sin length (=C+block_size from the
+        # caller's position_ids), H=hidden_size, Hkv=num_key_value_heads, D=head_dim.
+        # target_hidden: [B, C, H]
+        bsz, ctx_len = target_hidden.shape[:2]                 # B, C
+        # k_proj/v_proj: Linear(H -> Hkv*D); view splits heads.
+        k = self.k_proj(target_hidden).view(bsz, ctx_len, -1, self.head_dim)  # [B,C,H] -> [B,C,Hkv*D] -> [B,C,Hkv,D]
+        v = self.v_proj(target_hidden).view(bsz, ctx_len, -1, self.head_dim)  # [B,C,H] -> [B,C,Hkv*D] -> [B,C,Hkv,D]
+        k = self.k_norm(k).transpose(1, 2)                     # k_norm over D (last dim): [B,C,Hkv,D]; transpose -> [B,Hkv,C,D]
+        v = v.transpose(1, 2)                                  # [B,C,Hkv,D] -> [B,Hkv,C,D]
+        cos, sin = position_embeddings                         # cos,sin: [B, P, D] each
+        # Context occupies the first ctx_len positions (same as `forward`, where k
+        # spans [context, noise]); rotate the keys to those positions.
+        cos_ctx = cos[:, :ctx_len].unsqueeze(1)                # [B,P,D] -> [B,C,D] -> [B,1,C,D]
+        sin_ctx = sin[:, :ctx_len].unsqueeze(1)                # [B,P,D] -> [B,C,D] -> [B,1,C,D]
+        k = (k * cos_ctx) + (rotate_half(k) * sin_ctx)         # [B,Hkv,C,D] * [B,1,C,D] (broadcast over Hkv) -> [B,Hkv,C,D]
+        cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+        # update appends k,v at this layer's slot: cache[layer_idx] grows by C along seq.
+        past_key_values.update(k, v, self.layer_idx, cache_kwargs)  # k,v: [B,Hkv,C,D]
+
 
 class Qwen3DFlashDecoderLayer(GradientCheckpointingLayer):
     def __init__(self, config: Qwen3Config, layer_idx: int):
@@ -606,13 +638,25 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         *,
         device: Optional[torch.device] = None,
         dtype: torch.dtype = torch.bfloat16,
+        config_overrides: Optional[dict] = None,
         **constructor_kwargs,
     ) -> "DFlashDraftModel":
-        """Create model with random weights using config from a DFlash checkpoint."""
+        """Create model with random weights using config from a DFlash checkpoint.
+
+        `config_overrides` (dict) is applied to the loaded config before
+        construction, e.g. {"num_hidden_layers": 16} to size the draft differently.
+        """
         from transformers import AutoConfig
 
         config = AutoConfig.from_pretrained(dflash_checkpoint, trust_remote_code=True)
         config._attn_implementation = "sdpa"
+        for k, v in (config_overrides or {}).items():
+            setattr(config, k, v)
+        # Keep per-layer attention types consistent with num_hidden_layers; default
+        # any new layers to full attention if an override left layer_types stale.
+        layer_types = getattr(config, "layer_types", None)
+        if layer_types is not None and len(layer_types) != config.num_hidden_layers:
+            config.layer_types = ["full_attention"] * config.num_hidden_layers
 
         model = cls(config, **constructor_kwargs)
         if device is not None:
