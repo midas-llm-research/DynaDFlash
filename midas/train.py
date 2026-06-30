@@ -43,6 +43,29 @@ from midas.models import (
 )
 
 
+def _router_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.router is None:
+        raise ValueError(
+            "DFlashDraftModelRouted needs a `router` config. Add a `router:` "
+            "block to your yaml or set `config.router = RouterConfig(...)` "
+            "before calling train()."
+        )
+    return {"router_config": config.router}
+
+
+def _dflare_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.dflare is None:
+        config.dflare = DFlareConfig()
+    return {"dflare_config": config.dflare}
+
+
+_MODEL_CONSTRUCTOR_KWARGS = {
+    DFlashDraftModel: lambda config: {},
+    DFlashDraftModelRouted: _router_constructor_kwargs,
+    DFlareDraftModel: _dflare_constructor_kwargs,
+}
+
+
 def save_checkpoint(
     model: DFlashDraftModel,
     optimizer: torch.optim.Optimizer,
@@ -145,26 +168,15 @@ def build_default_model(
     pick which DFlashDraftModel subclass to use. If `random_init=True`, all
     weights start random (for fair from-scratch comparisons).
     """
-    extra_kwargs: dict = {}
-    if model_cls is DFlareDraftModel:
-        if config.dflare is None:
-            config.dflare = DFlareConfig()
-        extra_kwargs["dflare_config"] = config.dflare
-    elif model_cls is not DFlashDraftModel:
-        if config.router is None:
-            raise ValueError(
-                f"{model_cls.__name__} needs a `router` config. Add a "
-                "`router:` block to your yaml or set `config.router = "
-                "RouterConfig(...)` before calling train()."
-            )
-        extra_kwargs["router_config"] = config.router
-
+    constructor_kwargs = _MODEL_CONSTRUCTOR_KWARGS.get(
+        model_cls, lambda config: {}
+    )(config)
     factory = model_cls.from_config_random if random_init else model_cls.from_pretrained_dflash
     return factory(
         config.draft_checkpoint,
         device=device,
         dtype=torch.float32,
-        **extra_kwargs,
+        **constructor_kwargs,
     )
 
 
