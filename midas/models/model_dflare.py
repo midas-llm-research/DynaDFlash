@@ -75,6 +75,12 @@ class AdaptiveLayerFusion(nn.Module):
         self.fusion_logits = nn.Parameter(
             torch.zeros(config.num_draft_layers, config.num_target_layers)
         )
+        self.output_norms = nn.ModuleList(
+            [
+                Qwen3RMSNorm(config.hidden_size, eps=1e-6)
+                for _ in range(config.num_draft_layers)
+            ]
+        )
 
     def fusion_weights(self) -> torch.Tensor:
         return torch.softmax(self.fusion_logits, dim=-1)
@@ -93,7 +99,11 @@ class AdaptiveLayerFusion(nn.Module):
                 f"got {layer_hiddens.shape[0]}"
             )
         weights = self.fusion_weights().to(dtype=layer_hiddens.dtype)
-        return torch.einsum("dt,tblh->dblh", weights, layer_hiddens)
+        fused = torch.einsum("dt,tblh->dblh", weights, layer_hiddens)
+        return torch.stack(
+            [self.output_norms[i](fused[i]) for i in range(self.num_draft_layers)],
+            dim=0,
+        )
 
 
 class Qwen3DFlareAttention(nn.Module):
