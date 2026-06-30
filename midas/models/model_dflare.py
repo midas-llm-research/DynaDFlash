@@ -20,7 +20,6 @@ import torch
 from torch import nn
 from transformers import AutoConfig, AutoModel
 from transformers.cache_utils import Cache
-from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.qwen3.modeling_qwen3 import (
     ALL_ATTENTION_FUNCTIONS,
     FlashAttentionKwargs,
@@ -65,13 +64,6 @@ def compute_progressive_gamma(config: DFlareConfig, epoch: int) -> float:
     return config.gamma_initial + config.gamma_increment_per_epoch * epoch
 
 
-def compute_position_weights(
-    position_in_block: torch.Tensor,
-    gamma: float,
-) -> torch.Tensor:
-    return torch.exp(-position_in_block.float() / gamma)
-    
-
 class AdaptiveLayerFusion(nn.Module):
     """DFlare adaptive layer fusion from paper Section 4.1."""
 
@@ -82,9 +74,6 @@ class AdaptiveLayerFusion(nn.Module):
         self.hidden_size = config.hidden_size
         self.fusion_logits = nn.Parameter(
             torch.zeros(config.num_draft_layers, config.num_target_layers)
-        )
-        self.output_norms = nn.ModuleList(
-            [nn.RMSNorm(config.hidden_size) for _ in range(config.num_draft_layers)]
         )
 
     def fusion_weights(self) -> torch.Tensor:
@@ -104,11 +93,7 @@ class AdaptiveLayerFusion(nn.Module):
                 f"got {layer_hiddens.shape[0]}"
             )
         weights = self.fusion_weights().to(dtype=layer_hiddens.dtype)
-        fused = torch.einsum("dt,tblh->dblh", weights, layer_hiddens)
-        return torch.stack(
-            [self.output_norms[i](fused[i]) for i in range(self.num_draft_layers)],
-            dim=0,
-        )
+        return torch.einsum("dt,tblh->dblh", weights, layer_hiddens)
 
 
 class Qwen3DFlareAttention(nn.Module):
@@ -157,11 +142,7 @@ class Qwen3DFlareAttention(nn.Module):
         )
         self.q_norm = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)
         self.k_norm = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)
-        self.sliding_window = (
-            config.sliding_window
-            if config.layer_types[layer_idx] == "sliding_attention"
-            else None
-        )
+        self.sliding_window = None
 
     def forward(
         self,
@@ -271,6 +252,7 @@ class DFlareDraftModel(Qwen3PreTrainedModel):
 
     def __init__(self, config: Qwen3Config, dflare_config: DFlareConfig):
         config = copy.deepcopy(config)
+        target_num_layers = getattr(config, "num_target_layers", config.num_hidden_layers)
         config.num_hidden_layers = dflare_config.num_draft_layers
         super().__init__(config)
         if dflare_config.hidden_size != config.hidden_size:
@@ -287,7 +269,7 @@ class DFlareDraftModel(Qwen3PreTrainedModel):
             ]
         )
         self.target_layer_ids = build_dflare_target_layer_ids(
-            config.num_target_layers,
+            target_num_layers,
             dflare_config.num_target_layers,
         )
         self.adaptive_layer_fusion = AdaptiveLayerFusion(dflare_config)
@@ -315,7 +297,7 @@ class DFlareDraftModel(Qwen3PreTrainedModel):
         past_key_values: Optional[Cache] = None,
         use_cache: bool = False,
         **kwargs,
-    ) -> CausalLMOutputWithPast:
+    ) -> torch.Tensor:
         hidden_states = noise_embedding
         fused_contexts = self.adaptive_layer_fusion(target_hidden)
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
@@ -374,11 +356,24 @@ class DFlareDraftModel(Qwen3PreTrainedModel):
         config._attn_implementation = "sdpa"
         model = cls(config, **constructor_kwargs)
         model_state = model.state_dict()
+        original_state = original.state_dict()
         loaded = 0
-        for key, value in original.state_dict().items():
+        for key, value in original_state.items():
             if key in model_state and model_state[key].shape == value.shape:
                 model_state[key] = value
                 loaded += 1
+        warm_started = 0
+        for key, value in list(model_state.items()):
+            if ".target_k_proj." in key:
+                source_key = key.replace(".target_k_proj.", ".k_proj.")
+            elif ".target_v_proj." in key:
+                source_key = key.replace(".target_v_proj.", ".v_proj.")
+            else:
+                continue
+            source_value = original_state.get(source_key)
+            if source_value is not None and source_value.shape == value.shape:
+                model_state[key] = source_value
+                warm_started += 1
         model.load_state_dict(model_state)
         if device is None:
             device = next(original.parameters()).device
@@ -386,7 +381,8 @@ class DFlareDraftModel(Qwen3PreTrainedModel):
         del original
         print(
             f"Loaded {loaded} shape-compatible params from {dflash_checkpoint} "
-            f"into {cls.__name__}. Model on {device}, {dtype}."
+            f"into {cls.__name__}; warm-started {warm_started} target K/V params. "
+            f"Model on {device}, {dtype}."
         )
         return model
 
