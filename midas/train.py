@@ -253,19 +253,25 @@ def train(
 
             # Draft forward + loss in bf16 autocast (fast), optimizer in fp32 (precise).
             noise_embedding = target_model.model.embed_tokens(batch.noise_token_ids)
-            with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+            autocast_device = device.type if device.type in {"cuda", "cpu"} else "cuda"
+            with torch.amp.autocast(device_type=autocast_device, dtype=torch.bfloat16):
                 draft_output = model(
                     position_ids=batch.position_ids,
                     noise_embedding=noise_embedding,
                     target_hidden=target_hidden,
                     attention_mask=batch.attention_mask,
                 )
+                loss_gamma = (
+                    compute_progressive_gamma(config.dflare, epoch)
+                    if isinstance(model, DFlareDraftModel) and config.dflare is not None
+                    else config.loss_gamma
+                )
                 loss = model.compute_loss(
                     draft_output,
                     input_ids,
                     batch,
                     target_model.lm_head,
-                    gamma=config.loss_gamma,
+                    gamma=loss_gamma,
                 )
 
             loss = loss / config.gradient_accumulation_steps

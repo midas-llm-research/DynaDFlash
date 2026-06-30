@@ -1,7 +1,8 @@
-"""DFlare draft model components.
+"""DFlare components
 
-This module implements the paper-specific DFlare changes on top of the local
-DFlash draft model shape:
+All differences from the upstream file are tagged with `# MIDAS:` comments and
+fall into four categories, each behaviorally identical to AngelSlim in the
+default class:
 
 1. Adaptive layer fusion: each draft layer learns softmax weights over selected
    target hidden layers and receives its own fused target context.
@@ -63,6 +64,13 @@ def build_dflare_target_layer_ids(
 def compute_progressive_gamma(config: DFlareConfig, epoch: int) -> float:
     return config.gamma_initial + config.gamma_increment_per_epoch * epoch
 
+
+def compute_position_weights(
+    position_in_block: torch.Tensor,
+    gamma: float,
+) -> torch.Tensor:
+    return torch.exp(-position_in_block.float() / gamma)
+    
 
 class AdaptiveLayerFusion(nn.Module):
     """DFlare adaptive layer fusion from paper Section 4.1."""
