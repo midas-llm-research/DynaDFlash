@@ -35,7 +35,12 @@ from midas.data import (
     OnlineHiddenStateExtractor,
     prepare_draft_inputs,
 )
-from midas.models import DFlashDraftModel, DFlashDraftModelRouted
+from midas.models import (
+    DFlashDraftModel,
+    DFlashDraftModelRouted,
+    DFlareDraftModel,
+    compute_progressive_gamma,
+)
 
 
 def save_checkpoint(
