@@ -50,10 +50,10 @@ CHECKPOINTS = {
         "/checkpoints": checkpoint_volume,
     },
     secrets=[modal.Secret.from_name("huggingface")],
-    timeout=7200,
+    timeout=21600,
 )
 def run_eval(
-    variant: str = "baseline",
+    variants: str = "baseline",
     checkpoint: str = "",
     benchmarks: str = "math500,humaneval,mt_bench",
     seed: int = 42,
@@ -63,83 +63,106 @@ def run_eval(
     import sys
     from datetime import datetime, timezone
 
+    import numpy as np
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from loguru import logger
 
     sys.path.insert(0, "/root")
     from midas.config import RouterConfig
-    from midas.eval import evaluate, load_eval_prompts
+    from midas.eval import evaluate, load_eval_prompts, measure_ar_baseline
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
 
     device = torch.device("cuda")
     router_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0)
-    ckpt_path = checkpoint or CHECKPOINTS[variant]
+    variant_list = [v.strip() for v in variants.split(",")]
     benchmark_list = [b.strip() for b in benchmarks.split(",")]
-    logger.info(f"Evaluating variant={variant}, benchmarks={benchmark_list}, seed={seed}")
+    logger.info(f"Evaluating variants={variant_list}, benchmarks={benchmark_list}, seed={seed}")
 
-    # Load target
+    # Load target (shared across all variants)
     target = AutoModelForCausalLM.from_pretrained(
         "/models/Qwen3-4B", torch_dtype=torch.bfloat16, device_map=device, attn_implementation="sdpa",
     ).eval()
     tokenizer = AutoTokenizer.from_pretrained("/models/Qwen3-4B")
 
-    # Load draft
-    if variant == "baseline":
-        model = DFlashDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
-    elif variant == "router":
-        model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=router_config)
-    elif variant == "router-nofc":
-        nofc_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0, use_fc=False)
-        model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=nofc_config)
-    else:
-        raise ValueError(f"Unknown variant: {variant}")
+    # Load prompts per benchmark (shared across all variants)
+    bench_prompts = {b: load_eval_prompts(b, n=n_prompts, seed=seed) for b in benchmark_list}
 
-    ckpt = Path(ckpt_path)
-    if ckpt.is_symlink():
-        ckpt = ckpt.resolve()
-    sd = torch.load(ckpt / "model.pt", weights_only=True, map_location=device)
-    sd = {k: v.to(torch.bfloat16) for k, v in sd.items()}
-    model.load_state_dict(sd)
-    model.eval()
+    # Measure AR baseline once per benchmark (reused for all variants)
+    ar_baselines = {}
+    for bench, prompts in bench_prompts.items():
+        logger.info(f"\n{'='*60}\n  AR Baseline: {bench}\n{'='*60}")
+        ar_baselines[bench] = measure_ar_baseline(target, tokenizer, prompts)
 
-    with open(ckpt / "metadata.json") as f:
-        meta = json.load(f)
-    logger.info(f"Loaded: step={meta['step']}, loss={meta['loss']:.4f}")
+    # Helper to load a draft model
+    def load_draft(variant_name):
+        ckpt_path = checkpoint or CHECKPOINTS[variant_name]
+        if variant_name == "baseline":
+            model = DFlashDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
+        elif variant_name == "router":
+            model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=router_config)
+        elif variant_name == "router-nofc":
+            nofc_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0, use_fc=False)
+            model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=nofc_config)
+        else:
+            raise ValueError(f"Unknown variant: {variant_name}")
+        ckpt = Path(ckpt_path)
+        if ckpt.is_symlink():
+            ckpt = ckpt.resolve()
+        sd = torch.load(ckpt / "model.pt", weights_only=True, map_location=device)
+        sd = {k: v.to(torch.bfloat16) for k, v in sd.items()}
+        model.load_state_dict(sd)
+        model.eval()
+        with open(ckpt / "metadata.json") as f:
+            meta = json.load(f)
+        logger.info(f"Loaded {variant_name}: step={meta['step']}, loss={meta['loss']:.4f}")
+        return model, meta, ckpt_path
 
-    # Evaluate each benchmark
-    benchmark_results = {}
-    for bench in benchmark_list:
-        logger.info(f"\n{'='*60}\n  Benchmark: {bench}\n{'='*60}")
-        prompts = load_eval_prompts(bench, n=n_prompts, seed=seed)
-        benchmark_results[bench] = evaluate(model, target, tokenizer, prompts)
+    # Evaluate each variant
+    all_variant_results = {}
+    for variant in variant_list:
+        logger.info(f"\n{'='*60}\n  Variant: {variant}\n{'='*60}")
+        model, meta, ckpt_path = load_draft(variant)
 
-    # Aggregate across benchmarks
-    total_tokens = sum(r["total_tokens"] for r in benchmark_results.values())
-    total_time = sum(r["total_time_s"] for r in benchmark_results.values())
-    all_acc = [a for r in benchmark_results.values() for a in r["all_acceptance_lengths"]]
+        benchmark_results = {}
+        for bench, prompts in bench_prompts.items():
+            logger.info(f"  Benchmark: {bench}")
+            benchmark_results[bench] = evaluate(
+                model, target, tokenizer, prompts, ar_baseline=ar_baselines[bench]
+            )
 
-    import numpy as np
+        total_tokens = sum(r["total_tokens"] for r in benchmark_results.values())
+        total_time = sum(r["total_time_s"] for r in benchmark_results.values())
+        all_acc = [a for r in benchmark_results.values() for a in r["all_acceptance_lengths"]]
+
+        all_variant_results[variant] = {
+            "variant": variant,
+            "checkpoint": ckpt_path,
+            "training_step": meta["step"],
+            "training_loss": meta["loss"],
+            "aggregate": {
+                "tokens_per_second": round(total_tokens / total_time, 1),
+                "mean_acceptance_length": round(float(np.mean(all_acc)), 2),
+                "speedup_over_ar": round(np.mean([r["speedup_over_ar"] for r in benchmark_results.values()]), 2),
+            },
+            "results": benchmark_results,
+        }
+
+        # Free model memory before loading next
+        del model
+        torch.cuda.empty_cache()
+
     output = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "variant": variant,
-        "checkpoint": ckpt_path,
-        "training_step": meta["step"],
-        "training_loss": meta["loss"],
         "seed": seed,
         "n_prompts_per_benchmark": n_prompts,
         "benchmarks": benchmark_list,
-        "aggregate": {
-            "tokens_per_second": round(total_tokens / total_time, 1),
-            "mean_acceptance_length": round(float(np.mean(all_acc)), 2),
-            "speedup_over_ar": round(np.mean([r["speedup_over_ar"] for r in benchmark_results.values()]), 2),
-        },
-        "results": benchmark_results,
+        "variants": all_variant_results,
     }
 
     # Save
-    out_path = f"/checkpoints/eval_{variant}_full.json"
+    out_path = "/checkpoints/eval_full.json"
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
     checkpoint_volume.commit()
@@ -148,17 +171,14 @@ def run_eval(
 
 
 @app.local_entrypoint()
-def main(variant: str = "baseline", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50):
-    output = run_eval.remote(variant=variant, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts)
-    agg = output["aggregate"]
-    print(f"\n{'=' * 60}")
-    print(f"  {variant.upper()} — AGGREGATE RESULTS")
-    print(f"  Benchmarks: {output['benchmarks']}")
-    print(f"{'=' * 60}")
-    print(f"  Tokens/sec:           {agg['tokens_per_second']}")
-    print(f"  Acceptance length:    {agg['mean_acceptance_length']}")
-    print(f"  Speedup over AR:      {agg['speedup_over_ar']}x")
-    print(f"{'=' * 60}")
-    for bench, res in output["results"].items():
-        print(f"  {bench:<15} τ={res['mean_acceptance_length']:.2f}  {res['tokens_per_second']} tok/s  {res['speedup_over_ar']}x")
-    print(f"{'=' * 60}")
+def main(variants: str = "baseline,router", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50):
+    output = run_eval.remote(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts)
+    print(f"\n{'=' * 70}")
+    print(f"  EVAL RESULTS — Benchmarks: {output['benchmarks']}, Seed: {output['seed']}")
+    print(f"{'=' * 70}")
+    print(f"  {'Variant':<15} {'τ':<8} {'tok/s':<10} {'Speedup':<10}")
+    print(f"  {'-'*50}")
+    for name, data in output["variants"].items():
+        agg = data["aggregate"]
+        print(f"  {name:<15} {agg['mean_acceptance_length']:<8} {agg['tokens_per_second']:<10} {agg['speedup_over_ar']}x")
+    print(f"{'=' * 70}")

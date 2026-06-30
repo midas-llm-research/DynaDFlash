@@ -122,47 +122,30 @@ def load_eval_prompts(dataset_name: str, n: int = 50, seed: int = 42) -> list[st
 # ---------------------------------------------------------------------------
 
 
-def evaluate(
-    draft: DFlashDraftModel,
+def measure_ar_baseline(
     target: torch.nn.Module,
     tokenizer,
     prompts: list[str],
     max_new_tokens: int = 2048,
-    temperature: float = 0.0,
     num_warmup: int = 3,
 ) -> dict:
-    """
-    Evaluate speculative decoding throughput against autoregressive baseline.
-
-    Both AR and speculative decoding are measured on the same prompts with the
-    same max_new_tokens to ensure a fair comparison. Warmup runs exercise both
-    code paths before any timing begins.
-
-    Returns metrics dict with throughput, acceptance length, and speedup.
-    """
+    """Measure autoregressive baseline throughput. Returns {tps, tokens, time_s}."""
     import time
 
     device = next(target.parameters()).device
     use_cuda = device.type == "cuda"
-    eos = [tokenizer.eos_token_id]
 
     def sync():
         if use_cuda:
-            sync()
+            torch.cuda.synchronize()
 
-    # Phase 0: Warmup — exercise both AR and spec-decode paths so CUDA kernels
-    # are compiled and memory pools are allocated before timing begins.
-    logger.info("Warmup (AR + speculative)...")
+    logger.info("Warmup (AR)...")
     wids = tokenizer("Solve: 2+2=", return_tensors="pt").input_ids.to(device)
     for _ in range(num_warmup):
         with torch.no_grad():
             target.generate(wids, max_new_tokens=32, do_sample=False)
-            dflash_generate(draft, target, wids, max_new_tokens=32,
-                          stop_token_ids=eos, temperature=0.0)
-    torch.cuda.empty_cache()
 
-    # Phase 1: Autoregressive baseline — same prompts, same max_new_tokens.
-    logger.info(f"Measuring autoregressive baseline ({len(prompts)} prompts, max_new_tokens={max_new_tokens})...")
+    logger.info(f"Measuring AR baseline ({len(prompts)} prompts, max_new_tokens={max_new_tokens})...")
     ar_times, ar_tokens = [], []
     for i, prompt in enumerate(prompts):
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
@@ -176,9 +159,56 @@ def evaluate(
         ar_times.append(t1 - t0)
         if (i + 1) % 10 == 0:
             logger.info(f"  AR: {i+1}/{len(prompts)}")
+
     ar_tps = sum(ar_tokens) / sum(ar_times)
     logger.info(f"Autoregressive: {ar_tps:.1f} tok/s ({sum(ar_tokens)} tokens, {sum(ar_times):.1f}s)")
-    torch.cuda.empty_cache()
+    if use_cuda:
+        torch.cuda.empty_cache()
+    return {"tps": ar_tps, "tokens": sum(ar_tokens), "time_s": sum(ar_times)}
+
+
+def evaluate(
+    draft: DFlashDraftModel,
+    target: torch.nn.Module,
+    tokenizer,
+    prompts: list[str],
+    max_new_tokens: int = 2048,
+    temperature: float = 0.0,
+    num_warmup: int = 3,
+    ar_baseline: Optional[dict] = None,
+) -> dict:
+    """
+    Evaluate speculative decoding throughput against autoregressive baseline.
+
+    If `ar_baseline` is provided (from `measure_ar_baseline`), skips AR
+    measurement and reuses those numbers. Otherwise measures AR first.
+
+    Returns metrics dict with throughput, acceptance length, and speedup.
+    """
+    import time
+
+    device = next(target.parameters()).device
+    use_cuda = device.type == "cuda"
+    eos = [tokenizer.eos_token_id]
+
+    def sync():
+        if use_cuda:
+            torch.cuda.synchronize()
+
+    # Phase 0: AR baseline — measure or reuse.
+    if ar_baseline is None:
+        ar_baseline = measure_ar_baseline(target, tokenizer, prompts, max_new_tokens, num_warmup)
+    ar_tps = ar_baseline["tps"]
+
+    # Phase 1: Warmup speculative decoding.
+    logger.info("Warmup (speculative)...")
+    wids = tokenizer("Solve: 2+2=", return_tensors="pt").input_ids.to(device)
+    for _ in range(num_warmup):
+        with torch.no_grad():
+            dflash_generate(draft, target, wids, max_new_tokens=32,
+                          stop_token_ids=eos, temperature=0.0)
+    if use_cuda:
+        torch.cuda.empty_cache()
 
     # Phase 2: Speculative decoding — same prompts, same max_new_tokens.
     logger.info(f"Measuring speculative decoding ({len(prompts)} prompts)...")
@@ -230,8 +260,8 @@ def evaluate(
         "autoregressive_tps": round(ar_tps, 1),
         "total_tokens": spec_total_tokens,
         "total_time_s": round(spec_total_time, 1),
-        "ar_total_tokens": sum(ar_tokens),
-        "ar_total_time_s": round(sum(ar_times), 1),
+        "ar_total_tokens": ar_baseline["tokens"],
+        "ar_total_time_s": round(ar_baseline["time_s"], 1),
         "num_prompts": len(prompts),
         "max_new_tokens": max_new_tokens,
         "per_prompt": per_prompt,
