@@ -11,7 +11,7 @@ import torch.nn as nn
 
 from transformers.models.qwen3.configuration_qwen3 import Qwen3Config
 
-from midas.config import RouterConfig
+from midas.config import DFlareConfig, RouterConfig
 from midas.data import DraftTrainingBatch
 
 
@@ -67,6 +67,26 @@ def draft_model(tiny_config):
 @pytest.fixture
 def tiny_router_config_nofc():
     return RouterConfig(hidden_size=128, num_layers=2, rank=32, gamma_init=0.01, temperature_init=1.0, use_fc=False)
+
+
+@pytest.fixture
+def tiny_dflare_config():
+    return DFlareConfig(
+        hidden_size=128,
+        num_draft_layers=2,
+        num_target_layers=3,
+        gamma_initial=4.5,
+        gamma_increment_per_epoch=1.0,
+    )
+
+
+@pytest.fixture
+def dflare_model(tiny_config, tiny_dflare_config):
+    from midas.models.model_dflare import DFlareDraftModel
+
+    model = DFlareDraftModel(tiny_config, dflare_config=tiny_dflare_config)
+    model.eval()
+    return model
 
 
 @pytest.fixture

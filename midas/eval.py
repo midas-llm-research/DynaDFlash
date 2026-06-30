@@ -14,6 +14,12 @@ Usage (routed variant with a trained checkpoint):
         --draft z-lab/Qwen3-4B-DFlash-b16 --routed \\
         --router-ckpt /checkpoints/midas-router/best/model.pt --dataset gsm8k
 
+Usage (DFlare variant with a trained checkpoint):
+    python -m midas.eval --target Qwen/Qwen3-4B \\
+        --draft z-lab/Qwen3-4B-DFlash-b16 --variant dflare \\
+        --dflare-ckpt /checkpoints/dflare-qwen3-4b/best/model.pt \\
+        --config configs/dflare_4b.yaml --dataset gsm8k
+
 To evaluate a custom DFlashDraftModel subclass, call `evaluate()` directly
 with your already-constructed draft model.
 """
@@ -29,7 +35,12 @@ import numpy as np
 import torch
 from loguru import logger
 
-from midas.models import DFlashDraftModel, DFlashDraftModelRouted, dflash_generate
+from midas.models import (
+    DFlashDraftModel,
+    DFlashDraftModelRouted,
+    DFlareDraftModel,
+    dflash_generate,
+)
 
 CACHE_DIR = Path(__file__).parent.parent / "cache"
 
@@ -229,17 +240,19 @@ def _get_attn_impl() -> str:
 
 def _load_draft(
     draft_path: str,
-    routed: bool,
-    router_ckpt: Optional[str],
+    variant: str,
+    checkpoint: Optional[str],
     config_path: Optional[str],
     device: torch.device,
     attn_impl: str,
 ) -> DFlashDraftModel:
-    if routed:
+    if variant == "router":
         from midas.config import RouterConfig, TrainConfig
 
         if config_path:
             router_config = TrainConfig.from_yaml(config_path).router
+            if router_config is None:
+                router_config = RouterConfig()
         else:
             router_config = RouterConfig()
         draft = DFlashDraftModelRouted.from_pretrained_dflash(
@@ -248,9 +261,30 @@ def _load_draft(
             device=device,
             dtype=torch.bfloat16,
         )
-        if router_ckpt:
-            logger.info(f"Loading trained router weights from {router_ckpt}")
-            state = torch.load(router_ckpt, weights_only=True, map_location=device)
+        if checkpoint:
+            logger.info(f"Loading trained router weights from {checkpoint}")
+            state = torch.load(checkpoint, weights_only=True, map_location=device)
+            draft.load_state_dict(state)
+        return draft
+
+    if variant == "dflare":
+        from midas.config import DFlareConfig, TrainConfig
+
+        if config_path:
+            dflare_config = TrainConfig.from_yaml(config_path).dflare
+            if dflare_config is None:
+                dflare_config = DFlareConfig()
+        else:
+            dflare_config = DFlareConfig()
+        draft = DFlareDraftModel.from_pretrained_dflash(
+            draft_path,
+            dflare_config=dflare_config,
+            device=device,
+            dtype=torch.bfloat16,
+        )
+        if checkpoint:
+            logger.info(f"Loading trained DFlare weights from {checkpoint}")
+            state = torch.load(checkpoint, weights_only=True, map_location=device)
             draft.load_state_dict(state)
         return draft
 
@@ -274,16 +308,25 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-samples", type=int, default=50)
+    parser.add_argument("--variant", choices=["base", "router", "dflare"], default="base",
+                        help="Draft variant to load")
     parser.add_argument("--routed", action="store_true",
-                        help="Use DFlashDraftModelRouted instead of base DFlashDraftModel")
+                        help="Backward-compatible alias for --variant router")
+    parser.add_argument("--dflare", action="store_true",
+                        help="Backward-compatible alias for --variant dflare")
     parser.add_argument("--router-ckpt", type=str, default=None,
                         help="Path to trained router state_dict (model.pt). Implies --routed.")
+    parser.add_argument("--dflare-ckpt", type=str, default=None,
+                        help="Path to trained DFlare state_dict (model.pt). Implies --variant dflare.")
     parser.add_argument("--config", type=str, default=None,
-                        help="YAML config providing router params (only used with --routed)")
+                        help="YAML config providing variant params (router or dflare)")
     args = parser.parse_args()
 
-    if args.router_ckpt and not args.routed:
-        args.routed = True
+    if args.routed or args.router_ckpt:
+        args.variant = "router"
+    if args.dflare or args.dflare_ckpt:
+        args.variant = "dflare"
+    checkpoint = args.router_ckpt if args.variant == "router" else args.dflare_ckpt
 
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -300,9 +343,9 @@ def main() -> None:
     )
     tokenizer = AutoTokenizer.from_pretrained(args.target)
 
-    logger.info(f"Loading draft: {args.draft} (routed={args.routed})")
+    logger.info(f"Loading draft: {args.draft} (variant={args.variant})")
     draft = _load_draft(
-        args.draft, args.routed, args.router_ckpt, args.config, device, attn_impl
+        args.draft, args.variant, checkpoint, args.config, device, attn_impl
     )
     draft.eval()
 

@@ -15,6 +15,15 @@ class RouterConfig:
 
 
 @dataclass
+class DFlareConfig:
+    hidden_size: int = 2560
+    num_draft_layers: int = 7
+    num_target_layers: int = 9
+    gamma_initial: float = 4.5
+    gamma_increment_per_epoch: float = 1.0
+
+
+@dataclass
 class CheckpointConfig:
     save_every_steps: int = 2000
     save_dir: str = "/checkpoints/midas-router"
@@ -55,6 +64,7 @@ class TrainConfig:
     # `train()`, or include a top-level block of the same name in your yaml.
     # Add new method configs as new `Optional[...] = None` fields below.
     router: Optional[RouterConfig] = None
+    dflare: Optional[DFlareConfig] = None
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -71,6 +81,9 @@ class TrainConfig:
         router_raw = raw.pop("router", None)
         if router_raw is not None:
             method_kwargs["router"] = RouterConfig(**router_raw)
+        dflare_raw = raw.pop("dflare", None)
+        if dflare_raw is not None:
+            method_kwargs["dflare"] = DFlareConfig(**dflare_raw)
 
         return cls(
             target_model=raw.get("target_model", cls.target_model),

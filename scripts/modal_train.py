@@ -1,13 +1,14 @@
 """
-Modal cloud training script for DFlash draft models.
+Modal cloud training script for DFlash-family draft models.
 
-Supports both the routed variant (MIDAS context router) and the base variant
-(z-lab's original fc+hidden_norm fusion). Select via --variant flag.
+Supports router, router-nofc, DFlare, and base variants. Select via --variant.
 
 Usage:
     modal run scripts/modal_train.py --variant router         # Train router variant
+    modal run scripts/modal_train.py --variant dflare         # Train DFlare variant
     modal run scripts/modal_train.py --variant base           # Train base variant
     modal run scripts/modal_train.py --variant router --config configs/base_4b.yaml
+    modal run scripts/modal_train.py --variant dflare --config configs/dflare_4b.yaml
     modal run scripts/modal_train.py --download               # (one-time) download models
 """
 
@@ -66,7 +67,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted
+    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -79,6 +80,14 @@ def train(
         model_cls = DFlashDraftModelRouted
         config.checkpoint.save_dir = "/checkpoints/midas-router-v4"
         logger.info("Training ROUTED variant (MIDAS context router)")
+    elif variant == "dflare":
+        model_cls = DFlareDraftModel
+        if config.dflare is None:
+            from midas.config import DFlareConfig
+            config.dflare = DFlareConfig()
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/dflare-qwen3-4b"
+        logger.info("Training DFLARE variant (adaptive fusion + heterogeneous KV)")
     elif variant == "router-nofc":
         model_cls = DFlashDraftModelRouted
         if config.router is None:
@@ -93,7 +102,9 @@ def train(
         config.checkpoint.save_dir = "/checkpoints/midas-base-v4"
         logger.info("Training BASE variant (z-lab fc+hidden_norm)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', or 'base'.")
+        raise ValueError(
+            f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'dflare', or 'base'."
+        )
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -135,6 +146,8 @@ def main(
     if download:
         download_models.remote()
         return
+    if variant == "dflare" and config == "configs/base_4b.yaml":
+        config = "configs/dflare_4b.yaml"
 
     # Map local config path to container path
     config_name = Path(config).name
