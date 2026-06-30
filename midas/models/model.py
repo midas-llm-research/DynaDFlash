@@ -97,7 +97,7 @@ def compute_position_weighted_ce_loss(
     """
     Position-weighted cross-entropy loss (DFlash paper Eq. 4).
 
-    For each masked position k within a draft block:
+    For each masked position k within an anchor-inclusive draft block:
         w_k = exp(-(k - 1) / gamma)
         loss_k = CE(draft_logits, ground_truth_token)
 
