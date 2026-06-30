@@ -270,9 +270,10 @@ def train(
                     target_hidden=target_hidden,
                     attention_mask=batch.attention_mask,
                 )
+                raw_model = model.module if hasattr(model, "module") else model
                 loss_gamma = (
                     compute_progressive_gamma(config.dflare, epoch)
-                    if isinstance(model, DFlareDraftModel) and config.dflare is not None
+                    if isinstance(raw_model, DFlareDraftModel) and config.dflare is not None
                     else config.loss_gamma
                 )
                 loss = model.compute_loss(

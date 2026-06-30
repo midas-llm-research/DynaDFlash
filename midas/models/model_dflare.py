@@ -272,6 +272,16 @@ class DFlareDraftModel(Qwen3PreTrainedModel):
             target_num_layers,
             dflare_config.num_target_layers,
         )
+        if len(self.target_layer_ids) != dflare_config.num_target_layers:
+            raise ValueError(
+                f"Expected {dflare_config.num_target_layers} target layer ids, "
+                f"got {len(self.target_layer_ids)}"
+            )
+        if max(self.target_layer_ids) >= target_num_layers:
+            raise ValueError(
+                f"Target layer id {max(self.target_layer_ids)} exceeds "
+                f"target depth {target_num_layers}"
+            )
         self.adaptive_layer_fusion = AdaptiveLayerFusion(dflare_config)
         self.norm = Qwen3RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.rotary_emb = Qwen3RotaryEmbedding(config)
