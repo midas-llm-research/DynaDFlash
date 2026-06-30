@@ -219,8 +219,11 @@ def dflash_generate(
         if block_size > 1:
             # MIDAS: only difference from z-lab is `extract_context_feature(...)`
             # → `model.extract_target_hidden(...)` so subclasses can pick layers.
-            # Return type is still a concat tensor, so the inline slice is unchanged.
-            target_hidden = model.extract_target_hidden(output.hidden_states)[:, :acceptance_length + 1, :]
+            target_hidden = model.extract_target_hidden(output.hidden_states)
+            if target_hidden.dim() == 4:
+                target_hidden = target_hidden[:, :, : acceptance_length + 1, :]
+            else:
+                target_hidden = target_hidden[:, : acceptance_length + 1, :]
 
         if stop_token_ids is not None and any(
             stop_token_id in output_ids[:, num_input_tokens:] for stop_token_id in stop_token_ids
