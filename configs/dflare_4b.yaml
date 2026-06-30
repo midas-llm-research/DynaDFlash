@@ -1,0 +1,34 @@
+target_model: "Qwen/Qwen3-4B"
+draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
+data_path: "/checkpoints/sdd/sdd_100k.jsonl"
+
+# Specifically Qwen 3-4B
+dflare:
+  hidden_size: 2560
+  num_draft_layers: 7
+  num_target_layers: 9
+  gamma_initial: 4.5
+  gamma_increment_per_epoch: 1.0
+
+training:
+  lr: 6.0e-4
+  weight_decay: 0.01
+  num_epochs: 6
+  batch_size: 4
+  gradient_accumulation_steps: 16
+  max_seq_len: 3072
+  block_size: 16
+  max_num_anchors: 512
+  warmup_ratio: 0.04
+  grad_clip: 1.0
+  loss_gamma: 4.5
+
+checkpointing:
+  save_every_steps: 500
+  save_dir: "/checkpoints/dflare-qwen3-4b"
+  keep_last_n: 3
+
+logging:
+  wandb_project: "dflare-qwen3-4b"
+  log_every_steps: 50
+  eval_every_steps: 1000
