@@ -29,7 +29,7 @@ from transformers import (
     get_cosine_schedule_with_warmup,
 )
 
-from midas.config import TrainConfig
+from midas.config import DFlareConfig, TrainConfig
 from midas.data import (
     DFlashDataProcessor,
     OnlineHiddenStateExtractor,
@@ -146,7 +146,11 @@ def build_default_model(
     weights start random (for fair from-scratch comparisons).
     """
     extra_kwargs: dict = {}
-    if model_cls is not DFlashDraftModel:
+    if model_cls is DFlareDraftModel:
+        if config.dflare is None:
+            config.dflare = DFlareConfig()
+        extra_kwargs["dflare_config"] = config.dflare
+    elif model_cls is not DFlashDraftModel:
         if config.router is None:
             raise ValueError(
                 f"{model_cls.__name__} needs a `router` config. Add a "

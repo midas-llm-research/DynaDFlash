@@ -16,7 +16,6 @@ from midas.models.model_dflare import (
     Qwen3DFlareAttention,
     Qwen3DFlareDecoderLayer,
     build_dflare_target_layer_ids,
-    compute_position_weights,
     compute_progressive_gamma,
 )
 
@@ -38,7 +37,6 @@ __all__ = [
     "Qwen3DFlareDecoderLayer",
     "build_target_layer_ids",
     "build_dflare_target_layer_ids",
-    "compute_position_weights",
     "compute_progressive_gamma",
     "dflash_generate",
     "sample",
