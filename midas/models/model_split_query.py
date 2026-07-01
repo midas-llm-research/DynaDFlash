@@ -4,12 +4,16 @@ and draft-KV attention, with a joint softmax.
 
 Inherits from DFlashDraftModel and only overrides the attention layers.
 Everything else (target fusion, decoder structure, generation) is inherited.
+
+Uses manual matmul attention (not SDPA/flash) because the joint-softmax-over-
+separate-scores pattern cannot be expressed through standard attention APIs.
 """
+
+from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
 from typing_extensions import Unpack
 from transformers.models.qwen3.modeling_qwen3 import (
     Qwen3Config,
@@ -21,10 +25,7 @@ from transformers.models.qwen3.modeling_qwen3 import (
 )
 from transformers.cache_utils import Cache
 
-from midas.models.model import (
-    DFlashDraftModel,
-    apply_rotary_pos_emb,
-)
+from midas.models.model import DFlashDraftModel
 
 
 class Qwen3DFlashSplitQueryAttention(nn.Module):
@@ -46,7 +47,7 @@ class Qwen3DFlashSplitQueryAttention(nn.Module):
         self.num_heads = config.num_attention_heads
         self.num_kv_heads = config.num_key_value_heads
         self.num_key_value_groups = config.num_attention_heads // config.num_key_value_heads
-        self.scaling = self.head_dim ** -0.5
+        self.scaling = self.head_dim**-0.5
         self.attention_dropout = config.attention_dropout
         self.is_causal = False
 
@@ -65,7 +66,8 @@ class Qwen3DFlashSplitQueryAttention(nn.Module):
         self.o_proj = nn.Linear(
             config.num_attention_heads * self.head_dim, config.hidden_size, bias=config.attention_bias
         )
-        self.q_norm = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)
+        self.q_norm_target = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)
+        self.q_norm_draft = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)
         self.k_norm = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)
 
     def forward(
@@ -81,11 +83,11 @@ class Qwen3DFlashSplitQueryAttention(nn.Module):
         bsz, q_len = hidden_states.shape[:-1]
         ctx_len = target_hidden.shape[1]
 
-        # Separate query projections
+        # Separate query projections with independent norms
         q_t = self.q_proj_target(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim)
-        q_t = self.q_norm(q_t).transpose(1, 2)
+        q_t = self.q_norm_target(q_t).transpose(1, 2)
         q_d = self.q_proj_draft(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim)
-        q_d = self.q_norm(q_d).transpose(1, 2)
+        q_d = self.q_norm_draft(q_d).transpose(1, 2)
 
         # K/V projections (same as baseline)
         k_ctx = self.k_proj(target_hidden)
@@ -98,16 +100,14 @@ class Qwen3DFlashSplitQueryAttention(nn.Module):
         k = self.k_norm(k).transpose(1, 2)
         v = v.transpose(1, 2)
 
-        # RoPE
+        # RoPE: queries get last q_len positions, keys get all positions
         cos, sin = position_embeddings
-        # Apply RoPE to queries (use last q_len positions)
-        cos_unsq = cos.unsqueeze(1)  # [B, 1, T+N, head_dim]
+        cos_unsq = cos.unsqueeze(1)
         sin_unsq = sin.unsqueeze(1)
         cos_q = cos_unsq[..., -q_len:, :]
         sin_q = sin_unsq[..., -q_len:, :]
         q_t = (q_t * cos_q) + (rotate_half(q_t) * sin_q)
         q_d = (q_d * cos_q) + (rotate_half(q_d) * sin_q)
-        # Apply RoPE to keys (use all positions)
         k = (k * cos_unsq) + (rotate_half(k) * sin_unsq)
 
         # Cache update (stores concatenated target+draft KV, same as baseline)
@@ -120,8 +120,7 @@ class Qwen3DFlashSplitQueryAttention(nn.Module):
             k = k.repeat_interleave(self.num_key_value_groups, dim=1)
             v = v.repeat_interleave(self.num_key_value_groups, dim=1)
 
-        # Split K/V into target and draft portions
-        # After cache update, last q_len entries are always the current draft block
+        # Split K/V: last q_len entries are always the current draft block
         total_kv_len = k.shape[2]
         target_kv_len = total_kv_len - q_len
         k_t = k[..., :target_kv_len, :]
@@ -129,7 +128,7 @@ class Qwen3DFlashSplitQueryAttention(nn.Module):
         v_t = v[..., :target_kv_len, :]
         v_d = v[..., target_kv_len:, :]
 
-        # Compute separate attention scores
+        # Separate attention scores
         s_t = torch.matmul(q_t, k_t.transpose(-2, -1)) * self.scaling
         s_d = torch.matmul(q_d, k_d.transpose(-2, -1)) * self.scaling
 
@@ -211,6 +210,8 @@ class DFlashDraftModelSplitQuery(DFlashDraftModel):
     loss, generation) is inherited from DFlashDraftModel.
     """
 
+    _no_split_modules = ["Qwen3DFlashSplitQueryDecoderLayer"]
+
     def __init__(self, config) -> None:
         super().__init__(config)
         # Replace the standard layers with split-query layers
@@ -222,13 +223,10 @@ class DFlashDraftModelSplitQuery(DFlashDraftModel):
 
     def log_metrics(self, **base) -> dict:
         metrics = super().log_metrics(**base)
-        # Log q_proj weight norm ratio between target and draft projections
-        for i, layer in enumerate(self.layers):
-            attn = layer.self_attn
-            norm_t = attn.q_proj_target.weight.norm().item()
-            norm_d = attn.q_proj_draft.weight.norm().item()
-            if i == 0:
-                metrics["q_norm_target_L0"] = norm_t
-                metrics["q_norm_draft_L0"] = norm_d
-                metrics["q_norm_ratio_L0"] = norm_t / max(norm_d, 1e-8)
+        attn = self.layers[0].self_attn
+        norm_t = attn.q_proj_target.weight.norm().item()
+        norm_d = attn.q_proj_draft.weight.norm().item()
+        metrics["q_norm_target_L0"] = norm_t
+        metrics["q_norm_draft_L0"] = norm_d
+        metrics["q_norm_ratio_L0"] = norm_t / max(norm_d, 1e-8)
         return metrics
