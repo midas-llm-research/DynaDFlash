@@ -35,7 +35,7 @@ from midas.data import (
     OnlineHiddenStateExtractor,
     prepare_draft_inputs,
 )
-from midas.models import DFlashDraftModel, DFlashDraftModelRouted
+from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery
 
 
 def save_checkpoint(
@@ -141,7 +141,8 @@ def build_default_model(
     weights start random (for fair from-scratch comparisons).
     """
     extra_kwargs: dict = {}
-    if model_cls is not DFlashDraftModel:
+    needs_router = issubclass(model_cls, DFlashDraftModelRouted)
+    if needs_router:
         if config.router is None:
             raise ValueError(
                 f"{model_cls.__name__} needs a `router` config. Add a "
