@@ -322,11 +322,17 @@ def main() -> None:
                         help="YAML config providing variant params (router or dflare)")
     args = parser.parse_args()
 
+    if (args.routed or args.router_ckpt) and (args.dflare or args.dflare_ckpt):
+        parser.error("Cannot combine --routed/--router-ckpt with --dflare/--dflare-ckpt")
     if args.routed or args.router_ckpt:
         args.variant = "router"
     if args.dflare or args.dflare_ckpt:
         args.variant = "dflare"
-    checkpoint = args.router_ckpt if args.variant == "router" else args.dflare_ckpt
+    checkpoint = (
+        args.router_ckpt if args.variant == "router"
+        else args.dflare_ckpt if args.variant == "dflare"
+        else None
+    )
 
     from transformers import AutoModelForCausalLM, AutoTokenizer
 

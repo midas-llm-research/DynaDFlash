@@ -170,9 +170,6 @@ def dflash_generate(
     output_ids[:, :num_input_tokens] = input_ids
     output_ids[:, num_input_tokens:num_input_tokens + 1] = sample(output.logits, temperature)
     if block_size > 1:
-        # MIDAS: was `target_hidden = extract_context_feature(output.hidden_states, model.target_layer_ids)`.
-        # Delegated to the model so subclasses can pick which layers to use.
-        # Return type is always a concat tensor [B, T, N*H], same as z-lab.
         target_hidden = model.extract_target_hidden(output.hidden_states)
     time_to_first_token = _cuda_time() - prefill_start if return_stats else None
 

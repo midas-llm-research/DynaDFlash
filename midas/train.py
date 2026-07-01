@@ -168,9 +168,12 @@ def build_default_model(
     pick which DFlashDraftModel subclass to use. If `random_init=True`, all
     weights start random (for fair from-scratch comparisons).
     """
-    constructor_kwargs = _MODEL_CONSTRUCTOR_KWARGS.get(
-        model_cls, lambda config: {}
-    )(config)
+    if model_cls not in _MODEL_CONSTRUCTOR_KWARGS:
+        raise ValueError(
+            f"Unsupported model class: {model_cls.__name__}. "
+            f"Supported: {[c.__name__ for c in _MODEL_CONSTRUCTOR_KWARGS]}"
+        )
+    constructor_kwargs = _MODEL_CONSTRUCTOR_KWARGS[model_cls](config)
     factory = model_cls.from_config_random if random_init else model_cls.from_pretrained_dflash
     return factory(
         config.draft_checkpoint,
@@ -216,6 +219,8 @@ def train(
             f"Building {model_cls.__name__} from {config.draft_checkpoint}"
         )
         model = build_default_model(config, device, model_cls=model_cls, random_init=random_init)
+    elif isinstance(model, DFlareDraftModel) and config.dflare is None:
+        config.dflare = DFlareConfig()
     model.train()
 
     extractor = OnlineHiddenStateExtractor(target_model, device)
