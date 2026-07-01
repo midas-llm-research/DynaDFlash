@@ -162,7 +162,8 @@ def run_eval(
     }
 
     # Save
-    out_path = "/checkpoints/eval_full.json"
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out_path = f"/checkpoints/eval_{ts}.json"
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
     checkpoint_volume.commit()
