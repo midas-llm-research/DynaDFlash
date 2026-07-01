@@ -113,7 +113,7 @@ def load_eval_prompts(dataset_name: str, n: int = 50, seed: int = 42) -> list[st
     prompts = []
     for item in samples:
         turns = item["turns"]
-        prompts.append(turns[0])  # first turn only (handles multi-turn like mt-bench)
+        prompts.append(turns[0])  # first turn only (handles multi-turn like mt_bench)
     return prompts
 
 
