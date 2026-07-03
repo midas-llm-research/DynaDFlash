@@ -2,7 +2,6 @@
 
 import pytest
 import torch
-import torch.nn.functional as F
 from transformers import DynamicCache
 
 from midas.models.model_split_query import (
@@ -156,17 +155,31 @@ class TestSplitQueryForward:
 
 
 # ---------------------------------------------------------------------------
-# Joint softmax test — verify target/draft COMPETE (not separate softmaxes)
+# Gated mixing tests — verify gate mechanism works correctly
 # ---------------------------------------------------------------------------
 
 
-class TestJointSoftmax:
-    def test_attention_weights_sum_to_one(self, tiny_config):
-        """Basic sanity: full attention weights sum to 1."""
+class TestGatedMixing:
+    def test_gate_exists_and_correct_shape(self, tiny_config):
+        model = DFlashDraftModelSplitQuery(tiny_config)
+        attn = model.layers[0].self_attn
+        assert hasattr(attn, "gate_proj")
+        assert attn.gate_proj.weight.shape == (tiny_config.num_attention_heads, tiny_config.hidden_size)
+        assert attn.gate_proj.bias.shape == (tiny_config.num_attention_heads,)
+
+    def test_gate_zero_initialized(self, tiny_config):
+        """Gate should start at sigmoid(0) = 0.5 (equal mix of target and draft)."""
+        model = DFlashDraftModelSplitQuery(tiny_config)
+        attn = model.layers[0].self_attn
+        assert torch.allclose(attn.gate_proj.weight, torch.zeros_like(attn.gate_proj.weight))
+        assert torch.allclose(attn.gate_proj.bias, torch.zeros_like(attn.gate_proj.bias))
+
+    def test_forward_returns_none_attn_weights(self, tiny_config):
+        """With SDPA backend, attention weights are not returned."""
         model = DFlashDraftModelSplitQuery(tiny_config)
         model.eval()
 
-        B, N, T = 2, 8, 16
+        B, N, T = 1, 4, 8
         H = tiny_config.hidden_size
         num_target_layer_ids = len(model.target_layer_ids)
 
@@ -185,88 +198,10 @@ class TestJointSoftmax:
             position_embeddings=position_embeddings,
             attention_mask=attention_mask,
         )
-        sums = attn_weights.sum(dim=-1)
-        assert torch.allclose(sums, torch.ones_like(sums), atol=1e-5)
+        assert attn_weights is None
 
-    def test_joint_softmax_not_separate(self, tiny_config):
-        """
-        Verify that target and draft portions go through the SAME softmax.
-        If softmax were applied separately, target weights would equal
-        softmax(s_t) and draft weights would equal softmax(s_d). With joint
-        softmax, they should differ.
-        """
-        model = DFlashDraftModelSplitQuery(tiny_config)
-        model.eval()
-
-        B, N, T = 1, 4, 8
-        H = tiny_config.hidden_size
-        num_target_layer_ids = len(model.target_layer_ids)
-
-        noise_embedding = torch.randn(B, N, H)
-        target_hidden = torch.randn(B, T, num_target_layer_ids * H)
-        position_ids = torch.arange(T + N).unsqueeze(0).expand(B, -1)
-        attention_mask = torch.zeros(B, 1, N, T + N)
-
-        fused_target = model._apply_target_hidden_fusion(target_hidden)
-        position_embeddings = model.rotary_emb(noise_embedding, position_ids)
-        hidden = model.layers[0].input_layernorm(noise_embedding)
-
-        attn = model.layers[0].self_attn
-
-        # Manually compute what we need to check
-        q_t = attn.q_proj_target(hidden).view(B, N, attn.num_heads, attn.head_dim)
-        q_t = attn.q_norm_target(q_t).transpose(1, 2)
-        q_d = attn.q_proj_draft(hidden).view(B, N, attn.num_heads, attn.head_dim)
-        q_d = attn.q_norm_draft(q_d).transpose(1, 2)
-
-        k_ctx = attn.k_proj(fused_target)
-        k_noise = attn.k_proj(hidden)
-        k = torch.cat([k_ctx, k_noise], dim=1).view(B, T + N, attn.num_kv_heads, attn.head_dim)
-        k = attn.k_norm(k).transpose(1, 2)
-
-        cos, sin = position_embeddings
-        cos_unsq = cos.unsqueeze(1)
-        sin_unsq = sin.unsqueeze(1)
-        cos_q = cos_unsq[..., -N:, :]
-        sin_q = sin_unsq[..., -N:, :]
-        q_t = (q_t * cos_q) + (rotate_half(q_t) * sin_q)
-        q_d = (q_d * cos_q) + (rotate_half(q_d) * sin_q)
-        k = (k * cos_unsq) + (rotate_half(k) * sin_unsq)
-
-        if attn.num_key_value_groups > 1:
-            k = k.repeat_interleave(attn.num_key_value_groups, dim=1)
-
-        k_t = k[..., :T, :]
-        k_d = k[..., T:, :]
-
-        s_t = torch.matmul(q_t, k_t.transpose(-2, -1)) * attn.scaling
-        s_d = torch.matmul(q_d, k_d.transpose(-2, -1)) * attn.scaling
-
-        # What SEPARATE softmaxes would produce:
-        separate_a_t = F.softmax(s_t, dim=-1)
-        separate_a_d = F.softmax(s_d, dim=-1)
-
-        # What JOINT softmax produces:
-        joint = F.softmax(torch.cat([s_t, s_d], dim=-1), dim=-1)
-        joint_a_t = joint[..., :T]
-        joint_a_d = joint[..., T:]
-
-        # Joint weights should NOT equal separate softmax weights
-        assert not torch.allclose(joint_a_t, separate_a_t, atol=1e-4), \
-            "Target weights match separate softmax — joint softmax not working"
-        assert not torch.allclose(joint_a_d, separate_a_d, atol=1e-4), \
-            "Draft weights match separate softmax — joint softmax not working"
-
-        # But they should sum to 1 (joint property)
-        assert torch.allclose(joint_a_t.sum(-1) + joint_a_d.sum(-1),
-                              torch.ones_like(joint_a_t.sum(-1)), atol=1e-5)
-
-    def test_competition_between_sources(self, tiny_config):
-        """
-        Verify that masking out target positions shifts all attention mass to draft.
-        This proves the two sources compete inside a shared softmax — if they had
-        separate softmaxes, masking target wouldn't affect draft weights.
-        """
+    def test_gate_affects_output(self, tiny_config):
+        """Modifying gate bias should change the output."""
         model = DFlashDraftModelSplitQuery(tiny_config)
         model.eval()
 
@@ -278,38 +213,23 @@ class TestJointSoftmax:
         target_hidden = torch.randn(B, T, num_target_layer_ids * H)
         position_ids = torch.arange(T + N).unsqueeze(0).expand(B, -1)
 
-        # Mask 1: all visible
-        mask_open = torch.zeros(B, 1, N, T + N)
-        # Mask 2: target positions masked out
-        mask_target_blocked = torch.zeros(B, 1, N, T + N)
-        mask_target_blocked[..., :T] = float("-inf")
+        out_neutral = model(
+            position_ids=position_ids,
+            noise_embedding=noise_embedding,
+            target_hidden=target_hidden,
+        ).clone()
 
-        fused = model._apply_target_hidden_fusion(target_hidden)
-        position_embeddings = model.rotary_emb(noise_embedding, position_ids)
-        hidden = model.layers[0].input_layernorm(noise_embedding)
+        # Bias gate heavily toward target attention
+        with torch.no_grad():
+            model.layers[0].self_attn.gate_proj.bias.fill_(10.0)
 
-        _, weights_open = model.layers[0].self_attn(
-            hidden_states=hidden, target_hidden=fused,
-            position_embeddings=position_embeddings, attention_mask=mask_open,
-        )
-        _, weights_blocked = model.layers[0].self_attn(
-            hidden_states=hidden, target_hidden=fused,
-            position_embeddings=position_embeddings, attention_mask=mask_target_blocked,
+        out_target_biased = model(
+            position_ids=position_ids,
+            noise_embedding=noise_embedding,
+            target_hidden=target_hidden,
         )
 
-        # When target is masked, ALL attention must go to draft
-        draft_mass_blocked = weights_blocked[..., T:].sum(-1)
-        assert torch.allclose(draft_mass_blocked, torch.ones_like(draft_mass_blocked), atol=1e-5), \
-            "Masking target should give draft 100% attention mass"
-
-        # When target is open, draft should get LESS than 100%
-        draft_mass_open = weights_open[..., T:].sum(-1).mean()
-        assert draft_mass_open < 1.0 - 1e-3, \
-            "With target visible, draft should not have all the attention"
-
-
-# Need rotate_half for the manual computation in the test above
-from transformers.models.qwen3.modeling_qwen3 import rotate_half
+        assert not torch.allclose(out_neutral, out_target_biased, atol=1e-4)
 
 
 # ---------------------------------------------------------------------------
@@ -532,5 +452,7 @@ class TestSplitQueryLogMetrics:
         assert "q_norm_target_L0" in metrics
         assert "q_norm_draft_L0" in metrics
         assert "q_norm_ratio_L0" in metrics
+        assert "gate_mean_L0" in metrics
         assert metrics["q_norm_target_L0"] > 0
         assert metrics["q_norm_draft_L0"] > 0
+        assert abs(metrics["gate_mean_L0"] - 0.5) < 0.01  # zero-init → sigmoid(0) = 0.5
