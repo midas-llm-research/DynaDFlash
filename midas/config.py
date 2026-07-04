@@ -9,7 +9,7 @@ class RouterConfig:
     hidden_size: int = 2560
     num_layers: int = 5
     rank: int = 128
-    gamma_init: float = 0.01
+    gamma_init: float = 1.0
     temperature_init: float = 1.0
     use_fc: bool = True
 
@@ -25,7 +25,6 @@ class CheckpointConfig:
 class LoggingConfig:
     wandb_project: str = "midas-dflash-router"
     log_every_steps: int = 50
-    eval_every_steps: int = 1000
 
 
 @dataclass
@@ -36,7 +35,7 @@ class TrainConfig:
 
     lr: float = 6e-4
     weight_decay: float = 0.01
-    num_epochs: int = 2  # remember to increase to 8ish for later runs
+    num_epochs: int = 3
     batch_size: int = 4
     gradient_accumulation_steps: int = 4
     max_seq_len: int = 3072
@@ -71,6 +70,11 @@ class TrainConfig:
         router_raw = raw.pop("router", None)
         if router_raw is not None:
             method_kwargs["router"] = RouterConfig(**router_raw)
+
+        known_top_keys = {"target_model", "draft_checkpoint", "data_path"}
+        unknown = set(raw.keys()) - known_top_keys
+        if unknown:
+            raise ValueError(f"Unknown keys in config YAML: {unknown}")
 
         return cls(
             target_model=raw.get("target_model", cls.target_model),

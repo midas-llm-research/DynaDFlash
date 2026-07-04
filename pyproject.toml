@@ -19,6 +19,14 @@ dependencies = [
 modal = ["modal"]
 dev = ["pytest"]
 
+[tool.pytest.ini_options]
+markers = [
+    "model: base DFlash model tests",
+    "router: context router tests",
+    "data: data pipeline tests",
+    "train: training loop tests",
+]
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.backends._legacy:_Backend"

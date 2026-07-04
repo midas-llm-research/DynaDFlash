@@ -30,4 +30,3 @@ checkpointing:
 logging:
   wandb_project: "midas-dflash-router"
   log_every_steps: 50
-  eval_every_steps: 1000
