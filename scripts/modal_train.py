@@ -66,7 +66,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted
+    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -92,8 +92,13 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-base-v4"
         logger.info("Training BASE variant (z-lab fc+hidden_norm)")
+    elif variant == "split-query":
+        model_cls = DFlashDraftModelSplitQuery
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
+        logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', or 'base'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', or 'split-query'.")
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
