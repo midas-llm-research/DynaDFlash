@@ -18,6 +18,11 @@ from midas.models.model_dflare import (
     build_dflare_target_layer_ids,
     compute_progressive_gamma,
 )
+from midas.models.model_split_query import (
+    DFlashDraftModelSplitQuery,
+    Qwen3DFlashSplitQueryAttention,
+    Qwen3DFlashSplitQueryDecoderLayer,
+)
 
 # Backward-compat aliases — use ContextRouter(config) with use_fc=False instead
 ContextRouterNoFC = ContextRouter
@@ -30,9 +35,12 @@ __all__ = [
     "DFlashDraftModel",
     "DFlashDraftModelRouted",
     "DFlashDraftModelRoutedNoFC",
+    "DFlashDraftModelSplitQuery",
     "DFlareDraftModel",
     "Qwen3DFlashAttention",
     "Qwen3DFlashDecoderLayer",
+    "Qwen3DFlashSplitQueryAttention",
+    "Qwen3DFlashSplitQueryDecoderLayer",
     "Qwen3DFlareAttention",
     "Qwen3DFlareDecoderLayer",
     "build_target_layer_ids",

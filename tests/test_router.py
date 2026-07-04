@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.router
+
 """Basic shape and gradient tests for the ContextRouter."""
 
 import torch
