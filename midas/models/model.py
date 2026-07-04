@@ -513,11 +513,14 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
 
         model = cls(config, **constructor_kwargs)
         model_state = model.state_dict()
-        loaded = 0
-        for key, value in original.state_dict().items():
+        original_state = original.state_dict()
+        loaded, skipped = 0, []
+        for key, value in original_state.items():
             if key in model_state:
                 model_state[key] = value
                 loaded += 1
+            else:
+                skipped.append(key)
         model.load_state_dict(model_state)
 
         if device is None:
@@ -525,9 +528,10 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         model = model.to(device=device, dtype=dtype)
         del original
 
-        print(
-            f"Loaded {loaded} params from {dflash_checkpoint} into {cls.__name__}. "
-            f"Any modules unique to this subclass keep their fresh init. "
+        from loguru import logger
+        logger.info(
+            f"Loaded {loaded}/{len(original_state)} params from {dflash_checkpoint} "
+            f"into {cls.__name__}. Skipped: {skipped or 'none'}. "
             f"Model on {device}, {dtype}."
         )
         return model
@@ -550,7 +554,7 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         model = cls(config, **constructor_kwargs)
         if device is not None:
             model = model.to(device=device, dtype=dtype)
-        print(f"Created {cls.__name__} with random weights. "
+        from loguru import logger; logger.info(f"Created {cls.__name__} with random weights. "
               f"{sum(p.numel() for p in model.parameters()):,} params on {device}, {dtype}.")
         return model
 
