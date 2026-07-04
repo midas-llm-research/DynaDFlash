@@ -36,9 +36,11 @@ image = (
 
 
 CHECKPOINTS = {
-    "baseline": "/checkpoints/midas-baseline/checkpoint_step9276",
-    "router": "/checkpoints/midas-router-v2/checkpoint_step9276",
+    "baseline": "/checkpoints/midas-baseline/best",
+    "router": "/checkpoints/midas-router-v2/best",
     "router-nofc": "/checkpoints/midas-router-nofc-v3/best",
+    "split-query": "/checkpoints/midas-split-query-v1/best",
+    "dflare": "/checkpoints/dflare-qwen3-4b/best",
 }
 
 
@@ -50,7 +52,7 @@ CHECKPOINTS = {
         "/checkpoints": checkpoint_volume,
     },
     secrets=[modal.Secret.from_name("huggingface")],
-    timeout=21600,
+    timeout=43200,
 )
 def run_eval(
     variants: str = "baseline",
@@ -69,10 +71,12 @@ def run_eval(
     from loguru import logger
 
     sys.path.insert(0, "/root")
-    from midas.config import RouterConfig
+    from midas.config import DFlareConfig, RouterConfig
     from midas.eval import evaluate, load_eval_prompts, measure_ar_baseline
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
+    from midas.models.model_split_query import DFlashDraftModelSplitQuery
+    from midas.models.model_dflare import DFlareDraftModel
 
     device = torch.device("cuda")
     router_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0)
@@ -105,6 +109,11 @@ def run_eval(
         elif variant_name == "router-nofc":
             nofc_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0, use_fc=False)
             model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=nofc_config)
+        elif variant_name == "split-query":
+            model = DFlashDraftModelSplitQuery.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
+        elif variant_name == "dflare":
+            dflare_config = DFlareConfig(hidden_size=2560, num_draft_layers=7, num_target_layers=9)
+            model = DFlareDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=dflare_config)
         else:
             raise ValueError(f"Unknown variant: {variant_name}")
         ckpt = Path(ckpt_path)
@@ -172,7 +181,7 @@ def run_eval(
 
 
 @app.local_entrypoint()
-def main(variants: str = "baseline,router", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50):
+def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50):
     output = run_eval.remote(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts)
     print(f"\n{'=' * 70}")
     print(f"  EVAL RESULTS — Benchmarks: {output['benchmarks']}, Seed: {output['seed']}")
