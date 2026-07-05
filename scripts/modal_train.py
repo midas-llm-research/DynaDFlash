@@ -56,6 +56,7 @@ def train(
     config_path: str = "/root/configs/base_4b.yaml",
     variant: str = "router",
     fresh: bool = True,
+    epochs: int = 0,
 ):
     import sys
     import shutil
@@ -70,6 +71,8 @@ def train(
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
+    if epochs > 0:
+        config.num_epochs = epochs
 
     # Override paths to use Modal volumes
     config.target_model = "/models/Qwen3-4B"
@@ -136,6 +139,7 @@ def main(
     config: str = "configs/base_4b.yaml",
     download: bool = False,
     fresh: bool = True,
+    epochs: int = 0,
 ):
     if download:
         download_models.remote()
@@ -145,4 +149,4 @@ def main(
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
-    train.remote(config_path=container_config, variant=variant, fresh=fresh)
+    train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)
