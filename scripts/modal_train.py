@@ -58,7 +58,6 @@ def train(
     variant: str = "router",
     fresh: bool = True,
     epochs: int = 0,
-    random_init: bool = False,
 ):
     import sys
     import shutil
@@ -125,7 +124,7 @@ def train(
             shutil.rmtree(ckpt_dir)
             logger.info(f"Cleared old checkpoints at {ckpt_dir}")
 
-    run_training(config, model_cls=model_cls, random_init=random_init)
+    run_training(config, model_cls=model_cls, random_init=True)
     checkpoint_volume.commit()
 
 
@@ -156,7 +155,6 @@ def main(
     download: bool = False,
     fresh: bool = True,
     epochs: int = 0,
-    random_init: bool = False,
 ):
     if download:
         download_models.remote()
@@ -168,10 +166,4 @@ def main(
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
-    train.remote(
-        config_path=container_config,
-        variant=variant,
-        fresh=fresh,
-        epochs=epochs,
-        random_init=random_init,
-    )
+    train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)
