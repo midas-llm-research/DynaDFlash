@@ -206,10 +206,11 @@ def evaluate(
         if use_cuda:
             torch.cuda.synchronize()
 
-    # Phase 0: AR baseline — measure or reuse.
+    # Phase 0: AR baseline — measure, reuse, or skip.
     if ar_baseline is None:
-        ar_baseline = measure_ar_baseline(target, tokenizer, prompts, max_new_tokens, num_warmup)
-    ar_tps = ar_baseline["tps"]
+        ar_tps = None
+    else:
+        ar_tps = ar_baseline["tps"]
 
     # Phase 1: Warmup speculative decoding.
     logger.info("Warmup (speculative)...")
@@ -251,11 +252,12 @@ def evaluate(
     spec_tps = spec_total_tokens / spec_total_time
     all_acc = [a for r in spec_results for a in r["acceptance"]]
     mean_acc = float(np.mean(all_acc))
-    speedup = spec_tps / ar_tps
+    speedup = (spec_tps / ar_tps) if ar_tps else None
 
     logger.info(f"Speculative: {spec_tps:.1f} tok/s ({spec_total_tokens} tokens, {spec_total_time:.1f}s)")
     logger.info(f"Acceptance length (τ): {mean_acc:.2f}")
-    logger.info(f"Speedup over AR: {speedup:.2f}x")
+    if speedup is not None:
+        logger.info(f"Speedup over AR: {speedup:.2f}x")
 
     per_prompt = [
         {"tokens": r["tokens"], "time_s": round(r["time"], 3),
@@ -264,20 +266,22 @@ def evaluate(
         for r in spec_results
     ]
 
-    return {
+    result = {
         "tokens_per_second": round(spec_tps, 1),
         "mean_acceptance_length": round(mean_acc, 2),
-        "speedup_over_ar": round(speedup, 2),
-        "autoregressive_tps": round(ar_tps, 1),
+        "speedup_over_ar": round(speedup, 2) if speedup is not None else None,
+        "autoregressive_tps": round(ar_tps, 1) if ar_tps is not None else None,
         "total_tokens": spec_total_tokens,
         "total_time_s": round(spec_total_time, 1),
-        "ar_total_tokens": ar_baseline["tokens"],
-        "ar_total_time_s": round(ar_baseline["time_s"], 1),
         "num_prompts": len(prompts),
         "max_new_tokens": max_new_tokens,
         "per_prompt": per_prompt,
         "all_acceptance_lengths": all_acc,
     }
+    if ar_baseline is not None:
+        result["ar_total_tokens"] = ar_baseline["tokens"]
+        result["ar_total_time_s"] = round(ar_baseline["time_s"], 1)
+    return result
 
 
 # ---------------------------------------------------------------------------

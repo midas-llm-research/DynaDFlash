@@ -60,6 +60,7 @@ def run_eval(
     benchmarks: str = "math500,humaneval,mt_bench",
     seed: int = 42,
     n_prompts: int = 50,
+    measure_ar: bool = False,
 ):
     import json
     import sys
@@ -93,11 +94,12 @@ def run_eval(
     # Load prompts per benchmark (shared across all variants)
     bench_prompts = {b: load_eval_prompts(b, n=n_prompts, seed=seed) for b in benchmark_list}
 
-    # Measure AR baseline once per benchmark (reused for all variants)
+    # Measure AR baseline once per benchmark (optional — adds ~1hr per benchmark)
     ar_baselines = {}
-    for bench, prompts in bench_prompts.items():
-        logger.info(f"\n{'='*60}\n  AR Baseline: {bench}\n{'='*60}")
-        ar_baselines[bench] = measure_ar_baseline(target, tokenizer, prompts)
+    if measure_ar:
+        for bench, prompts in bench_prompts.items():
+            logger.info(f"\n{'='*60}\n  AR Baseline: {bench}\n{'='*60}")
+            ar_baselines[bench] = measure_ar_baseline(target, tokenizer, prompts)
 
     # Helper to load a draft model
     def load_draft(variant_name):
@@ -138,13 +140,14 @@ def run_eval(
         for bench, prompts in bench_prompts.items():
             logger.info(f"  Benchmark: {bench}")
             benchmark_results[bench] = evaluate(
-                model, target, tokenizer, prompts, ar_baseline=ar_baselines[bench]
+                model, target, tokenizer, prompts, ar_baseline=ar_baselines.get(bench)
             )
 
         total_tokens = sum(r["total_tokens"] for r in benchmark_results.values())
         total_time = sum(r["total_time_s"] for r in benchmark_results.values())
         all_acc = [a for r in benchmark_results.values() for a in r["all_acceptance_lengths"]]
 
+        speedups = [r["speedup_over_ar"] for r in benchmark_results.values() if r["speedup_over_ar"] is not None]
         all_variant_results[variant] = {
             "variant": variant,
             "checkpoint": ckpt_path,
@@ -153,7 +156,7 @@ def run_eval(
             "aggregate": {
                 "tokens_per_second": round(total_tokens / total_time, 1),
                 "mean_acceptance_length": round(float(np.mean(all_acc)), 2),
-                "speedup_over_ar": round(np.mean([r["speedup_over_ar"] for r in benchmark_results.values()]), 2),
+                "speedup_over_ar": round(np.mean(speedups), 2) if speedups else None,
             },
             "results": benchmark_results,
         }
@@ -181,8 +184,8 @@ def run_eval(
 
 
 @app.local_entrypoint()
-def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50):
-    output = run_eval.remote(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts)
+def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50, measure_ar: bool = False):
+    output = run_eval.remote(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
     print(f"\n{'=' * 70}")
     print(f"  EVAL RESULTS — Benchmarks: {output['benchmarks']}, Seed: {output['seed']}")
     print(f"{'=' * 70}")
@@ -190,5 +193,6 @@ def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str =
     print(f"  {'-'*50}")
     for name, data in output["variants"].items():
         agg = data["aggregate"]
-        print(f"  {name:<15} {agg['mean_acceptance_length']:<8} {agg['tokens_per_second']:<10} {agg['speedup_over_ar']}x")
+        speedup_str = f"{agg['speedup_over_ar']}x" if agg['speedup_over_ar'] else "—"
+        print(f"  {name:<15} {agg['mean_acceptance_length']:<8} {agg['tokens_per_second']:<10} {speedup_str:<10}")
     print(f"{'=' * 70}")
