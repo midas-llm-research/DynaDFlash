@@ -129,6 +129,11 @@ def dummy_draft_batch():
 
     attention_mask = torch.zeros(B, 1, N, T + N)
 
+    noise_block_anchor = torch.stack([
+        torch.tensor([10, 10, 10, 10, 14, 14, 14, 14]),
+        torch.tensor([10, 10, 10, 10, 14, 14, 14, 14]),
+    ])
+
     return DraftTrainingBatch(
         noise_token_ids=noise_token_ids,
         position_ids=position_ids,
@@ -136,6 +141,7 @@ def dummy_draft_batch():
         noise_original_positions=noise_original_positions,
         loss_mask=loss_mask,
         position_in_block=position_in_block,
+        noise_block_anchor=noise_block_anchor,
     )
 
 

@@ -23,16 +23,22 @@ from midas.models.model_split_query import (
     Qwen3DFlashSplitQueryAttention,
     Qwen3DFlashSplitQueryDecoderLayer,
 )
+from midas.models.model_block_init import (
+    AnchorBlockInitializer,
+    DFlashDraftModelBlockInit,
+)
 
 # Backward-compat aliases — use ContextRouter(config) with use_fc=False instead
 ContextRouterNoFC = ContextRouter
 DFlashDraftModelRoutedNoFC = DFlashDraftModelRouted
 
 __all__ = [
+    "AnchorBlockInitializer",
     "ContextRouter",
     "ContextRouterNoFC",
     "AdaptiveLayerFusion",
     "DFlashDraftModel",
+    "DFlashDraftModelBlockInit",
     "DFlashDraftModelRouted",
     "DFlashDraftModelRoutedNoFC",
     "DFlashDraftModelSplitQuery",

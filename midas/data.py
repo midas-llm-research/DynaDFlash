@@ -345,6 +345,7 @@ class DraftTrainingBatch:
     noise_original_positions: torch.Tensor
     loss_mask: torch.Tensor
     position_in_block: torch.Tensor
+    noise_block_anchor: Optional[torch.Tensor] = None
 
 
 def prepare_draft_inputs(
@@ -501,4 +502,8 @@ def prepare_draft_inputs(
         # [B, N]
         # the index in [0, N-1] which is the index within its block for each anchor/mask token in each block
         position_in_block=position_in_block,
+
+        # [B, N]
+        # for each noise token, the original sequence position of its block's anchor
+        noise_block_anchor=noise_block_anchor,
     )

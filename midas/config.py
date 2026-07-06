@@ -24,6 +24,11 @@ class DFlareConfig:
 
 
 @dataclass
+class BlockInitConfig:
+    pass
+
+
+@dataclass
 class CheckpointConfig:
     save_every_steps: int = 2000
     save_dir: str = "/checkpoints/midas-router"
@@ -64,6 +69,7 @@ class TrainConfig:
     # Add new method configs as new `Optional[...] = None` fields below.
     router: Optional[RouterConfig] = None
     dflare: Optional[DFlareConfig] = None
+    block_init: Optional[BlockInitConfig] = None
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -83,6 +89,9 @@ class TrainConfig:
         dflare_raw = raw.pop("dflare", None)
         if dflare_raw is not None:
             method_kwargs["dflare"] = DFlareConfig(**dflare_raw)
+        block_init_raw = raw.pop("block_init", None)
+        if block_init_raw is not None:
+            method_kwargs["block_init"] = BlockInitConfig(**block_init_raw)
 
         known_top_keys = {"target_model", "draft_checkpoint", "data_path"}
         unknown = set(raw.keys()) - known_top_keys

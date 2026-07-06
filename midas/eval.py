@@ -37,6 +37,7 @@ from loguru import logger
 
 from midas.models import (
     DFlashDraftModel,
+    DFlashDraftModelBlockInit,
     DFlashDraftModelRouted,
     DFlareDraftModel,
     dflash_generate,
@@ -351,6 +352,18 @@ def _load_draft(
             draft.load_state_dict(state)
         return draft
 
+    if variant == "block-init":
+        draft = DFlashDraftModelBlockInit.from_pretrained_dflash(
+            draft_path,
+            device=device,
+            dtype=torch.bfloat16,
+        )
+        if checkpoint:
+            logger.info(f"Loading trained block-init weights from {checkpoint}")
+            state = torch.load(checkpoint, weights_only=True, map_location=device)
+            draft.load_state_dict(state)
+        return draft
+
     return (
         DFlashDraftModel.from_pretrained(
             draft_path,
@@ -371,7 +384,7 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-samples", type=int, default=50)
-    parser.add_argument("--variant", choices=["base", "router", "dflare"], default="base",
+    parser.add_argument("--variant", choices=["base", "router", "dflare", "block-init"], default="base",
                         help="Draft variant to load")
     parser.add_argument("--routed", action="store_true",
                         help="Backward-compatible alias for --variant router")

@@ -37,6 +37,7 @@ from midas.data import (
 )
 from midas.models import (
     DFlashDraftModel,
+    DFlashDraftModelBlockInit,
     DFlashDraftModelRouted,
     DFlashDraftModelSplitQuery,
     DFlareDraftModel,
@@ -63,6 +64,7 @@ def _dflare_constructor_kwargs(config: TrainConfig) -> dict:
 
 _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
+    DFlashDraftModelBlockInit: lambda config: {},
     DFlashDraftModelRouted: _router_constructor_kwargs,
     DFlashDraftModelSplitQuery: lambda config: {},
     DFlareDraftModel: _dflare_constructor_kwargs,
@@ -289,6 +291,8 @@ def train(
                     noise_embedding=noise_embedding,
                     target_hidden=target_hidden,
                     attention_mask=batch.attention_mask,
+                    noise_block_anchor=batch.noise_block_anchor,
+                    position_in_block=batch.position_in_block,
                 )
                 raw_model = model.module if hasattr(model, "module") else model
                 loss_gamma = (
