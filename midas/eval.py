@@ -37,6 +37,7 @@ from loguru import logger
 
 from midas.models import (
     DFlashDraftModel,
+    DFlashDraftModelRejectedHidden,
     DFlashDraftModelRouted,
     DFlareDraftModel,
     dflash_generate,
@@ -351,6 +352,27 @@ def _load_draft(
             draft.load_state_dict(state)
         return draft
 
+    if variant == "rejected-hidden":
+        from midas.config import RejectedHiddenConfig, TrainConfig
+
+        if config_path:
+            rh_config = TrainConfig.from_yaml(config_path).rejected_hidden
+            if rh_config is None:
+                rh_config = RejectedHiddenConfig()
+        else:
+            rh_config = RejectedHiddenConfig()
+        draft = DFlashDraftModelRejectedHidden.from_pretrained_dflash(
+            draft_path,
+            rejected_hidden_config=rh_config,
+            device=device,
+            dtype=torch.bfloat16,
+        )
+        if checkpoint:
+            logger.info(f"Loading trained rejected-hidden weights from {checkpoint}")
+            state = torch.load(checkpoint, weights_only=True, map_location=device)
+            draft.load_state_dict(state)
+        return draft
+
     return (
         DFlashDraftModel.from_pretrained(
             draft_path,
@@ -371,7 +393,7 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-samples", type=int, default=50)
-    parser.add_argument("--variant", choices=["base", "router", "dflare"], default="base",
+    parser.add_argument("--variant", choices=["base", "router", "dflare", "rejected-hidden"], default="base",
                         help="Draft variant to load")
     parser.add_argument("--routed", action="store_true",
                         help="Backward-compatible alias for --variant router")
@@ -381,8 +403,10 @@ def main() -> None:
                         help="Path to trained router state_dict (model.pt). Implies --routed.")
     parser.add_argument("--dflare-ckpt", type=str, default=None,
                         help="Path to trained DFlare state_dict (model.pt). Implies --variant dflare.")
+    parser.add_argument("--rejected-hidden-ckpt", type=str, default=None,
+                        help="Path to trained rejected-hidden state_dict (model.pt). Implies --variant rejected-hidden.")
     parser.add_argument("--config", type=str, default=None,
-                        help="YAML config providing variant params (router or dflare)")
+                        help="YAML config providing variant params (router, dflare, or rejected-hidden)")
     args = parser.parse_args()
 
     if (args.routed or args.router_ckpt) and (args.dflare or args.dflare_ckpt):
@@ -391,9 +415,12 @@ def main() -> None:
         args.variant = "router"
     if args.dflare or args.dflare_ckpt:
         args.variant = "dflare"
+    if args.rejected_hidden_ckpt:
+        args.variant = "rejected-hidden"
     checkpoint = (
         args.router_ckpt if args.variant == "router"
         else args.dflare_ckpt if args.variant == "dflare"
+        else args.rejected_hidden_ckpt if args.variant == "rejected-hidden"
         else None
     )
 

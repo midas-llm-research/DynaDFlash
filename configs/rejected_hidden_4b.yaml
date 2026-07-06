@@ -1,0 +1,29 @@
+target_model: "Qwen/Qwen3-4B"
+draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
+data_path: "/checkpoints/sdd/sdd_100k.jsonl"
+
+rejected_hidden:
+  distance_embed_dim: 64
+  max_distance: 16
+
+training:
+  lr: 6.0e-4
+  weight_decay: 0.01
+  num_epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  max_seq_len: 3072
+  block_size: 16
+  max_num_anchors: 128
+  warmup_ratio: 0.04
+  grad_clip: 1.0
+  loss_gamma: 7.0
+
+checkpointing:
+  save_every_steps: 500
+  save_dir: "/checkpoints/midas-rejected-hidden-v1"
+  keep_last_n: 3
+
+logging:
+  wandb_project: "midas-rejected-hidden"
+  log_every_steps: 50

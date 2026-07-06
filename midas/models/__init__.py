@@ -18,6 +18,10 @@ from midas.models.model_dflare import (
     build_dflare_target_layer_ids,
     compute_progressive_gamma,
 )
+from midas.models.model_rejected_hidden import (
+    DFlashDraftModelRejectedHidden,
+    RejectedStateProjector,
+)
 from midas.models.model_split_query import (
     DFlashDraftModelSplitQuery,
     Qwen3DFlashSplitQueryAttention,
@@ -33,10 +37,12 @@ __all__ = [
     "ContextRouterNoFC",
     "AdaptiveLayerFusion",
     "DFlashDraftModel",
+    "DFlashDraftModelRejectedHidden",
     "DFlashDraftModelRouted",
     "DFlashDraftModelRoutedNoFC",
     "DFlashDraftModelSplitQuery",
     "DFlareDraftModel",
+    "RejectedStateProjector",
     "Qwen3DFlashAttention",
     "Qwen3DFlashDecoderLayer",
     "Qwen3DFlashSplitQueryAttention",

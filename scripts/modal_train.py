@@ -68,7 +68,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
+    from midas.models import DFlashDraftModel, DFlashDraftModelRejectedHidden, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -109,8 +109,16 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
+    elif variant == "rejected-hidden":
+        model_cls = DFlashDraftModelRejectedHidden
+        if config.rejected_hidden is None:
+            from midas.config import RejectedHiddenConfig
+            config.rejected_hidden = RejectedHiddenConfig()
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-rejected-hidden-v1"
+        logger.info("Training REJECTED-HIDDEN variant (warm-start from rejected draft states)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', or 'dflare'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'dflare', or 'rejected-hidden'.")
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -155,6 +163,8 @@ def main(
         return
     if variant == "dflare" and config == "configs/base_4b.yaml":
         config = "configs/dflare_4b.yaml"
+    if variant == "rejected-hidden" and config == "configs/base_4b.yaml":
+        config = "configs/rejected_hidden_4b.yaml"
 
     # Map local config path to container path
     config_name = Path(config).name

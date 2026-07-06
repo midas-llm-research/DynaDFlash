@@ -157,6 +157,10 @@ def dflash_generate(
     past_key_values_target = DynamicCache()
     past_key_values_draft = DynamicCache()
 
+    # Warm-start state for rejected-hidden variant.
+    use_warm_start = hasattr(model, "rejected_state_proj")
+    warm_start_info: Optional[dict] = None
+
     prefill_start = _cuda_time() if return_stats else None
     output = target(
         input_ids,
@@ -183,14 +187,22 @@ def dflash_generate(
         block_position_ids = position_ids[:, start : start + block_size]
         if block_size > 1:
             noise_embedding = target.model.embed_tokens(block_output_ids)
-            draft_logits = target.lm_head(model(
+
+            # Apply warm-start from previous block's rejection.
+            if use_warm_start and warm_start_info is not None:
+                n_warm = warm_start_info["n_warm"]
+                noise_embedding[:, 1 : 1 + n_warm, :] = warm_start_info["embeddings"]
+
+            draft_output_full = model(
                 target_hidden=target_hidden,
                 noise_embedding=noise_embedding,
                 position_ids=position_ids[:, past_key_values_draft.get_seq_length(): start + block_size],
                 past_key_values=past_key_values_draft,
                 use_cache=True,
                 is_causal=False,
-            )[:, 1 - block_size :, :])
+            )
+            draft_hidden_block = draft_output_full[:, 1 - block_size :, :]
+            draft_logits = target.lm_head(draft_hidden_block)
             past_key_values_draft.crop(start)
             block_output_ids[:, 1:] = sample(draft_logits)
             if draft_prefill and return_stats:
@@ -221,6 +233,27 @@ def dflash_generate(
                 target_hidden = target_hidden[:, :, : acceptance_length + 1, :]
             else:
                 target_hidden = target_hidden[:, : acceptance_length + 1, :]
+
+            # Build warm-start info for the next block (rejected-hidden variant).
+            if use_warm_start:
+                n_warm = block_size - acceptance_length - 2
+                if n_warm > 0:
+                    draft_h = draft_hidden_block[:, acceptance_length + 1 :, :]
+                    target_h = output.hidden_states[-1][:, acceptance_length + 2 :, :]
+                    distances = torch.arange(1, n_warm + 1, device=target.device)
+                    r = model.rejected_state_proj(
+                        target_h.squeeze(0), draft_h.squeeze(0), distances
+                    )
+                    mask_embed = target.model.embed_tokens(
+                        torch.full((n_warm,), mask_token_id, device=target.device, dtype=torch.long)
+                    )
+                    warm_embeddings = mask_embed + model.rejected_state_proj.warm_embed + r
+                    warm_start_info = {
+                        "n_warm": n_warm,
+                        "embeddings": warm_embeddings.unsqueeze(0),
+                    }
+                else:
+                    warm_start_info = None
 
         if stop_token_ids is not None and any(
             stop_token_id in output_ids[:, num_input_tokens:] for stop_token_id in stop_token_ids

@@ -24,6 +24,12 @@ class DFlareConfig:
 
 
 @dataclass
+class RejectedHiddenConfig:
+    distance_embed_dim: int = 64
+    max_distance: int = 16
+
+
+@dataclass
 class CheckpointConfig:
     save_every_steps: int = 2000
     save_dir: str = "/checkpoints/midas-router"
@@ -64,6 +70,7 @@ class TrainConfig:
     # Add new method configs as new `Optional[...] = None` fields below.
     router: Optional[RouterConfig] = None
     dflare: Optional[DFlareConfig] = None
+    rejected_hidden: Optional[RejectedHiddenConfig] = None
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -83,6 +90,9 @@ class TrainConfig:
         dflare_raw = raw.pop("dflare", None)
         if dflare_raw is not None:
             method_kwargs["dflare"] = DFlareConfig(**dflare_raw)
+        rejected_hidden_raw = raw.pop("rejected_hidden", None)
+        if rejected_hidden_raw is not None:
+            method_kwargs["rejected_hidden"] = RejectedHiddenConfig(**rejected_hidden_raw)
 
         known_top_keys = {"target_model", "draft_checkpoint", "data_path"}
         unknown = set(raw.keys()) - known_top_keys

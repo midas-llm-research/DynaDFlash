@@ -29,7 +29,7 @@ from transformers import (
     get_cosine_schedule_with_warmup,
 )
 
-from midas.config import DFlareConfig, TrainConfig
+from midas.config import DFlareConfig, RejectedHiddenConfig, TrainConfig
 from midas.data import (
     DFlashDataProcessor,
     OnlineHiddenStateExtractor,
@@ -40,6 +40,7 @@ from midas.models import (
     DFlashDraftModelRouted,
     DFlashDraftModelSplitQuery,
     DFlareDraftModel,
+    DFlashDraftModelRejectedHidden,
     compute_progressive_gamma,
 )
 
@@ -61,11 +62,18 @@ def _dflare_constructor_kwargs(config: TrainConfig) -> dict:
     return {"dflare_config": config.dflare}
 
 
+def _rejected_hidden_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.rejected_hidden is None:
+        config.rejected_hidden = RejectedHiddenConfig()
+    return {"rejected_hidden_config": config.rejected_hidden}
+
+
 _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
     DFlashDraftModelRouted: _router_constructor_kwargs,
     DFlashDraftModelSplitQuery: lambda config: {},
     DFlareDraftModel: _dflare_constructor_kwargs,
+    DFlashDraftModelRejectedHidden: _rejected_hidden_constructor_kwargs,
 }
 
 
@@ -283,6 +291,35 @@ def train(
             # Draft forward + loss in bf16 autocast (fast), optimizer in fp32 (precise).
             noise_embedding = target_model.model.embed_tokens(batch.noise_token_ids)
             autocast_device = device.type if device.type in {"cuda", "cpu"} else "cuda"
+            raw_model = model.module if hasattr(model, "module") else model
+
+            # Two-pass warm-start for rejected-hidden variant.
+            if isinstance(raw_model, DFlashDraftModelRejectedHidden):
+                with torch.no_grad(), torch.amp.autocast(
+                    device_type=autocast_device, dtype=torch.bfloat16
+                ):
+                    draft_hidden_pass1 = model(
+                        position_ids=batch.position_ids,
+                        noise_embedding=noise_embedding,
+                        target_hidden=target_hidden,
+                        attention_mask=batch.attention_mask,
+                    )
+                target_final_hidden = hidden_states[-1].to(device)
+                H = target_final_hidden.shape[-1]
+                target_at_noise = target_final_hidden.gather(
+                    1,
+                    batch.noise_original_positions.unsqueeze(-1).expand(-1, -1, H),
+                )
+                noise_embedding = raw_model.prepare_warm_start_embedding(
+                    noise_embedding,
+                    draft_hidden_pass1.detach(),
+                    target_at_noise.detach(),
+                    batch,
+                    config.block_size,
+                    target_model.lm_head,
+                    input_ids,
+                )
+
             with torch.amp.autocast(device_type=autocast_device, dtype=torch.bfloat16):
                 draft_output = model(
                     position_ids=batch.position_ids,
@@ -290,7 +327,6 @@ def train(
                     target_hidden=target_hidden,
                     attention_mask=batch.attention_mask,
                 )
-                raw_model = model.module if hasattr(model, "module") else model
                 loss_gamma = (
                     compute_progressive_gamma(config.dflare, epoch)
                     if isinstance(raw_model, DFlareDraftModel) and config.dflare is not None
