@@ -58,6 +58,7 @@ def train(
     variant: str = "router",
     fresh: bool = True,
     epochs: int = 0,
+    random_init: bool = False,
 ):
     import sys
     import shutil
@@ -68,7 +69,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
+    from midas.models import DFlashDraftModel, DFlashDraftModelBlockInit, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -109,8 +110,14 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
+    elif variant == "block-init":
+        model_cls = DFlashDraftModelBlockInit
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-block-init-v1"
+        config.logging.wandb_project = "midas-block-init"
+        logger.info("Training BLOCK-INIT variant (anchor-conditioned mask initialization)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', or 'dflare'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'block-init', or 'dflare'.")
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -118,7 +125,7 @@ def train(
             shutil.rmtree(ckpt_dir)
             logger.info(f"Cleared old checkpoints at {ckpt_dir}")
 
-    run_training(config, model_cls=model_cls, random_init=True)
+    run_training(config, model_cls=model_cls, random_init=random_init)
     checkpoint_volume.commit()
 
 
@@ -149,6 +156,7 @@ def main(
     download: bool = False,
     fresh: bool = True,
     epochs: int = 0,
+    random_init: bool = False,
 ):
     if download:
         download_models.remote()
@@ -160,4 +168,10 @@ def main(
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
-    train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)
+    train.remote(
+        config_path=container_config,
+        variant=variant,
+        fresh=fresh,
+        epochs=epochs,
+        random_init=random_init,
+    )
