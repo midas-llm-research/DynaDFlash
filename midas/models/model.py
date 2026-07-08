@@ -97,7 +97,7 @@ def compute_position_weighted_ce_loss(
     """
     Position-weighted cross-entropy loss (DFlash paper Eq. 4).
 
-    For each masked position k within a draft block:
+    For each masked position k within an anchor-inclusive draft block:
         w_k = exp(-(k - 1) / gamma)
         loss_k = CE(draft_logits, ground_truth_token)
 
@@ -170,9 +170,6 @@ def dflash_generate(
     output_ids[:, :num_input_tokens] = input_ids
     output_ids[:, num_input_tokens:num_input_tokens + 1] = sample(output.logits, temperature)
     if block_size > 1:
-        # MIDAS: was `target_hidden = extract_context_feature(output.hidden_states, model.target_layer_ids)`.
-        # Delegated to the model so subclasses can pick which layers to use.
-        # Return type is always a concat tensor [B, T, N*H], same as z-lab.
         target_hidden = model.extract_target_hidden(output.hidden_states)
     time_to_first_token = _cuda_time() - prefill_start if return_stats else None
 
@@ -219,8 +216,11 @@ def dflash_generate(
         if block_size > 1:
             # MIDAS: only difference from z-lab is `extract_context_feature(...)`
             # → `model.extract_target_hidden(...)` so subclasses can pick layers.
-            # Return type is still a concat tensor, so the inline slice is unchanged.
-            target_hidden = model.extract_target_hidden(output.hidden_states)[:, :acceptance_length + 1, :]
+            target_hidden = model.extract_target_hidden(output.hidden_states)
+            if target_hidden.dim() == 4:
+                target_hidden = target_hidden[:, :, : acceptance_length + 1, :]
+            else:
+                target_hidden = target_hidden[:, : acceptance_length + 1, :]
 
         if stop_token_ids is not None and any(
             stop_token_id in output_ids[:, num_input_tokens:] for stop_token_id in stop_token_ids

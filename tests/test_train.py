@@ -19,9 +19,10 @@ from midas.train import (
     cleanup_old_checkpoints,
     build_default_model,
 )
-from midas.config import TrainConfig, RouterConfig
+from midas.config import DFlareConfig, TrainConfig, RouterConfig
 from midas.models.model import DFlashDraftModel
 from midas.models.model_context_router import DFlashDraftModelRouted
+from midas.models.model_dflare import DFlareDraftModel
 from tests.conftest import make_tiny_qwen3_config
 
 
@@ -209,6 +210,34 @@ class TestBuildDefaultModel:
         config = TrainConfig(router=None)
         with pytest.raises(ValueError, match="router"):
             build_default_model(config, device=torch.device("cpu"), model_cls=DFlashDraftModelRouted)
+
+    def test_builds_dflare_with_default_config(self, monkeypatch):
+        captured = {}
+
+        def fake_from_config_random(cls, checkpoint, *, device, dtype, **kwargs):
+            captured["checkpoint"] = checkpoint
+            captured["device"] = device
+            captured["dtype"] = dtype
+            captured["kwargs"] = kwargs
+            return "dflare-model"
+
+        monkeypatch.setattr(
+            DFlareDraftModel,
+            "from_config_random",
+            classmethod(fake_from_config_random),
+        )
+
+        config = TrainConfig(dflare=None)
+        model = build_default_model(
+            config,
+            device=torch.device("cpu"),
+            model_cls=DFlareDraftModel,
+            random_init=True,
+        )
+
+        assert model == "dflare-model"
+        assert isinstance(config.dflare, DFlareConfig)
+        assert captured["kwargs"] == {"dflare_config": config.dflare}
 
 
 # ---------------------------------------------------------------------------

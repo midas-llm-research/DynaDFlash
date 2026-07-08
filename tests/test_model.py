@@ -4,6 +4,8 @@ pytestmark = pytest.mark.model
 """Tests for midas/models/model.py — utilities, layers, and DFlashDraftModel."""
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import pytest
 
 from midas.models.model import (
@@ -213,6 +215,41 @@ class TestComputePositionWeightedCELoss:
         assert loss_early.isfinite()
         assert loss_late.isfinite()
 
+    def test_uses_zero_indexed_position_weights_normalized_by_weight_sum(self):
+        from midas.data import DraftTrainingBatch
+
+        gamma = 2.0
+        input_ids = torch.tensor([[0, 1, 2, 1, 0, 0]])
+        draft_logits = torch.tensor(
+            [
+                [
+                    [0.0, 0.0, 0.0],
+                    [2.0, 0.0, -1.0],
+                    [0.0, 1.0, -2.0],
+                    [-1.0, 0.0, 3.0],
+                ]
+            ]
+        )
+        batch = DraftTrainingBatch(
+            noise_token_ids=torch.zeros(1, 4, dtype=torch.long),
+            position_ids=torch.zeros(1, 10, dtype=torch.long),
+            attention_mask=torch.zeros(1, 1, 4, 10),
+            noise_original_positions=torch.tensor([[0, 1, 2, 3]]),
+            loss_mask=torch.tensor([[False, True, True, True]]),
+            position_in_block=torch.tensor([[0, 1, 2, 3]]),
+        )
+
+        loss = compute_position_weighted_ce_loss(
+            draft_logits, input_ids, batch, nn.Identity(), gamma=gamma
+        )
+
+        selected_logits = draft_logits[0, 1:]
+        target_tokens = torch.tensor([1, 2, 1])
+        ce = F.cross_entropy(selected_logits, target_tokens, reduction="none")
+        weights = torch.exp(-torch.tensor([0.0, 1.0, 2.0]) / gamma)
+        expected = (ce * weights).sum() / weights.sum()
+        assert torch.allclose(loss, expected)
+
 
 # ---------------------------------------------------------------------------
 # Qwen3DFlashAttention
@@ -403,3 +440,16 @@ class TestApplyRotaryPosEmb:
         q_out, k_out = apply_rotary_pos_emb(q, k, cos, sin)
         assert q_out.shape == (B, num_heads, q_len, head_dim)
         assert k_out.shape == (B, num_heads, k_len, head_dim)
+
+    def test_q_uses_suffix_positions_when_shorter_than_k(self):
+        B, num_heads, q_len, k_len, head_dim = 1, 1, 3, 8, 2
+        q = torch.ones(B, num_heads, q_len, head_dim)
+        k = torch.ones(B, num_heads, k_len, head_dim)
+        position_values = torch.arange(k_len, dtype=torch.float).view(1, k_len, 1)
+        cos = position_values.expand(1, k_len, head_dim)
+        sin = torch.zeros(1, k_len, head_dim)
+
+        q_out, k_out = apply_rotary_pos_emb(q, k, cos, sin)
+
+        assert torch.equal(q_out[0, 0, :, 0], torch.tensor([5.0, 6.0, 7.0]))
+        assert torch.equal(k_out[0, 0, :, 0], torch.arange(k_len, dtype=torch.float))

@@ -29,13 +29,44 @@ from transformers import (
     get_cosine_schedule_with_warmup,
 )
 
-from midas.config import TrainConfig
+from midas.config import DFlareConfig, TrainConfig
 from midas.data import (
     DFlashDataProcessor,
     OnlineHiddenStateExtractor,
     prepare_draft_inputs,
 )
-from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery
+from midas.models import (
+    DFlashDraftModel,
+    DFlashDraftModelRouted,
+    DFlashDraftModelSplitQuery,
+    DFlareDraftModel,
+    compute_progressive_gamma,
+)
+
+
+def _router_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.router is None:
+        raise ValueError(
+            "DFlashDraftModelRouted needs a `router` config. Add a `router:` "
+            "block to your yaml or set `config.router = RouterConfig(...)` "
+            "before calling train()."
+        )
+    return {"router_config": config.router}
+
+
+def _dflare_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.dflare is None:
+        from midas.config import DFlareConfig
+        config.dflare = DFlareConfig()
+    return {"dflare_config": config.dflare}
+
+
+_MODEL_CONSTRUCTOR_KWARGS = {
+    DFlashDraftModel: lambda config: {},
+    DFlashDraftModelRouted: _router_constructor_kwargs,
+    DFlashDraftModelSplitQuery: lambda config: {},
+    DFlareDraftModel: _dflare_constructor_kwargs,
+}
 
 
 def save_checkpoint(
@@ -140,23 +171,18 @@ def build_default_model(
     pick which DFlashDraftModel subclass to use. If `random_init=True`, all
     weights start random (for fair from-scratch comparisons).
     """
-    extra_kwargs: dict = {}
-    needs_router = issubclass(model_cls, DFlashDraftModelRouted)
-    if needs_router:
-        if config.router is None:
-            raise ValueError(
-                f"{model_cls.__name__} needs a `router` config. Add a "
-                "`router:` block to your yaml or set `config.router = "
-                "RouterConfig(...)` before calling train()."
-            )
-        extra_kwargs["router_config"] = config.router
-
+    if model_cls not in _MODEL_CONSTRUCTOR_KWARGS:
+        raise ValueError(
+            f"Unsupported model class: {model_cls.__name__}. "
+            f"Supported: {[c.__name__ for c in _MODEL_CONSTRUCTOR_KWARGS]}"
+        )
+    constructor_kwargs = _MODEL_CONSTRUCTOR_KWARGS[model_cls](config)
     factory = model_cls.from_config_random if random_init else model_cls.from_pretrained_dflash
     return factory(
         config.draft_checkpoint,
         device=device,
         dtype=torch.float32,
-        **extra_kwargs,
+        **constructor_kwargs,
     )
 
 
@@ -196,6 +222,8 @@ def train(
             f"Building {model_cls.__name__} from {config.draft_checkpoint}"
         )
         model = build_default_model(config, device, model_cls=model_cls, random_init=random_init)
+    elif isinstance(model, DFlareDraftModel) and config.dflare is None:
+        config.dflare = DFlareConfig()
     model.train()
 
     extractor = OnlineHiddenStateExtractor(target_model, device)
@@ -254,19 +282,26 @@ def train(
 
             # Draft forward + loss in bf16 autocast (fast), optimizer in fp32 (precise).
             noise_embedding = target_model.model.embed_tokens(batch.noise_token_ids)
-            with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+            autocast_device = device.type if device.type in {"cuda", "cpu"} else "cuda"
+            with torch.amp.autocast(device_type=autocast_device, dtype=torch.bfloat16):
                 draft_output = model(
                     position_ids=batch.position_ids,
                     noise_embedding=noise_embedding,
                     target_hidden=target_hidden,
                     attention_mask=batch.attention_mask,
                 )
+                raw_model = model.module if hasattr(model, "module") else model
+                loss_gamma = (
+                    compute_progressive_gamma(config.dflare, epoch)
+                    if isinstance(raw_model, DFlareDraftModel) and config.dflare is not None
+                    else config.loss_gamma
+                )
                 loss = model.compute_loss(
                     draft_output,
                     input_ids,
                     batch,
                     target_model.lm_head,
-                    gamma=config.loss_gamma,
+                    gamma=loss_gamma,
                 )
 
             loss = loss / config.gradient_accumulation_steps

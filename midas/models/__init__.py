@@ -10,6 +10,14 @@ from midas.models.model_context_router import (
     ContextRouter,
     DFlashDraftModelRouted,
 )
+from midas.models.model_dflare import (
+    AdaptiveLayerFusion,
+    DFlareDraftModel,
+    Qwen3DFlareAttention,
+    Qwen3DFlareDecoderLayer,
+    build_dflare_target_layer_ids,
+    compute_progressive_gamma,
+)
 from midas.models.model_split_query import (
     DFlashDraftModelSplitQuery,
     Qwen3DFlashSplitQueryAttention,
@@ -23,15 +31,21 @@ DFlashDraftModelRoutedNoFC = DFlashDraftModelRouted
 __all__ = [
     "ContextRouter",
     "ContextRouterNoFC",
+    "AdaptiveLayerFusion",
     "DFlashDraftModel",
     "DFlashDraftModelRouted",
     "DFlashDraftModelRoutedNoFC",
     "DFlashDraftModelSplitQuery",
+    "DFlareDraftModel",
     "Qwen3DFlashAttention",
     "Qwen3DFlashDecoderLayer",
     "Qwen3DFlashSplitQueryAttention",
     "Qwen3DFlashSplitQueryDecoderLayer",
+    "Qwen3DFlareAttention",
+    "Qwen3DFlareDecoderLayer",
     "build_target_layer_ids",
+    "build_dflare_target_layer_ids",
+    "compute_progressive_gamma",
     "dflash_generate",
     "sample",
 ]
