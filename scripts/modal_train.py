@@ -68,7 +68,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
+    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -109,8 +109,14 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
+    elif variant == "token-mix":
+        model_cls = DFlashDraftModelTokenMix
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-token-mix-v1"
+        config.logging.wandb_project = "midas-token-mix"
+        logger.info("Training TOKEN-MIX variant (per-layer position mixing)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', or 'dflare'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'token-mix', or 'dflare'.")
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)

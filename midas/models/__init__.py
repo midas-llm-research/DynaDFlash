@@ -23,6 +23,10 @@ from midas.models.model_split_query import (
     Qwen3DFlashSplitQueryAttention,
     Qwen3DFlashSplitQueryDecoderLayer,
 )
+from midas.models.model_token_mix import (
+    DFlashDraftModelTokenMix,
+    Qwen3DFlashTokenMixDecoderLayer,
+)
 
 # Backward-compat aliases — use ContextRouter(config) with use_fc=False instead
 ContextRouterNoFC = ContextRouter
@@ -36,6 +40,7 @@ __all__ = [
     "DFlashDraftModelRouted",
     "DFlashDraftModelRoutedNoFC",
     "DFlashDraftModelSplitQuery",
+    "DFlashDraftModelTokenMix",
     "DFlareDraftModel",
     "Qwen3DFlashAttention",
     "Qwen3DFlashDecoderLayer",

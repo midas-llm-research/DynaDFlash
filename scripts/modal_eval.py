@@ -41,6 +41,7 @@ CHECKPOINTS = {
     "router-nofc": "/checkpoints/midas-router-nofc-v3/best",
     "split-query": "/checkpoints/midas-split-query-v1/best",
     "dflare": "/checkpoints/dflare-qwen3-4b/best",
+    "token-mix": "/checkpoints/midas-token-mix-v1/best",
 }
 
 
@@ -77,6 +78,7 @@ def run_eval(
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
     from midas.models.model_split_query import DFlashDraftModelSplitQuery
+    from midas.models.model_token_mix import DFlashDraftModelTokenMix
     from midas.models.model_dflare import DFlareDraftModel
 
     device = torch.device("cuda")
@@ -116,6 +118,8 @@ def run_eval(
         elif variant_name == "dflare":
             dflare_config = DFlareConfig(hidden_size=2560, num_draft_layers=7, num_target_layers=9)
             model = DFlareDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=dflare_config)
+        elif variant_name == "token-mix":
+            model = DFlashDraftModelTokenMix.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         else:
             raise ValueError(f"Unknown variant: {variant_name}")
         ckpt = Path(ckpt_path)

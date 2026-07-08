@@ -39,6 +39,7 @@ from midas.models import (
     DFlashDraftModel,
     DFlashDraftModelRouted,
     DFlashDraftModelSplitQuery,
+    DFlashDraftModelTokenMix,
     DFlareDraftModel,
     compute_progressive_gamma,
 )
@@ -65,6 +66,7 @@ _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
     DFlashDraftModelRouted: _router_constructor_kwargs,
     DFlashDraftModelSplitQuery: lambda config: {},
+    DFlashDraftModelTokenMix: lambda config: {},
     DFlareDraftModel: _dflare_constructor_kwargs,
 }
 
