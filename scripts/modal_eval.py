@@ -36,12 +36,12 @@ image = (
 
 
 CHECKPOINTS = {
-    "baseline": "/checkpoints/midas-baseline/best",
-    "router": "/checkpoints/midas-router-v2/best",
-    "router-nofc": "/checkpoints/midas-router-nofc-v3/best",
-    "split-query": "/checkpoints/midas-split-query-v1/best",
-    "dflare": "/checkpoints/dflare-qwen3-4b/best",
-    "token-mix": "/checkpoints/midas-token-mix-v1/best",
+    "baseline": "/checkpoints/midas-baseline/latest",
+    "router": "/checkpoints/midas-router-v2/latest",
+    "router-nofc": "/checkpoints/midas-router-nofc-v3/latest",
+    "split-query": "/checkpoints/midas-split-query-v1/latest",
+    "dflare": "/checkpoints/dflare-qwen3-4b/latest",
+    "token-mix": "/checkpoints/midas-token-mix-v1/latest",
 }
 
 
