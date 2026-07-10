@@ -41,6 +41,7 @@ from midas.models import (
     DFlashDraftModelRouted,
     DFlashDraftModelSplitQuery,
     DFlashDraftModelTokenMix,
+    DFlareDeepDraftModel,
     DFlareDraftModel,
     DFlarePlusDraftModel,
     compute_progressive_gamma,
@@ -77,6 +78,7 @@ _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModelRouted: _router_constructor_kwargs,
     DFlashDraftModelSplitQuery: lambda config: {},
     DFlashDraftModelTokenMix: lambda config: {},
+    DFlareDeepDraftModel: _dflare_plus_constructor_kwargs,
     DFlareDraftModel: _dflare_constructor_kwargs,
     DFlarePlusDraftModel: _dflare_plus_constructor_kwargs,
 }
@@ -305,9 +307,10 @@ def train(
                     attention_mask=batch.attention_mask,
                 )
                 raw_model = model.module if hasattr(model, "module") else model
+                dflare_cfg = config.dflare or config.dflare_plus
                 loss_gamma = (
-                    compute_progressive_gamma(config.dflare, epoch)
-                    if isinstance(raw_model, DFlareDraftModel) and config.dflare is not None
+                    compute_progressive_gamma(dflare_cfg, epoch)
+                    if isinstance(raw_model, DFlareDraftModel) and dflare_cfg is not None
                     else config.loss_gamma
                 )
                 loss = model.compute_loss(
