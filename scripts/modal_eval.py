@@ -43,6 +43,7 @@ CHECKPOINTS = {
     "dflare": "/checkpoints/dflare-qwen3-4b/latest",
     "token-mix": "/checkpoints/midas-token-mix-v1/latest",
     "causal-block": "/checkpoints/midas-causal-block-v1/latest",
+    "dflare-plus": "/checkpoints/dflare-plus-qwen3-4b/latest",
 }
 
 
@@ -82,6 +83,7 @@ def run_eval(
     from midas.models.model_causal_block import DFlashDraftModelCausalBlock
     from midas.models.model_token_mix import DFlashDraftModelTokenMix
     from midas.models.model_dflare import DFlareDraftModel
+    from midas.models.model_dflare_plus import DFlarePlusDraftModel
 
     device = torch.device("cuda")
     router_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0)
@@ -124,6 +126,10 @@ def run_eval(
             model = DFlashDraftModelTokenMix.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "causal-block":
             model = DFlashDraftModelCausalBlock.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
+        elif variant_name == "dflare-plus":
+            from midas.config import DFlarePlusConfig
+            dflare_plus_config = DFlarePlusConfig(hidden_size=2560, num_draft_layers=9, num_target_layers=9, intermediate_size=4864)
+            model = DFlarePlusDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=dflare_plus_config)
         else:
             raise ValueError(f"Unknown variant: {variant_name}")
         ckpt = Path(ckpt_path)

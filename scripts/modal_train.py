@@ -68,7 +68,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelCausalBlock, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDraftModel
+    from midas.models import DFlashDraftModel, DFlashDraftModelCausalBlock, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDraftModel, DFlarePlusDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -121,6 +121,16 @@ def train(
         config.checkpoint.save_dir = "/checkpoints/midas-causal-block-v1"
         config.logging.wandb_project = "midas-causal-block"
         logger.info("Training CAUSAL-BLOCK variant (causal attention within blocks)")
+    elif variant == "dflare-plus":
+        model_cls = DFlarePlusDraftModel
+        if config.dflare_plus is None:
+            from midas.config import DFlarePlusConfig
+            config.dflare_plus = DFlarePlusConfig()
+        config.router = None
+        config.dflare = None
+        config.checkpoint.save_dir = "/checkpoints/dflare-plus-qwen3-4b"
+        config.logging.wandb_project = "dflare-plus"
+        logger.info("Training DFLARE-PLUS variant (DFlare + causal mask + token mixing + shrunk MLP)")
     else:
         raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'token-mix', or 'dflare'.")
 

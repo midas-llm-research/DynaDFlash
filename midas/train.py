@@ -42,6 +42,7 @@ from midas.models import (
     DFlashDraftModelSplitQuery,
     DFlashDraftModelTokenMix,
     DFlareDraftModel,
+    DFlarePlusDraftModel,
     compute_progressive_gamma,
 )
 
@@ -63,6 +64,13 @@ def _dflare_constructor_kwargs(config: TrainConfig) -> dict:
     return {"dflare_config": config.dflare}
 
 
+def _dflare_plus_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.dflare_plus is None:
+        from midas.config import DFlarePlusConfig
+        config.dflare_plus = DFlarePlusConfig()
+    return {"dflare_config": config.dflare_plus}
+
+
 _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
     DFlashDraftModelCausalBlock: lambda config: {},
@@ -70,6 +78,7 @@ _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModelSplitQuery: lambda config: {},
     DFlashDraftModelTokenMix: lambda config: {},
     DFlareDraftModel: _dflare_constructor_kwargs,
+    DFlarePlusDraftModel: _dflare_plus_constructor_kwargs,
 }
 
 
