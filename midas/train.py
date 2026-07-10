@@ -37,6 +37,7 @@ from midas.data import (
 )
 from midas.models import (
     DFlashDraftModel,
+    DFlashDraftModelCausalBlock,
     DFlashDraftModelRouted,
     DFlashDraftModelSplitQuery,
     DFlashDraftModelTokenMix,
@@ -64,6 +65,7 @@ def _dflare_constructor_kwargs(config: TrainConfig) -> dict:
 
 _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
+    DFlashDraftModelCausalBlock: lambda config: {},
     DFlashDraftModelRouted: _router_constructor_kwargs,
     DFlashDraftModelSplitQuery: lambda config: {},
     DFlashDraftModelTokenMix: lambda config: {},
@@ -280,6 +282,7 @@ def train(
                 max_num_anchors=config.max_num_anchors,
                 mask_token_id=model.mask_token_id or 0,
                 response_starts=response_starts,
+                causal_block=getattr(model, "causal_block", False),
             )
 
             # Draft forward + loss in bf16 autocast (fast), optimizer in fp32 (precise).

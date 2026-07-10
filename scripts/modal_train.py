@@ -68,7 +68,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDraftModel
+    from midas.models import DFlashDraftModel, DFlashDraftModelCausalBlock, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -115,6 +115,12 @@ def train(
         config.checkpoint.save_dir = "/checkpoints/midas-token-mix-v1"
         config.logging.wandb_project = "midas-token-mix"
         logger.info("Training TOKEN-MIX variant (per-layer position mixing)")
+    elif variant == "causal-block":
+        model_cls = DFlashDraftModelCausalBlock
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-causal-block-v1"
+        config.logging.wandb_project = "midas-causal-block"
+        logger.info("Training CAUSAL-BLOCK variant (causal attention within blocks)")
     else:
         raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'token-mix', or 'dflare'.")
 

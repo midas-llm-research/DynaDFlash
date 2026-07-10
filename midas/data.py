@@ -355,6 +355,7 @@ def prepare_draft_inputs(
     mask_token_id: int,
     response_starts: torch.Tensor,
     dtype: torch.dtype = torch.bfloat16,
+    causal_block: bool = False,
 ) -> DraftTrainingBatch:
     """
     Sample anchors from the response portion and build concatenated-blocks
@@ -456,10 +457,16 @@ def prepare_draft_inputs(
         torch.full((), float("-inf"), device=device, dtype=dtype),
     )
 
-    # noise half [B, N, N]: block-diagonal — same-block visibility only.
+    # noise half [B, N, N]: same-block visibility, optionally causal within block.
     same_block = noise_block_idx.unsqueeze(2) == noise_block_idx.unsqueeze(1)
+    if causal_block:
+        # key_pos <= query_pos: position k can only attend to positions 0..k
+        causal_within = position_in_block.unsqueeze(1) <= position_in_block.unsqueeze(2)
+        noise_visible = same_block & causal_within
+    else:
+        noise_visible = same_block
     noise_mask = torch.where(
-        same_block,
+        noise_visible,
         torch.zeros((), device=device, dtype=dtype),
         torch.full((), float("-inf"), device=device, dtype=dtype),
     )

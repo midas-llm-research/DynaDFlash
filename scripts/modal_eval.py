@@ -42,6 +42,7 @@ CHECKPOINTS = {
     "split-query": "/checkpoints/midas-split-query-v1/latest",
     "dflare": "/checkpoints/dflare-qwen3-4b/latest",
     "token-mix": "/checkpoints/midas-token-mix-v1/latest",
+    "causal-block": "/checkpoints/midas-causal-block-v1/latest",
 }
 
 
@@ -78,6 +79,7 @@ def run_eval(
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
     from midas.models.model_split_query import DFlashDraftModelSplitQuery
+    from midas.models.model_causal_block import DFlashDraftModelCausalBlock
     from midas.models.model_token_mix import DFlashDraftModelTokenMix
     from midas.models.model_dflare import DFlareDraftModel
 
@@ -120,6 +122,8 @@ def run_eval(
             model = DFlareDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=dflare_config)
         elif variant_name == "token-mix":
             model = DFlashDraftModelTokenMix.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
+        elif variant_name == "causal-block":
+            model = DFlashDraftModelCausalBlock.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         else:
             raise ValueError(f"Unknown variant: {variant_name}")
         ckpt = Path(ckpt_path)
