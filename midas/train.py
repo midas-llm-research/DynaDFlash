@@ -38,6 +38,7 @@ from midas.data import (
 from midas.models import (
     DFlashDraftModel,
     DFlashDraftModelCausalBlock,
+    DFlashDraftModelPlus,
     DFlashDraftModelRouted,
     DFlashDraftModelSplitQuery,
     DFlashDraftModelTokenMix,
@@ -85,6 +86,7 @@ def _dflare_router_constructor_kwargs(config: TrainConfig) -> dict:
 _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
     DFlashDraftModelCausalBlock: lambda config: {},
+    DFlashDraftModelPlus: _router_constructor_kwargs,
     DFlashDraftModelRouted: _router_constructor_kwargs,
     DFlashDraftModelSplitQuery: lambda config: {},
     DFlashDraftModelTokenMix: lambda config: {},

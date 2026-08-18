@@ -58,6 +58,7 @@ CHECKPOINTS = {
     "dflare-router": "/checkpoints/dflare-router-qwen3-4b/latest",
     "token-mix": "/checkpoints/midas-token-mix-v1/latest",
     "causal-block": "/checkpoints/midas-causal-block-v1/latest",
+    "dflash-plus": "/checkpoints/midas-dflash-plus-v1/latest",
     "dflare-deep": "/checkpoints/dflare-deep-qwen3-4b/latest",
     "dflare-plus": "/checkpoints/dflare-plus-qwen3-4b/latest",
 }
@@ -97,6 +98,7 @@ def run_eval(
     from midas.models.model_context_router import DFlashDraftModelRouted
     from midas.models.model_split_query import DFlashDraftModelSplitQuery
     from midas.models.model_causal_block import DFlashDraftModelCausalBlock
+    from midas.models.model_dflash_plus import DFlashDraftModelPlus
     from midas.models.model_token_mix import DFlashDraftModelTokenMix
     from midas.models.model_dflare import DFlareDraftModel
     from midas.models.model_dflare_deep import DFlareDeepDraftModel
@@ -157,6 +159,8 @@ def run_eval(
             model = DFlareRouterDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=cfg.dflare, router_config=cfg.router)
         elif variant_name == "token-mix":
             model = DFlashDraftModelTokenMix.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
+        elif variant_name == "dflash-plus":
+            model = DFlashDraftModelPlus.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=router_config)
         elif variant_name == "causal-block":
             model = DFlashDraftModelCausalBlock.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "dflare-deep":

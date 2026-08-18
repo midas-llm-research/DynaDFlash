@@ -73,13 +73,19 @@ class Qwen3DFlashTokenMixDecoderLayer(GradientCheckpointingLayer):
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
 
-        # Token mixing: cross-position communication within each block
+        # Token mixing: cross-position communication within each block.
+        # Assert rather than skip: silently disabling the mixer would make the
+        # inference path diverge from what was trained. Cannot fire today —
+        # training N is num_anchors*block_size, inference N is block_size.
         B, N, H = hidden_states.shape
-        if N % self.block_size == 0:
-            num_blocks = N // self.block_size
-            blocks = hidden_states.reshape(B * num_blocks, self.block_size, H)
-            mixed = self.token_mixer(blocks.transpose(1, 2)).transpose(1, 2)
-            hidden_states = hidden_states + mixed.reshape(B, N, H)
+        assert N % self.block_size == 0, (
+            f"sequence length {N} is not a multiple of block_size {self.block_size}; "
+            f"token mixing would silently be skipped"
+        )
+        num_blocks = N // self.block_size
+        blocks = hidden_states.reshape(B * num_blocks, self.block_size, H)
+        mixed = self.token_mixer(blocks.transpose(1, 2)).transpose(1, 2)
+        hidden_states = hidden_states + mixed.reshape(B, N, H)
 
         hidden_states = residual + hidden_states
         return hidden_states

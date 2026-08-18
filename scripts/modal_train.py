@@ -34,6 +34,7 @@ VARIANT_CONFIGS = {
     "split-query": "base_4b.yaml",
     "token-mix": "base_4b.yaml",
     "causal-block": "base_4b.yaml",
+    "dflash-plus": "base_4b.yaml",
     "dflare": "dflare_4b.yaml",
     "dflare-router": "dflare_router_4b.yaml",
     "dflare-deep": "dflare_deep_4b.yaml",
@@ -100,7 +101,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelCausalBlock, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDeepDraftModel, DFlareDraftModel, DFlarePlusDraftModel, DFlareRouterDraftModel
+    from midas.models import DFlashDraftModel, DFlashDraftModelCausalBlock, DFlashDraftModelPlus, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDeepDraftModel, DFlareDraftModel, DFlarePlusDraftModel, DFlareRouterDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -160,6 +161,18 @@ def train(
         config.checkpoint.save_dir = "/checkpoints/midas-token-mix-v1"
         config.logging.wandb_project = "midas-token-mix"
         logger.info("Training TOKEN-MIX variant (per-layer position mixing)")
+    elif variant == "dflash-plus":
+        model_cls = DFlashDraftModelPlus
+        if config.router is None:
+            raise ValueError(
+                f"Variant 'dflash-plus' requires a `router:` block, but "
+                f"{config_path} has none. Use configs/{VARIANT_CONFIGS['dflash-plus']}."
+            )
+        # NB: unlike base/token-mix/causal-block, config.router is kept — the
+        # ContextRouter replaces the fc+hidden_norm fusion.
+        config.checkpoint.save_dir = "/checkpoints/midas-dflash-plus-v1"
+        config.logging.wandb_project = "midas-dflash-plus"
+        logger.info("Training DFLASH-PLUS variant (ContextRouter fusion + per-layer token mixing)")
     elif variant == "causal-block":
         model_cls = DFlashDraftModelCausalBlock
         config.router = None
