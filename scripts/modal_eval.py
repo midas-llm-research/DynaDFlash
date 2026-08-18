@@ -231,7 +231,16 @@ def run_eval(
 
 
 @app.local_entrypoint()
-def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50, measure_ar: bool = False):
+def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50, measure_ar: bool = False, spawn: bool = False):
+    if spawn:
+        # spawn(), not remote(): under `modal run --detach` a .remote() call is
+        # cancelled the moment the local caller disconnects, which silently
+        # kills multi-hour evals. Results land in /checkpoints/eval_<ts>.json.
+        call = run_eval.spawn(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
+        print(f"Spawned eval — call id: {call.object_id}")
+        print(f"Follow with: modal app logs {app.app_id}")
+        print("Results will be written to /checkpoints/eval_<timestamp>.json")
+        return
     output = run_eval.remote(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
     print(f"\n{'=' * 70}")
     print(f"  EVAL RESULTS — Benchmarks: {output['benchmarks']}, Seed: {output['seed']}")
