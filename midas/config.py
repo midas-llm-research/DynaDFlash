@@ -103,11 +103,6 @@ class TrainConfig:
         if unknown:
             raise ValueError(f"Unknown keys in config YAML: {unknown}")
 
-        known_top_keys = {"target_model", "draft_checkpoint", "data_path"}
-        unknown = set(raw.keys()) - known_top_keys
-        if unknown:
-            raise ValueError(f"Unknown keys in config YAML: {unknown}")
-
         return cls(
             target_model=raw.get("target_model", cls.target_model),
             draft_checkpoint=raw.get("draft_checkpoint", cls.draft_checkpoint),

@@ -32,4 +32,3 @@ checkpointing:
 logging:
   wandb_project: "dflare-qwen3-4b"
   log_every_steps: 50
-  eval_every_steps: 1000

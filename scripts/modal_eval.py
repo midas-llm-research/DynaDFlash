@@ -31,8 +31,21 @@ image = (
         "loguru",
         "huggingface_hub",
     )
+    .pip_install("pyyaml")
     .add_local_dir(str(PROJECT_ROOT / "midas"), "/root/midas", copy=True)
+    .add_local_dir(str(PROJECT_ROOT / "configs"), "/root/configs", copy=True)
 )
+
+
+# Mirrors VARIANT_CONFIGS in modal_train.py. The dflare-family variants build
+# their architecture from these YAMLs rather than hardcoded numbers, so a
+# training config change can't silently desync from eval and blow up in
+# load_state_dict.
+VARIANT_CONFIGS = {
+    "dflare": "dflare_4b.yaml",
+    "dflare-deep": "dflare_deep_4b.yaml",
+    "dflare-plus": "dflare_plus_4b.yaml",
+}
 
 
 CHECKPOINTS = {
@@ -76,7 +89,7 @@ def run_eval(
     from loguru import logger
 
     sys.path.insert(0, "/root")
-    from midas.config import DFlareConfig, RouterConfig
+    from midas.config import RouterConfig, TrainConfig
     from midas.eval import evaluate, load_eval_prompts, measure_ar_baseline
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
@@ -109,6 +122,18 @@ def run_eval(
             logger.info(f"\n{'='*60}\n  AR Baseline: {bench}\n{'='*60}")
             ar_baselines[bench] = measure_ar_baseline(target, tokenizer, prompts)
 
+    def arch_config(variant_name):
+        """Read a dflare-family variant's architecture from the same YAML training used."""
+        cfg = TrainConfig.from_yaml(f"/root/configs/{VARIANT_CONFIGS[variant_name]}")
+        arch = cfg.dflare if variant_name == "dflare" else cfg.dflare_plus
+        if arch is None:
+            raise ValueError(
+                f"configs/{VARIANT_CONFIGS[variant_name]} is missing the arch block "
+                f"needed to rebuild '{variant_name}'."
+            )
+        logger.info(f"  {variant_name} arch from YAML: {arch}")
+        return arch
+
     # Helper to load a draft model
     def load_draft(variant_name):
         ckpt_path = checkpoint or CHECKPOINTS[variant_name]
@@ -122,20 +147,15 @@ def run_eval(
         elif variant_name == "split-query":
             model = DFlashDraftModelSplitQuery.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "dflare":
-            dflare_config = DFlareConfig(hidden_size=2560, num_draft_layers=7, num_target_layers=9)
-            model = DFlareDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=dflare_config)
+            model = DFlareDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=arch_config(variant_name))
         elif variant_name == "token-mix":
             model = DFlashDraftModelTokenMix.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "causal-block":
             model = DFlashDraftModelCausalBlock.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "dflare-deep":
-            from midas.config import DFlarePlusConfig
-            dflare_deep_config = DFlarePlusConfig(hidden_size=2560, num_draft_layers=9, num_target_layers=9, intermediate_size=4864)
-            model = DFlareDeepDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=dflare_deep_config)
+            model = DFlareDeepDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=arch_config(variant_name))
         elif variant_name == "dflare-plus":
-            from midas.config import DFlarePlusConfig
-            dflare_plus_config = DFlarePlusConfig(hidden_size=2560, num_draft_layers=9, num_target_layers=9, intermediate_size=4864)
-            model = DFlarePlusDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=dflare_plus_config)
+            model = DFlarePlusDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=arch_config(variant_name))
         else:
             raise ValueError(f"Unknown variant: {variant_name}")
         ckpt = Path(ckpt_path)

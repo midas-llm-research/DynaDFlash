@@ -2,6 +2,10 @@ target_model: "Qwen/Qwen3-4B"
 draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
 data_path: "/checkpoints/sdd/sdd_100k.jsonl"
 
+# DFlare+ : DFlare + shrunk MLP + more layers + per-layer token mixing.
+# Architecture is identical to dflare_deep_4b.yaml, so dflare-plus vs
+# dflare-deep isolates token mixing as the single variable. Training block is
+# byte-identical to dflare_4b.yaml / dflare_deep_4b.yaml for comparability.
 dflare_plus:
   hidden_size: 2560
   num_draft_layers: 9

@@ -22,6 +22,23 @@ checkpoint_volume = modal.Volume.from_name("midas-checkpoints", create_if_missin
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
+# Single source of truth for which YAML each variant needs. A variant whose
+# architecture is described by a method block (dflare / dflare_plus) MUST get
+# the matching YAML — training against the wrong one silently builds a
+# different architecture, and the mismatch only surfaces as a load_state_dict
+# shape error at eval time, after the GPU spend.
+VARIANT_CONFIGS = {
+    "base": "base_4b.yaml",
+    "router": "base_4b.yaml",
+    "router-nofc": "base_4b.yaml",
+    "split-query": "base_4b.yaml",
+    "token-mix": "base_4b.yaml",
+    "causal-block": "base_4b.yaml",
+    "dflare": "dflare_4b.yaml",
+    "dflare-deep": "dflare_deep_4b.yaml",
+    "dflare-plus": "dflare_plus_4b.yaml",
+}
+
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
@@ -39,6 +56,20 @@ image = (
     .add_local_dir(str(PROJECT_ROOT / "midas"), "/root/midas", copy=True)
     .add_local_dir(str(PROJECT_ROOT / "configs"), "/root/configs", copy=True)
 )
+
+
+def _require_dflare_plus(config, variant: str, config_path: str) -> None:
+    """Fail before the GPU spend if the YAML lacks the arch block this variant needs.
+
+    Silently falling back to `DFlarePlusConfig()` gives intermediate_size=None
+    (MLP stays 9728), which trains a different architecture than eval expects.
+    """
+    if config.dflare_plus is None:
+        raise ValueError(
+            f"Variant '{variant}' requires a `dflare_plus:` block, but "
+            f"{config_path} has none. Use configs/{VARIANT_CONFIGS[variant]} "
+            f"(or drop the explicit --config so the default is picked)."
+        )
 
 
 @app.function(
@@ -86,8 +117,10 @@ def train(
     elif variant == "dflare":
         model_cls = DFlareDraftModel
         if config.dflare is None:
-            from midas.config import DFlareConfig
-            config.dflare = DFlareConfig()
+            raise ValueError(
+                f"Variant 'dflare' requires a `dflare:` block, but {config_path} "
+                f"has none. Use configs/{VARIANT_CONFIGS['dflare']}."
+            )
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/dflare-qwen3-4b"
         logger.info("Training DFLARE variant (adaptive fusion + heterogeneous KV)")
@@ -123,26 +156,27 @@ def train(
         logger.info("Training CAUSAL-BLOCK variant (causal attention within blocks)")
     elif variant == "dflare-deep":
         model_cls = DFlareDeepDraftModel
-        if config.dflare_plus is None:
-            from midas.config import DFlarePlusConfig
-            config.dflare_plus = DFlarePlusConfig()
+        _require_dflare_plus(config, variant, config_path)
         config.router = None
         config.dflare = None
+        # Set explicitly, not from the YAML: `fresh=True` rmtree's this path, so
+        # a mismatched --config must never be able to redirect it at another
+        # variant's checkpoints.
         config.checkpoint.save_dir = "/checkpoints/dflare-deep-qwen3-4b"
         config.logging.wandb_project = "dflare-deep"
         logger.info("Training DFLARE-DEEP variant (DFlare + shrunk MLP + more layers, no causal/mixing)")
     elif variant == "dflare-plus":
         model_cls = DFlarePlusDraftModel
-        if config.dflare_plus is None:
-            from midas.config import DFlarePlusConfig
-            config.dflare_plus = DFlarePlusConfig()
+        _require_dflare_plus(config, variant, config_path)
         config.router = None
         config.dflare = None
         config.checkpoint.save_dir = "/checkpoints/dflare-plus-qwen3-4b"
         config.logging.wandb_project = "dflare-plus"
-        logger.info("Training DFLARE-PLUS variant (DFlare + causal mask + token mixing + shrunk MLP)")
+        logger.info("Training DFLARE-PLUS variant (DFlare + token mixing + shrunk MLP; no causal mask)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'token-mix', or 'dflare'.")
+        raise ValueError(
+            f"Unknown variant '{variant}'. Valid variants: {sorted(VARIANT_CONFIGS)}"
+        )
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -177,7 +211,7 @@ def download_models():
 @app.local_entrypoint()
 def main(
     variant: str = "router",
-    config: str = "configs/base_4b.yaml",
+    config: str = "",
     download: bool = False,
     fresh: bool = True,
     epochs: int = 0,
@@ -185,11 +219,23 @@ def main(
     if download:
         download_models.remote()
         return
-    if variant == "dflare" and config == "configs/base_4b.yaml":
-        config = "configs/dflare_4b.yaml"
+    if variant not in VARIANT_CONFIGS:
+        raise ValueError(
+            f"Unknown variant '{variant}'. Valid variants: {sorted(VARIANT_CONFIGS)}"
+        )
+    # Default to the variant's own config. Passing --config explicitly overrides
+    # it, but train() then fail-fasts if the YAML lacks the required arch block.
+    config = config or f"configs/{VARIANT_CONFIGS[variant]}"
 
     # Map local config path to container path
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
-    train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)
+    # spawn(), not remote(): with `modal run --detach`, a .remote() call is
+    # cancelled as soon as the local caller disconnects, which silently kills
+    # long training runs mid-flight. spawn() hands off and returns immediately.
+    call = train.spawn(
+        config_path=container_config, variant=variant, fresh=fresh, epochs=epochs
+    )
+    print(f"Spawned {variant} training — call id: {call.object_id}")
+    print(f"Follow with: modal app logs {app.app_id}")
