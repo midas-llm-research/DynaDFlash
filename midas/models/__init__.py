@@ -25,6 +25,7 @@ from midas.models.model_split_query import (
 )
 from midas.models.model_causal_block import DFlashDraftModelCausalBlock
 from midas.models.model_dflare_deep import DFlareDeepDraftModel
+from midas.models.model_dflare_router import DFlareRouterDraftModel
 from midas.models.model_dflare_plus import DFlarePlusDraftModel
 from midas.models.model_token_mix import (
     DFlashDraftModelTokenMix,
@@ -47,6 +48,7 @@ __all__ = [
     "DFlashDraftModelTokenMix",
     "DFlareDeepDraftModel",
     "DFlareDraftModel",
+    "DFlareRouterDraftModel",
     "DFlarePlusDraftModel",
     "Qwen3DFlashAttention",
     "Qwen3DFlashDecoderLayer",

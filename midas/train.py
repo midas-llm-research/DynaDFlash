@@ -44,6 +44,7 @@ from midas.models import (
     DFlareDeepDraftModel,
     DFlareDraftModel,
     DFlarePlusDraftModel,
+    DFlareRouterDraftModel,
     compute_progressive_gamma,
 )
 
@@ -72,6 +73,15 @@ def _dflare_plus_constructor_kwargs(config: TrainConfig) -> dict:
     return {"dflare_config": config.dflare_plus}
 
 
+def _dflare_router_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.dflare is None or config.router is None:
+        raise ValueError(
+            "DFlareRouterDraftModel needs both a `dflare` and a `router` block. "
+            "Use configs/dflare_router_4b.yaml."
+        )
+    return {"dflare_config": config.dflare, "router_config": config.router}
+
+
 _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
     DFlashDraftModelCausalBlock: lambda config: {},
@@ -81,6 +91,7 @@ _MODEL_CONSTRUCTOR_KWARGS = {
     DFlareDeepDraftModel: _dflare_plus_constructor_kwargs,
     DFlareDraftModel: _dflare_constructor_kwargs,
     DFlarePlusDraftModel: _dflare_plus_constructor_kwargs,
+    DFlareRouterDraftModel: _dflare_router_constructor_kwargs,
 }
 
 

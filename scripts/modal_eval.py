@@ -43,6 +43,7 @@ image = (
 # load_state_dict.
 VARIANT_CONFIGS = {
     "dflare": "dflare_4b.yaml",
+    "dflare-router": "dflare_router_4b.yaml",
     "dflare-deep": "dflare_deep_4b.yaml",
     "dflare-plus": "dflare_plus_4b.yaml",
 }
@@ -54,6 +55,7 @@ CHECKPOINTS = {
     "router-nofc": "/checkpoints/midas-router-nofc-v3/latest",
     "split-query": "/checkpoints/midas-split-query-v1/latest",
     "dflare": "/checkpoints/dflare-qwen3-4b/latest",
+    "dflare-router": "/checkpoints/dflare-router-qwen3-4b/latest",
     "token-mix": "/checkpoints/midas-token-mix-v1/latest",
     "causal-block": "/checkpoints/midas-causal-block-v1/latest",
     "dflare-deep": "/checkpoints/dflare-deep-qwen3-4b/latest",
@@ -98,6 +100,7 @@ def run_eval(
     from midas.models.model_token_mix import DFlashDraftModelTokenMix
     from midas.models.model_dflare import DFlareDraftModel
     from midas.models.model_dflare_deep import DFlareDeepDraftModel
+    from midas.models.model_dflare_router import DFlareRouterDraftModel
     from midas.models.model_dflare_plus import DFlarePlusDraftModel
 
     device = torch.device("cuda")
@@ -148,6 +151,10 @@ def run_eval(
             model = DFlashDraftModelSplitQuery.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "dflare":
             model = DFlareDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=arch_config(variant_name))
+        elif variant_name == "dflare-router":
+            cfg = TrainConfig.from_yaml(f"/root/configs/{VARIANT_CONFIGS[variant_name]}")
+            logger.info(f"  dflare-router arch from YAML: {cfg.dflare}, {cfg.router}")
+            model = DFlareRouterDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=cfg.dflare, router_config=cfg.router)
         elif variant_name == "token-mix":
             model = DFlashDraftModelTokenMix.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "causal-block":

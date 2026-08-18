@@ -1,0 +1,47 @@
+target_model: "Qwen/Qwen3-4B"
+draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
+data_path: "/checkpoints/sdd/sdd_100k.jsonl"
+
+# DFlare + hybrid target conditioning (AngelSpec Eq. 12 with the shared FC
+# branch replaced by our attention-style ContextRouter):
+#   g^(i) = RMSNorm(router(h) + sum_j softmax(W_fuse)[i,j] h^(j))
+# dflare block is identical to dflare_4b.yaml so this is a one-variable
+# comparison against the trained dflare checkpoint.
+dflare:
+  hidden_size: 2560
+  num_draft_layers: 7
+  num_target_layers: 9
+  gamma_initial: 4.5
+  gamma_increment_per_epoch: 1.0
+
+# num_layers MUST equal dflare.num_target_layers — both branches read the same
+# extracted target layers.
+router:
+  hidden_size: 2560
+  num_layers: 9
+  rank: 128
+  gamma_init: 1.0
+  temperature_init: 1.0
+  use_fc: true
+
+training:
+  lr: 6.0e-4
+  weight_decay: 0.01
+  num_epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  max_seq_len: 3072
+  block_size: 16
+  max_num_anchors: 128
+  warmup_ratio: 0.04
+  grad_clip: 1.0
+  loss_gamma: 7.0
+
+checkpointing:
+  save_every_steps: 500
+  save_dir: "/checkpoints/dflare-router-qwen3-4b"
+  keep_last_n: 3
+
+logging:
+  wandb_project: "dflare-router"
+  log_every_steps: 50

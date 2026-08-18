@@ -35,6 +35,7 @@ VARIANT_CONFIGS = {
     "token-mix": "base_4b.yaml",
     "causal-block": "base_4b.yaml",
     "dflare": "dflare_4b.yaml",
+    "dflare-router": "dflare_router_4b.yaml",
     "dflare-deep": "dflare_deep_4b.yaml",
     "dflare-plus": "dflare_plus_4b.yaml",
 }
@@ -99,7 +100,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelCausalBlock, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDeepDraftModel, DFlareDraftModel, DFlarePlusDraftModel
+    from midas.models import DFlashDraftModel, DFlashDraftModelCausalBlock, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlashDraftModelTokenMix, DFlareDeepDraftModel, DFlareDraftModel, DFlarePlusDraftModel, DFlareRouterDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -124,6 +125,17 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/dflare-qwen3-4b"
         logger.info("Training DFLARE variant (adaptive fusion + heterogeneous KV)")
+    elif variant == "dflare-router":
+        model_cls = DFlareRouterDraftModel
+        if config.dflare is None or config.router is None:
+            raise ValueError(
+                f"Variant 'dflare-router' requires both `dflare:` and `router:` "
+                f"blocks, but {config_path} is missing one. Use "
+                f"configs/{VARIANT_CONFIGS['dflare-router']}."
+            )
+        config.checkpoint.save_dir = "/checkpoints/dflare-router-qwen3-4b"
+        config.logging.wandb_project = "dflare-router"
+        logger.info("Training DFLARE-ROUTER variant (DFlare per-layer fusion + shared ContextRouter branch)")
     elif variant == "router-nofc":
         model_cls = DFlashDraftModelRouted
         if config.router is None:

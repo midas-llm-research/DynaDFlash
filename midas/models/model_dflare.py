@@ -308,6 +308,14 @@ class DFlareDraftModel(Qwen3PreTrainedModel):
             dim=0,
         )
 
+    # MIDAS: extension hook. Default reproduces the plain adaptive-layer-fusion
+    # call this forward used to make inline, so subclasses can build their
+    # per-draft-layer target contexts differently (e.g. adding a shared router
+    # branch) without rewriting forward().
+    def _build_layer_contexts(self, target_hidden: torch.Tensor) -> torch.Tensor:
+        """target_hidden [T, B, L, H] -> per-draft-layer contexts [D, B, L, H]."""
+        return self.adaptive_layer_fusion(target_hidden)
+
     def forward(
         self,
         position_ids: torch.LongTensor,
@@ -319,7 +327,7 @@ class DFlareDraftModel(Qwen3PreTrainedModel):
         **kwargs,
     ) -> torch.Tensor:
         hidden_states = noise_embedding
-        fused_contexts = self.adaptive_layer_fusion(target_hidden)
+        fused_contexts = self._build_layer_contexts(target_hidden)
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
         for layer_idx, layer in enumerate(self.layers):
             hidden_states = layer(
