@@ -17,9 +17,18 @@ per *token* rather than with one static projection:
 Everything else is DFlare unchanged: heterogeneous KV projections, per-layer
 target context, progressive position-weighted loss.
 
-Note the RMSNorm is applied *after* the addition (Eq. 12), so DFlare's
-`output_norms` are reused in that position rather than normalizing the weighted
-sum on its own. No new normalization parameters are introduced.
+The RMSNorm is applied *after* the addition (Eq. 12), so DFlare's `output_norms`
+are reused in that position rather than normalizing the weighted sum on its own.
+
+One deviation from a literal Eq. 12, forced by the router: AngelSpec's two
+branches both read *raw* target hidden states and so are naturally on the same
+scale. Our router normalizes each target layer before mixing, so its output is
+unit RMS while the raw weighted sum measures ~6.3 RMS on Qwen3-4B — a plain sum
+would hand the router only ~14% of the signal. We therefore rescale the weighted
+sum to unit RMS before adding. This is parameterless (the learnable gain comes
+from output_norms[i] on the sum), so no new parameters are introduced and the
+context reaching the KV projections keeps the same unit scale stock DFlare
+produces.
 """
 
 from typing import Optional
@@ -63,11 +72,24 @@ class DFlareRouterDraftModel(DFlareDraftModel):
         context, routing_weights = self.context_router(list(target_hidden.unbind(0)))
         self.last_routing_weights = routing_weights
 
-        # Specialized branch: DFlare's raw weighted sum, left unnormalized so the
-        # RMSNorm lands after the addition as in Eq. 12.
+        # Specialized branch: DFlare's weighted sum over raw target hidden states.
         fusion = self.adaptive_layer_fusion
         weights = fusion.fusion_weights().to(dtype=target_hidden.dtype)
         fused = torch.einsum("dt,tblh->dblh", weights, target_hidden)
+
+        # Scale-match the two branches before adding. Measured on real Qwen3-4B
+        # hidden states, the raw weighted sum has RMS ~6.3 while the router's
+        # output is exactly unit RMS (it normalizes each target layer before
+        # mixing), so a plain sum would give the router only ~14% of the signal.
+        # AngelSpec's branches are naturally balanced because both read raw
+        # hidden states; ours are not, so we normalize this one to unit RMS.
+        # Parameterless on purpose — the learnable gain is already provided by
+        # output_norms[i] applied to the sum, so this adds no parameters and
+        # leaves the context reaching the KV projections at the same unit scale
+        # stock DFlare produces.
+        fused = fused * torch.rsqrt(
+            fused.float().pow(2).mean(-1, keepdim=True) + 1e-6
+        ).to(fused.dtype)
 
         return torch.stack(
             [
