@@ -34,6 +34,20 @@ class DFlarePlusConfig:
 
 
 @dataclass
+class AlignedLossConfig:
+    """Weights for the acceptance-aligned auxiliary losses.
+
+    All-zero lambdas with relabel_ce=False reproduces the baseline
+    position-weighted cross-entropy exactly.
+    """
+    lambda_margin: float = 0.0
+    lambda_reg: float = 0.0
+    margin: float = 1.0          # logit units
+    relabel_ce: bool = False     # label CE with the target argmax instead of the SDD token
+    argmax_chunk: int = 1024
+
+
+@dataclass
 class CheckpointConfig:
     save_every_steps: int = 2000
     save_dir: str = "/checkpoints/midas-router"
@@ -75,6 +89,7 @@ class TrainConfig:
     router: Optional[RouterConfig] = None
     dflare: Optional[DFlareConfig] = None
     dflare_plus: Optional[DFlarePlusConfig] = None
+    aligned_loss: Optional[AlignedLossConfig] = None
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -97,6 +112,9 @@ class TrainConfig:
         dflare_plus_raw = raw.pop("dflare_plus", None)
         if dflare_plus_raw is not None:
             method_kwargs["dflare_plus"] = DFlarePlusConfig(**dflare_plus_raw)
+        aligned_loss_raw = raw.pop("aligned_loss", None)
+        if aligned_loss_raw is not None:
+            method_kwargs["aligned_loss"] = AlignedLossConfig(**aligned_loss_raw)
 
         known_top_keys = {"target_model", "draft_checkpoint", "data_path"}
         unknown = set(raw.keys()) - known_top_keys

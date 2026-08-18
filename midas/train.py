@@ -37,6 +37,7 @@ from midas.data import (
 )
 from midas.models import (
     DFlashDraftModel,
+    DFlashDraftModelAligned,
     DFlashDraftModelCausalBlock,
     DFlashDraftModelPlus,
     DFlashDraftModelRouted,
@@ -83,8 +84,18 @@ def _dflare_router_constructor_kwargs(config: TrainConfig) -> dict:
     return {"dflare_config": config.dflare, "router_config": config.router}
 
 
+def _aligned_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.aligned_loss is None:
+        raise ValueError(
+            "DFlashDraftModelAligned needs an `aligned_loss` config. Add an "
+            "`aligned_loss:` block to your yaml (see configs/aligned_margin_4b.yaml)."
+        )
+    return {"aligned_loss_config": config.aligned_loss}
+
+
 _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
+    DFlashDraftModelAligned: _aligned_constructor_kwargs,
     DFlashDraftModelCausalBlock: lambda config: {},
     DFlashDraftModelPlus: _router_constructor_kwargs,
     DFlashDraftModelRouted: _router_constructor_kwargs,
@@ -332,6 +343,11 @@ def train(
                     batch,
                     target_model.lm_head,
                     gamma=loss_gamma,
+                    # Post-final-norm target states — the exact tensor lm_head
+                    # consumes. Unused by every existing model (absorbed by the
+                    # `**_` in their compute_loss signatures); read only by the
+                    # acceptance-aligned objective.
+                    target_final_hidden=hidden_states[-1],
                 )
 
             loss = loss / config.gradient_accumulation_steps

@@ -24,6 +24,7 @@ from midas.models.model_split_query import (
     Qwen3DFlashSplitQueryDecoderLayer,
 )
 from midas.models.model_causal_block import DFlashDraftModelCausalBlock
+from midas.models.model_aligned import AlignedLossMixin, DFlashDraftModelAligned
 from midas.models.model_dflash_plus import DFlashDraftModelPlus
 from midas.models.model_dflare_deep import DFlareDeepDraftModel
 from midas.models.model_dflare_router import DFlareRouterDraftModel
@@ -41,6 +42,8 @@ __all__ = [
     "ContextRouter",
     "ContextRouterNoFC",
     "AdaptiveLayerFusion",
+    "AlignedLossMixin",
+    "DFlashDraftModelAligned",
     "DFlashDraftModel",
     "DFlashDraftModelRouted",
     "DFlashDraftModelRoutedNoFC",
