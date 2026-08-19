@@ -68,7 +68,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
+    from midas.models import DFlash2DraftModel, DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -91,6 +91,15 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/dflare-qwen3-4b"
         logger.info("Training DFLARE variant (adaptive fusion + heterogeneous KV)")
+    elif variant == "dflash2":
+        model_cls = DFlash2DraftModel
+        if config.dflash2 is None:
+            from midas.config import DFlash2Config
+            config.dflash2 = DFlash2Config()
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-dflash2-v1"
+        config.logging.wandb_project = "midas-dflash2"
+        logger.info("Training DFLASH2 variant (path selector + block-local dynamic conv)")
     elif variant == "router-nofc":
         model_cls = DFlashDraftModelRouted
         if config.router is None:
@@ -110,7 +119,7 @@ def train(
         config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', or 'dflare'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'dflash2', or 'dflare'.")
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -153,8 +162,9 @@ def main(
     if download:
         download_models.remote()
         return
-    if variant == "dflare" and config == "configs/base_4b.yaml":
-        config = "configs/dflare_4b.yaml"
+    defaults = {"dflare": "configs/dflare_4b.yaml", "dflash2": "configs/dflash2_4b.yaml"}
+    if config == "configs/base_4b.yaml" and variant in defaults:
+        config = defaults[variant]
 
     # Map local config path to container path
     config_name = Path(config).name

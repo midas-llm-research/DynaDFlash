@@ -24,6 +24,21 @@ class DFlareConfig:
 
 
 @dataclass
+class DFlash2Config:
+    """DFlash 2: path selector + block-local dynamic convolution.
+
+    selector_rank/top_k follow the released checkpoint (256 / 16). Selector cost is
+    3 * hidden * rank = 1.97M at hidden=2560 (matching the blog's "+2.0M"); the two
+    convs per layer cost hidden^2/4 each, i.e. 16.4M over 5 layers (their "16.5M, 3%").
+    """
+    selector_rank: int = 256
+    selector_top_k: int = 16
+    conv_kernel_size: int = 2
+    conv_group_size: int = 16
+    lambda_selector: float = 1.0
+
+
+@dataclass
 class CheckpointConfig:
     save_every_steps: int = 2000
     save_dir: str = "/checkpoints/midas-router"
@@ -64,6 +79,7 @@ class TrainConfig:
     # Add new method configs as new `Optional[...] = None` fields below.
     router: Optional[RouterConfig] = None
     dflare: Optional[DFlareConfig] = None
+    dflash2: Optional[DFlash2Config] = None
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -83,6 +99,9 @@ class TrainConfig:
         dflare_raw = raw.pop("dflare", None)
         if dflare_raw is not None:
             method_kwargs["dflare"] = DFlareConfig(**dflare_raw)
+        dflash2_raw = raw.pop("dflash2", None)
+        if dflash2_raw is not None:
+            method_kwargs["dflash2"] = DFlash2Config(**dflash2_raw)
 
         known_top_keys = {"target_model", "draft_checkpoint", "data_path"}
         unknown = set(raw.keys()) - known_top_keys

@@ -183,16 +183,23 @@ def dflash_generate(
         block_position_ids = position_ids[:, start : start + block_size]
         if block_size > 1:
             noise_embedding = target.model.embed_tokens(block_output_ids)
-            draft_logits = target.lm_head(model(
+            draft_hidden = model(
                 target_hidden=target_hidden,
                 noise_embedding=noise_embedding,
                 position_ids=position_ids[:, past_key_values_draft.get_seq_length(): start + block_size],
                 past_key_values=past_key_values_draft,
                 use_cache=True,
                 is_causal=False,
-            )[:, 1 - block_size :, :])
+            )[:, 1 - block_size :, :]
             past_key_values_draft.crop(start)
-            block_output_ids[:, 1:] = sample(draft_logits)
+            # MIDAS: was `block_output_ids[:, 1:] = sample(target.lm_head(...))`.
+            # Delegated to `model.propose` so subclasses can turn the drafter's
+            # per-position distributions into tokens differently (DFlash 2 walks a
+            # path through per-position candidate lists). The default below is
+            # byte-identical to z-lab's independent argmax.
+            block_output_ids[:, 1:] = model.propose(
+                draft_hidden, block_output_ids[:, 0], target.lm_head, target.model.embed_tokens
+            )
             if draft_prefill and return_stats:
                 draft_prefill = False
                 decode_start = _cuda_time()
@@ -454,6 +461,18 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
                 **kwargs,
             )
         return self.norm(hidden_states)
+
+    # MIDAS: new extension hook. Default reproduces z-lab's independent
+    # per-position argmax, so the base class is unchanged. `anchor_ids` and
+    # `embed_tokens` are unused here but are what a path-selecting subclass needs.
+    def propose(
+        self,
+        draft_hidden: torch.Tensor,
+        anchor_ids: torch.Tensor,
+        lm_head: nn.Module,
+        embed_tokens: Optional[nn.Module] = None,
+    ) -> torch.Tensor:
+        return sample(lm_head(draft_hidden))
 
     # MIDAS: training-side loss method. Default is the position-weighted
     # cross-entropy from the DFlash paper (Eq. 4). Subclasses override to add

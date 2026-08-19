@@ -10,6 +10,12 @@ from midas.models.model_context_router import (
     ContextRouter,
     DFlashDraftModelRouted,
 )
+from midas.models.model_dflash2 import (
+    BlockLocalDynamicConv,
+    CandidateSelector,
+    DFlash2DraftModel,
+    Qwen3DFlash2DecoderLayer,
+)
 from midas.models.model_dflare import (
     AdaptiveLayerFusion,
     DFlareDraftModel,
@@ -33,6 +39,10 @@ __all__ = [
     "ContextRouterNoFC",
     "AdaptiveLayerFusion",
     "DFlashDraftModel",
+    "DFlash2DraftModel",
+    "BlockLocalDynamicConv",
+    "CandidateSelector",
+    "Qwen3DFlash2DecoderLayer",
     "DFlashDraftModelRouted",
     "DFlashDraftModelRoutedNoFC",
     "DFlashDraftModelSplitQuery",

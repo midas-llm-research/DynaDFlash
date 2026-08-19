@@ -36,6 +36,7 @@ from midas.data import (
     prepare_draft_inputs,
 )
 from midas.models import (
+    DFlash2DraftModel,
     DFlashDraftModel,
     DFlashDraftModelRouted,
     DFlashDraftModelSplitQuery,
@@ -61,8 +62,16 @@ def _dflare_constructor_kwargs(config: TrainConfig) -> dict:
     return {"dflare_config": config.dflare}
 
 
+def _dflash2_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.dflash2 is None:
+        from midas.config import DFlash2Config
+        config.dflash2 = DFlash2Config()
+    return {"dflash2_config": config.dflash2}
+
+
 _MODEL_CONSTRUCTOR_KWARGS = {
     DFlashDraftModel: lambda config: {},
+    DFlash2DraftModel: _dflash2_constructor_kwargs,
     DFlashDraftModelRouted: _router_constructor_kwargs,
     DFlashDraftModelSplitQuery: lambda config: {},
     DFlareDraftModel: _dflare_constructor_kwargs,
@@ -302,6 +311,9 @@ def train(
                     batch,
                     target_model.lm_head,
                     gamma=loss_gamma,
+                    # Only the DFlash 2 selector reads this; every other
+                    # compute_loss absorbs it via **_.
+                    embed_tokens=target_model.model.embed_tokens,
                 )
 
             loss = loss / config.gradient_accumulation_steps
