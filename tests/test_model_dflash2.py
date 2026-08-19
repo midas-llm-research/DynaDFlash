@@ -181,3 +181,68 @@ class TestDFlash2Model:
             compute_position_weighted_ce_loss(dh, ids, dummy_draft_batch, mock_lm_head, gamma=7.0),
             m.compute_loss(dh, ids, dummy_draft_batch, mock_lm_head, gamma=7.0),
         )
+
+
+class TestWarmStart:
+    """Overlaying a trained DFlash checkpoint onto DFlash 2."""
+
+    def _save(self, tmp_path, state):
+        d = tmp_path / "ckpt"
+        d.mkdir()
+        torch.save(state, d / "model.pt")
+        return str(d)
+
+    def test_loads_base_weights_and_leaves_new_modules_at_init(
+        self, tmp_path, tiny_config, d2_config
+    ):
+        from midas.train import load_warm_start
+
+        base = DFlashDraftModel(tiny_config)
+        d2 = DFlash2DraftModel(tiny_config, d2_config)
+        load_warm_start(d2, self._save(tmp_path, base.state_dict()))
+
+        sd, bsd = d2.state_dict(), base.state_dict()
+        for k in bsd:
+            assert torch.equal(sd[k], bsd[k]), f"{k} was not warm-started"
+        # identity convs survive the overlay -> step 0 IS the baseline
+        for layer in d2.layers:
+            assert torch.equal(
+                layer.attention_conv.base_kernel[:, 0],
+                torch.ones_like(layer.attention_conv.base_kernel[:, 0]),
+            )
+            assert layer.attention_conv.kernel_projection.weight.abs().max() == 0.0
+
+    def test_warm_started_model_matches_base_forward(self, tmp_path, tiny_config, d2_config):
+        from midas.train import load_warm_start
+
+        base = DFlashDraftModel(tiny_config).eval()
+        d2 = DFlash2DraftModel(tiny_config, d2_config).eval()
+        load_warm_start(d2, self._save(tmp_path, base.state_dict()))
+        B, T, H = 2, 16, tiny_config.hidden_size
+        N = tiny_config.block_size * 2
+        args = dict(
+            position_ids=torch.arange(T + N).unsqueeze(0).expand(B, -1),
+            noise_embedding=torch.randn(B, N, H),
+            target_hidden=torch.randn(B, T, len(base.target_layer_ids) * H),
+        )
+        with torch.no_grad():
+            assert torch.allclose(base(**args), d2(**args), atol=1e-5)
+
+    def test_rejects_a_checkpoint_from_another_variant(self, tmp_path, tiny_config, d2_config):
+        """A silent partial load would look like a warm start but train from random."""
+        from midas.train import load_warm_start
+
+        state = DFlashDraftModel(tiny_config).state_dict()
+        state["context_router.W_q.weight"] = torch.randn(4, 4)   # a router key
+        with pytest.raises(ValueError, match="does not accept"):
+            load_warm_start(
+                DFlash2DraftModel(tiny_config, d2_config), self._save(tmp_path, state)
+            )
+
+    def test_rejects_an_empty_overlay(self, tmp_path, tiny_config, d2_config):
+        from midas.train import load_warm_start
+
+        with pytest.raises(ValueError, match="matched no parameters"):
+            load_warm_start(
+                DFlash2DraftModel(tiny_config, d2_config), self._save(tmp_path, {})
+            )

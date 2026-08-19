@@ -58,6 +58,7 @@ def train(
     variant: str = "router",
     fresh: bool = True,
     epochs: int = 0,
+    warm_start: str = "",
 ):
     import sys
     import shutil
@@ -99,6 +100,11 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-dflash2-v1"
         config.logging.wandb_project = "midas-dflash2"
+        # Warm start from our own trained DFlash. The convolutions are
+        # identity-initialized, so step 0 IS the baseline; and the selector's
+        # K-way loss only fires where the true token is already in the drafter's
+        # top-K, which from random init is ~k/vocab -- it would get no gradient.
+        config.warm_start = "/checkpoints/midas-baseline/latest"
         logger.info("Training DFLASH2 variant (path selector + block-local dynamic conv)")
     elif variant == "router-nofc":
         model_cls = DFlashDraftModelRouted
@@ -120,6 +126,11 @@ def train(
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
     else:
         raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'dflash2', or 'dflare'.")
+
+    if warm_start:
+        config.warm_start = None if warm_start.lower() == "none" else warm_start
+    if config.warm_start:
+        logger.info(f"Warm starting from {config.warm_start}")
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -158,6 +169,7 @@ def main(
     download: bool = False,
     fresh: bool = True,
     epochs: int = 0,
+    warm_start: str = "",
 ):
     if download:
         download_models.remote()
@@ -170,4 +182,4 @@ def main(
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
-    train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)
+    train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs, warm_start=warm_start)

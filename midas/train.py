@@ -169,6 +169,42 @@ def cleanup_old_checkpoints(save_dir: str, keep_last_n: int):
             logger.info(f"Removed old checkpoint: {ckpt.name}")
 
 
+def load_warm_start(model: DFlashDraftModel, checkpoint_dir: str) -> None:
+    """Overlay a trained checkpoint's weights onto a possibly-extended model.
+
+    Modules the checkpoint does not contain (e.g. DFlash 2's convolutions and
+    selector) keep their constructor initialization — for identity-initialized
+    convs that means the model starts as *exactly* the loaded checkpoint.
+
+    Fails loudly on any key the model does not accept. A silent partial load
+    would look like a warm start while actually training from near-random, so
+    an unexpected key is treated as "wrong checkpoint for this variant".
+    """
+    path = Path(checkpoint_dir)
+    if path.is_symlink():
+        path = path.resolve()
+    state = torch.load(path / "model.pt", weights_only=True, map_location="cpu")
+    dtype = next(model.parameters()).dtype
+    state = {k: v.to(dtype) for k, v in state.items()}
+
+    # strict=False tolerates the NEW modules being absent; shape mismatches still raise.
+    missing, unexpected = model.load_state_dict(state, strict=False)
+    if unexpected:
+        raise ValueError(
+            f"Warm-start checkpoint {path} has {len(unexpected)} keys this model does "
+            f"not accept (e.g. {sorted(unexpected)[:3]}). Wrong variant for this checkpoint?"
+        )
+    loaded = len(state)
+    total = len(model.state_dict())
+    logger.info(
+        f"Warm-started {loaded}/{total} tensors from {path}. "
+        f"Newly initialized: {sorted(missing)[:4]}{' ...' if len(missing) > 4 else ''} "
+        f"({len(missing)} tensors)"
+    )
+    if loaded == 0:
+        raise ValueError(f"Warm-start checkpoint {path} matched no parameters at all.")
+
+
 def build_default_model(
     config: TrainConfig,
     device: torch.device,
@@ -187,12 +223,15 @@ def build_default_model(
         )
     constructor_kwargs = _MODEL_CONSTRUCTOR_KWARGS[model_cls](config)
     factory = model_cls.from_config_random if random_init else model_cls.from_pretrained_dflash
-    return factory(
+    model = factory(
         config.draft_checkpoint,
         device=device,
         dtype=torch.float32,
         **constructor_kwargs,
     )
+    if config.warm_start:
+        load_warm_start(model, config.warm_start)
+    return model
 
 
 def train(
