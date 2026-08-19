@@ -7,6 +7,8 @@ import torch.nn as nn
 from midas.config import AlignedLossConfig
 from midas.losses_aligned import (
     compute_aligned_loss,
+    compute_eal_loss,
+    top1_gap,
     compute_feature_reg_loss,
     compute_margin_loss,
     target_argmax_chunked,
@@ -67,21 +69,54 @@ class TestMarginLoss:
 
 
 class TestFeatureRegLoss:
-    def test_zero_for_identical_directions(self):
+    @pytest.mark.parametrize("metric", ["smooth_l1", "cosine"])
+    def test_zero_for_identical_vectors(self, metric):
         h = torch.randn(4, 8)
-        assert torch.allclose(compute_feature_reg_loss(h, h), torch.zeros(4), atol=1e-6)
+        assert torch.allclose(
+            compute_feature_reg_loss(h, h, metric), torch.zeros(4), atol=1e-6
+        )
 
-    def test_one_for_orthogonal(self):
+    @pytest.mark.parametrize("metric", ["smooth_l1", "cosine"])
+    def test_positive_for_different_vectors(self, metric):
+        a, b = torch.randn(4, 8), torch.randn(4, 8)
+        assert (compute_feature_reg_loss(a, b, metric) > 0).all()
+
+    def test_cosine_is_one_for_orthogonal(self):
         a = torch.tensor([[1.0, 0.0]])
         b = torch.tensor([[0.0, 1.0]])
-        assert torch.allclose(compute_feature_reg_loss(a, b), torch.tensor([1.0]), atol=1e-6)
+        assert torch.allclose(
+            compute_feature_reg_loss(a, b, "cosine"), torch.tensor([1.0]), atol=1e-6
+        )
 
-    def test_invariant_to_positive_rescaling(self):
-        """argmax(W h) is scale-invariant, so the loss must be too."""
+    def test_cosine_invariant_to_positive_rescaling(self):
         a, b = torch.randn(4, 8), torch.randn(4, 8)
         assert torch.allclose(
-            compute_feature_reg_loss(a, b), compute_feature_reg_loss(a * 7.5, b), atol=1e-5
+            compute_feature_reg_loss(a, b, "cosine"),
+            compute_feature_reg_loss(a * 7.5, b, "cosine"),
+            atol=1e-5,
         )
+
+    def test_default_metric_is_cosine(self):
+        a, b = torch.randn(4, 8), torch.randn(4, 8)
+        assert torch.equal(
+            compute_feature_reg_loss(a, b), compute_feature_reg_loss(a, b, "cosine")
+        )
+
+    def test_both_metrics_have_comparable_gradient_scale(self):
+        """Measured: smooth_l1's mean over H divides its gradient by H, so it is
+        NOT stronger than cosine. This is why lambda_reg has to be large."""
+        torch.manual_seed(0)
+        t = torch.randn(32, 256)
+        grads = {}
+        for metric in ("smooth_l1", "cosine"):
+            d = torch.randn(32, 256, requires_grad=True)
+            compute_feature_reg_loss(d, t, metric).mean().backward()
+            grads[metric] = d.grad.norm().item()
+        assert 0.1 < grads["smooth_l1"] / grads["cosine"] < 10.0, grads
+
+    def test_rejects_unknown_metric(self):
+        with pytest.raises(ValueError, match="unknown reg metric"):
+            compute_feature_reg_loss(torch.randn(2, 4), torch.randn(2, 4), "l2")
 
 
 class TestChunkedArgmax:
@@ -233,3 +268,98 @@ class TestAlignedModel:
         )
         assert torch.isfinite(loss)
         assert "loss_margin" in model.log_metrics(loss=loss.item())
+
+
+class TestEALLoss:
+    """tau_hat = sum_k prod_{j<=k} sigmoid(gap_j / T), normalized to [-1, 0]."""
+
+    def _batch(self, B=2, blocks=2, bs=4):
+        """A DraftTrainingBatch-shaped stub with `blocks` real blocks per row."""
+        from midas.data import DraftTrainingBatch
+        N = blocks * bs
+        pib = torch.arange(bs).repeat(blocks).unsqueeze(0).expand(B, -1)
+        return DraftTrainingBatch(
+            noise_token_ids=torch.zeros(B, N, dtype=torch.long),
+            position_ids=torch.zeros(B, N, dtype=torch.long),
+            attention_mask=torch.zeros(B, 1, N, N),
+            noise_original_positions=torch.zeros(B, N, dtype=torch.long),
+            loss_mask=(pib > 0),
+            position_in_block=pib,
+        )
+
+    def _idx(self, batch):
+        m = batch.loss_mask.nonzero(as_tuple=False)
+        return m[:, 0], m[:, 1]
+
+    def test_perfect_gaps_give_maximal_tau(self):
+        """Huge positive gaps -> every position accepted -> L = -1."""
+        b = self._batch(); bi, ni = self._idx(b)
+        loss = compute_eal_loss(torch.full((bi.numel(),), 50.0), b, bi, ni)
+        assert torch.allclose(loss, torch.tensor(-1.0), atol=1e-5), loss
+
+    def test_hopeless_gaps_give_zero_tau(self):
+        b = self._batch(); bi, ni = self._idx(b)
+        loss = compute_eal_loss(torch.full((bi.numel(),), -50.0), b, bi, ni)
+        assert torch.allclose(loss, torch.tensor(0.0), atol=1e-5), loss
+
+    def test_matches_explicit_cumprod(self):
+        torch.manual_seed(0)
+        b = self._batch(B=1, blocks=1, bs=5); bi, ni = self._idx(b)
+        gaps = torch.randn(bi.numel())
+        got = compute_eal_loss(gaps, b, bi, ni, temperature=1.0)
+        sig = torch.sigmoid(gaps)
+        want = -(sig.cumprod(0).sum()) / 1 / (5 - 1)
+        assert torch.allclose(got, want, atol=1e-6), (got, want)
+
+    def test_early_position_has_larger_gradient_than_late(self):
+        """The whole point: dtau/dgap is survival-weighted, so position 1 leads."""
+        b = self._batch(B=1, blocks=1, bs=5); bi, ni = self._idx(b)
+        g = torch.zeros(bi.numel(), requires_grad=True)   # all gaps 0 -> sigma=0.5
+        compute_eal_loss(g, b, bi, ni).backward()
+        mag = g.grad.abs()
+        assert (mag[:-1] > mag[1:]).all(), mag
+
+    def test_doomed_prefix_kills_downstream_gradient(self):
+        """If position 1 is hopeless the suffix is worth nothing and gets no gradient."""
+        b = self._batch(B=1, blocks=1, bs=5); bi, ni = self._idx(b)
+        g = torch.tensor([-50.0, 0.0, 0.0, 0.0], requires_grad=True)
+        compute_eal_loss(g, b, bi, ni).backward()
+        assert g.grad[1:].abs().max() < 1e-6, g.grad
+
+    def test_sentinel_blocks_excluded(self):
+        """Blocks gated out of loss_mask must not contribute."""
+        b = self._batch(B=1, blocks=2, bs=4)
+        b.loss_mask = b.loss_mask.clone()
+        b.loss_mask[0, 4:] = False                      # kill the 2nd block
+        bi, ni = self._idx(b)
+        loss = compute_eal_loss(torch.full((bi.numel(),), 50.0), b, bi, ni)
+        assert torch.allclose(loss, torch.tensor(-1.0), atol=1e-5), loss
+
+    def test_temperature_sharpens(self):
+        b = self._batch(B=1, blocks=1, bs=5); bi, ni = self._idx(b)
+        gaps = torch.full((bi.numel(),), 1.0)
+        hot = compute_eal_loss(gaps, b, bi, ni, temperature=5.0)
+        cold = compute_eal_loss(gaps, b, bi, ni, temperature=0.2)
+        assert cold < hot, (cold, hot)   # lower T -> sigmoid closer to 1 -> larger tau
+
+    def test_top1_gap_shared_with_margin(self):
+        logits = torch.tensor([[5.0, 3.0, 1.0]])
+        labels = torch.tensor([0])
+        assert torch.allclose(top1_gap(logits, labels), torch.tensor([2.0]))
+        assert torch.allclose(
+            compute_margin_loss(logits, labels, 3.0),
+            torch.relu(3.0 - top1_gap(logits, labels)),
+        )
+
+    def test_end_to_end_through_aligned_loss(self, dummy_draft_batch, mock_lm_head):
+        dh = torch.randn(2, 8, 128, requires_grad=True)
+        ids = torch.randint(0, 1000, (2, 32))
+        kw = dict(gamma=7.0, target_final_hidden=torch.randn(2, 32, 128))
+        base = compute_aligned_loss(dh, ids, dummy_draft_batch, mock_lm_head, **kw)
+        m = {}
+        loss = compute_aligned_loss(dh, ids, dummy_draft_batch, mock_lm_head,
+                                    **kw, lambda_eal=1.0, metrics=m)
+        assert torch.isfinite(loss) and loss.item() != base.item()
+        assert "loss_eal" in m and "tau_hat" in m
+        loss.backward()
+        assert dh.grad is not None and (dh.grad != 0).any()

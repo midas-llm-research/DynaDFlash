@@ -42,8 +42,11 @@ class AlignedLossConfig:
     """
     lambda_margin: float = 0.0
     lambda_reg: float = 0.0
+    lambda_eal: float = 0.0
     margin: float = 1.0          # logit units
+    eal_temperature: float = 1.0 # sharpness of the sigmoid acceptance surrogate
     relabel_ce: bool = False     # label CE with the target argmax instead of the SDD token
+    reg_metric: str = "cosine"     # or 'smooth_l1'; measured to have the same gradient scale
     argmax_chunk: int = 1024
 
 

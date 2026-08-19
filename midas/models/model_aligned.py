@@ -56,8 +56,11 @@ class AlignedLossMixin:
             target_final_hidden=target_final_hidden,
             lambda_margin=cfg.lambda_margin,
             lambda_reg=cfg.lambda_reg,
+            lambda_eal=cfg.lambda_eal,
             margin=cfg.margin,
+            eal_temperature=cfg.eal_temperature,
             relabel_ce=cfg.relabel_ce,
+            reg_metric=cfg.reg_metric,
             argmax_chunk=cfg.argmax_chunk,
             metrics=metrics,
         )

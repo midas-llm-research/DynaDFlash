@@ -29,6 +29,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 VARIANTS = {
     "margin": ("aligned_margin_4b.yaml", "/checkpoints/midas-aligned-margin-v1", "midas-aligned-margin"),
     "featreg": ("aligned_featreg_4b.yaml", "/checkpoints/midas-aligned-featreg-v1", "midas-aligned-featreg"),
+    "eal": ("aligned_eal_4b.yaml", "/checkpoints/midas-aligned-eal-v1", "midas-aligned-eal"),
 }
 
 image = (
@@ -88,7 +89,8 @@ def train(
             f"{config_path} has no `aligned_loss:` block — that would train a plain "
             f"DFlash baseline under a new name. Use configs/{default_yaml}."
         )
-    if config.aligned_loss.lambda_margin == 0.0 and config.aligned_loss.lambda_reg == 0.0:
+    al = config.aligned_loss
+    if al.lambda_margin == 0.0 and al.lambda_reg == 0.0 and al.lambda_eal == 0.0:
         raise ValueError(
             "Both aligned-loss weights are 0, which is exactly the existing baseline "
             "objective. Refusing to spend a GPU run on a duplicate of midas-baseline."

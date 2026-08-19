@@ -53,6 +53,21 @@ def target_argmax_chunked(
     return torch.cat(out, dim=0)
 
 
+def top1_gap(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    """g = z[y*] - max_{v != y*} z[v]. Returns [M], float32.
+
+    g > 0 is exactly the temperature-0 acceptance condition. No softmax is
+    needed: log_softmax subtracts the same per-row logsumexp from both terms, so
+    the gap in log-prob space equals the gap in logit space. topk(2) gets the
+    runner-up without materializing a second [M, V] tensor.
+    """
+    z_true = logits.gather(1, labels.unsqueeze(1)).squeeze(1)
+    top2 = logits.topk(2, dim=-1)
+    already_top1 = top2.indices[:, 0] == labels
+    z_runner = torch.where(already_top1, top2.values[:, 1], top2.values[:, 0])
+    return (z_true - z_runner).float()
+
+
 def compute_margin_loss(
     logits: torch.Tensor,
     labels: torch.Tensor,
@@ -74,28 +89,84 @@ def compute_margin_loss(
     both terms, so the gap in log-prob space equals the gap in logit space.
     `topk(2)` gets the runner-up without materializing a second [M, V] tensor.
     """
-    z_true = logits.gather(1, labels.unsqueeze(1)).squeeze(1)
-    top2 = logits.topk(2, dim=-1)
-    # If y* is already top-1 the runner-up is the second entry, else it is the first.
-    already_top1 = top2.indices[:, 0] == labels
-    z_runner = torch.where(already_top1, top2.values[:, 1], top2.values[:, 0])
-    gap = (z_true - z_runner).float()
-    return F.relu(margin - gap)
+    return F.relu(margin - top1_gap(logits, labels))
 
 
 def compute_feature_reg_loss(
     draft_hidden: torch.Tensor,
     target_hidden: torch.Tensor,
+    metric: str = "cosine",
 ) -> torch.Tensor:
-    """Cosine distance between draft and target final hidden states. Returns [M].
+    """Distance between draft and target final hidden states. Returns [M].
 
-    Cosine rather than L2 because argmax(W h) is invariant to positive rescaling
-    of h — the magnitude of the hidden state cannot affect acceptance, only its
-    direction can, so regressing magnitude would spend capacity on nothing.
+    `cosine` (default) vs `smooth_l1`: MEASURED to have essentially the same
+    gradient scale w.r.t. the draft hidden (0.011 vs 0.009 on unit-scale vectors),
+    because smooth_l1's mean over the hidden dim divides its gradient by H.
+    Cosine is the default because argmax(W h) is invariant to positive rescaling
+    of h -- magnitude cannot affect acceptance -- and because being bounded in
+    [0, 2] makes its weight easier to reason about.
+
+    NOTE ON SCALE: both metrics give a gradient ~O(1/sqrt(H)) per position,
+    roughly 50x weaker than cross-entropy's. lambda_reg must therefore be LARGE
+    (order 10-100, not EAGLE's 0.1) for this term to influence training at all;
+    EAGLE's 0.1 is calibrated for un-normalized features with far larger errors.
+    Pick it from a gradient-share sweep, never by analogy.
     """
-    return 1.0 - F.cosine_similarity(
-        draft_hidden.float(), target_hidden.float(), dim=-1
-    )
+    d, t = draft_hidden.float(), target_hidden.float()
+    if metric == "cosine":
+        return 1.0 - F.cosine_similarity(d, t, dim=-1)
+    if metric == "smooth_l1":
+        return F.smooth_l1_loss(d, t, reduction="none").mean(dim=-1)
+    raise ValueError(f"unknown reg metric {metric!r}; use 'smooth_l1' or 'cosine'")
+
+
+def compute_eal_loss(
+    gaps_flat: torch.Tensor,
+    batch,
+    batch_idx: torch.Tensor,
+    noise_idx: torch.Tensor,
+    temperature: float = 1.0,
+) -> torch.Tensor:
+    r"""Differentiable expected accepted length. Returns a scalar in [-1, 0].
+
+        tau_hat = sum_k prod_{j<=k} sigmoid(gap_j / T)
+        L       = -tau_hat / (block_size - 1)
+
+    Why this rather than a position-weighted per-token loss: the true objective is
+    tau = sum_k prod_{j<=k} a_j, whose derivative w.r.t. accuracy at position j is
+
+        (prod_{i<j} a_i) * (1 + sum_{k>j} prod_{j<i<=k} a_i)
+         \____survival___/   \______downstream value______/
+
+    DFlash's exp(-(k-1)/gamma) is a STATIC guess at that quantity, but it is
+    dynamic and data-dependent. The cumprod here produces it exactly, for free:
+    doomed suffixes get no gradient, and positions after an already-safe prefix
+    get more -- the opposite of what a fixed exponential decay does.
+
+    sigmoid(gap/T) is the temperature-0 acceptance surrogate (is y* ranked first),
+    not q(y*) -- the latter is the temperature-1 quantity and is what makes a
+    plain cumprod-over-probabilities loss mismatched with greedy evaluation.
+
+    Computed in log space (logsigmoid + cumsum) because a 15-term cumprod of
+    values ~0.8 underflows toward 1e-2 and back-props poorly in bf16.
+    """
+    B, N = batch.loss_mask.shape
+    block_size = int(batch.position_in_block.max().item()) + 1
+    num_blocks = N // block_size
+
+    # Scatter the per-position gaps back onto the [B, N] block grid.
+    gap_grid = torch.zeros(B, N, dtype=gaps_flat.dtype, device=gaps_flat.device)
+    gap_grid = gap_grid.index_put((batch_idx, noise_idx), gaps_flat)
+    gap_grid = gap_grid.view(B, num_blocks, block_size)[..., 1:]  # drop the anchor
+
+    # A block is real (not a padding sentinel) iff its k=1 slot is in the loss mask.
+    block_active = batch.loss_mask.view(B, num_blocks, block_size)[..., 1]
+
+    log_surv = F.logsigmoid(gap_grid / temperature).cumsum(dim=-1)
+    tau_hat = log_surv.exp().sum(dim=-1)                      # [B, num_blocks]
+
+    denom = block_active.sum().clamp(min=1)
+    return -(tau_hat * block_active).sum() / denom / (block_size - 1)
 
 
 def compute_aligned_loss(
@@ -108,8 +179,11 @@ def compute_aligned_loss(
     target_final_hidden: Optional[torch.Tensor] = None,
     lambda_margin: float = 0.0,
     lambda_reg: float = 0.0,
+    lambda_eal: float = 0.0,
     margin: float = 1.0,
+    eal_temperature: float = 1.0,
     relabel_ce: bool = False,
+    reg_metric: str = "cosine",
     argmax_chunk: int = 1024,
     metrics: Optional[dict] = None,
 ) -> torch.Tensor:
@@ -148,7 +222,9 @@ def compute_aligned_loss(
     weights = torch.exp(-(pos_in_block - 1) / gamma)
     weight_sum = weights.sum().clamp(min=1)
 
-    needs_target = lambda_margin > 0.0 or lambda_reg > 0.0 or relabel_ce
+    needs_target = (
+        lambda_margin > 0.0 or lambda_reg > 0.0 or lambda_eal > 0.0 or relabel_ce
+    )
     target_argmax = None
     target_hidden_masked = None
     if needs_target:
@@ -165,7 +241,7 @@ def compute_aligned_loss(
                 "position 1 of the sequence."
             )
         target_hidden_masked = target_final_hidden[batch_idx, prev_positions]
-        if lambda_margin > 0.0 or relabel_ce:
+        if lambda_margin > 0.0 or lambda_eal > 0.0 or relabel_ce:
             target_argmax = target_argmax_chunked(
                 lm_head, target_hidden_masked, chunk_size=argmax_chunk
             )
@@ -189,8 +265,22 @@ def compute_aligned_loss(
             metrics["loss_margin"] = margin_loss.detach().item()
             metrics["frac_margin_active"] = (margin_per_pos > 0).float().mean().item()
 
+    if lambda_eal > 0.0:
+        gaps = top1_gap(draft_logits_masked, target_argmax)
+        eal_loss = compute_eal_loss(
+            gaps, batch, batch_idx, noise_idx, temperature=eal_temperature
+        )
+        total = total + lambda_eal * eal_loss
+        if metrics is not None:
+            metrics["loss_eal"] = eal_loss.detach().item()
+            metrics["tau_hat"] = -eal_loss.detach().item() * (
+                int(batch.position_in_block.max().item())
+            )
+
     if lambda_reg > 0.0:
-        reg_per_pos = compute_feature_reg_loss(draft_hidden_masked, target_hidden_masked)
+        reg_per_pos = compute_feature_reg_loss(
+            draft_hidden_masked, target_hidden_masked, metric=reg_metric
+        )
         reg_loss = (reg_per_pos * weights).sum() / weight_sum
         total = total + lambda_reg * reg_loss
         if metrics is not None:

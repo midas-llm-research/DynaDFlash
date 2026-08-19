@@ -1,0 +1,51 @@
+target_model: "Qwen/Qwen3-4B"
+draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
+data_path: "/checkpoints/sdd/sdd_100k.jsonl"
+
+# Expected-accepted-length only. tau_hat = sum_k prod_{j<=k} sigmoid(gap_j / T),
+# i.e. the evaluation metric itself made differentiable via a temperature-0
+# acceptance surrogate. The cumprod generates the correct per-position weighting
+# (survival x downstream value) instead of DFlash's static exp(-(k-1)/gamma).
+#
+# lambda=50, T=5 are set from a measured gradient-share sweep. T is the load-bearing
+# knob, not lambda: at random init the draft is confidently WRONG (gap mean -5.2), so
+# at T=1 the sigmoid saturates at sigma=0.011 and the gradient dies -- lambda=50 still
+# only moves grad-norm 1.13x. T=5 puts sigma(1-sigma) near its maximum, giving 1.62x,
+# matched to the margin arm's 1.59x so the two arms are equal-strength interventions.
+# T>5 flattens further but the 1/T factor in d(sigma)/d(gap) dominates and grad falls.
+# Obvious follow-up: anneal T downward during training (the analogue of DFlare's
+# progressive gamma) so the surrogate sharpens toward the true 0/1 indicator.
+#
+# Architecture is plain DFlash — no extra parameters. Only the training objective
+# differs. The training block below is byte-identical to base_4b.yaml so this is
+# directly comparable to the existing baseline checkpoint.
+aligned_loss:
+  lambda_margin: 0.0
+  lambda_reg: 0.0
+  lambda_eal: 50.0
+  eal_temperature: 5.0
+  margin: 1.0
+  relabel_ce: false
+  argmax_chunk: 1024
+
+training:
+  lr: 6.0e-4
+  weight_decay: 0.01
+  num_epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  max_seq_len: 3072
+  block_size: 16
+  max_num_anchors: 128
+  warmup_ratio: 0.04
+  grad_clip: 1.0
+  loss_gamma: 7.0
+
+checkpointing:
+  save_every_steps: 500
+  save_dir: "/checkpoints/midas-aligned-eal-v1"
+  keep_last_n: 3
+
+logging:
+  wandb_project: "midas-aligned-eal"
+  log_every_steps: 50

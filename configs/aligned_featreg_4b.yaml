@@ -2,7 +2,15 @@ target_model: "Qwen/Qwen3-4B"
 draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
 data_path: "/checkpoints/sdd/sdd_100k.jsonl"
 
-# Feature regression only. Cosine distance between the draft's final hidden
+# Feature regression only. Cosine distance between the draft final hidden and the
+# target final hidden at the same predicted position.
+#
+# lambda_reg=50 is set from a measured gradient-share sweep, NOT by analogy to
+# EAGLE's 0.1: both hiddens here are post-RMSNorm so the errors are unit-scale,
+# making this term ~50x weaker per unit lambda than EAGLE's un-normalized features.
+# 50 gives grad-norm 1.50x vs the margin arm's 1.59x -- matched intervention strength.
+# Consequence: the LOGGED loss is ~5x baseline and dominated by the reg term; that
+# is expected and does not make it comparable to other runs' loss values.
 # and the target's final hidden at the same predicted position.
 #
 # Architecture is plain DFlash — no extra parameters. Only the training objective
@@ -10,9 +18,10 @@ data_path: "/checkpoints/sdd/sdd_100k.jsonl"
 # directly comparable to the existing baseline checkpoint.
 aligned_loss:
   lambda_margin: 0.0
-  lambda_reg: 0.1
+  lambda_reg: 50.0
   margin: 1.0
   relabel_ce: false
+  reg_metric: cosine
   argmax_chunk: 1024
 
 training:
