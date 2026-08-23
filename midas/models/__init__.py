@@ -18,6 +18,10 @@ from midas.models.model_dflare import (
     build_dflare_target_layer_ids,
     compute_progressive_gamma,
 )
+from midas.models.model_lora_head import (
+    DFlashDraftModelLoRAHead,
+    LMHeadAdapter,
+)
 from midas.models.model_split_query import (
     DFlashDraftModelSplitQuery,
     Qwen3DFlashSplitQueryAttention,
@@ -35,7 +39,9 @@ __all__ = [
     "DFlashDraftModel",
     "DFlashDraftModelRouted",
     "DFlashDraftModelRoutedNoFC",
+    "DFlashDraftModelLoRAHead",
     "DFlashDraftModelSplitQuery",
+    "LMHeadAdapter",
     "DFlareDraftModel",
     "Qwen3DFlashAttention",
     "Qwen3DFlashDecoderLayer",

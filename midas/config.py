@@ -53,6 +53,10 @@ class TrainConfig:
     warmup_ratio: float = 0.04
     grad_clip: float = 1.0
     loss_gamma: float = 7.0
+    # Directory holding a trained model.pt to overlay onto a freshly built model
+    # (weights only — optimizer and LR schedule start fresh, so this is a NEW run
+    # on top of that checkpoint, not a resume).
+    warm_start: Optional[str] = None
 
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)

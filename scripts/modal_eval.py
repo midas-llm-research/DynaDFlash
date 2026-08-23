@@ -37,6 +37,11 @@ image = (
 
 CHECKPOINTS = {
     "baseline": "/checkpoints/midas-baseline/best",
+    # /latest, not /best: `best` tracks a running within-epoch average, so it
+    # resolves to a mid-epoch checkpoint. Both arms are compared end-of-training.
+    "lora-head": "/checkpoints/midas-lora-head-v1/latest",
+    "base-continued": "/checkpoints/midas-base-continued-v1/latest",
+    "lora-head-continued": "/checkpoints/midas-lora-head-continued-v1/latest",
     "router": "/checkpoints/midas-router-v2/best",
     "router-nofc": "/checkpoints/midas-router-nofc-v3/best",
     "split-query": "/checkpoints/midas-split-query-v1/best",
@@ -76,6 +81,7 @@ def run_eval(
     from midas.eval import evaluate, load_eval_prompts, measure_ar_baseline
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
+    from midas.models.model_lora_head import DFlashDraftModelLoRAHead
     from midas.models.model_split_query import DFlashDraftModelSplitQuery
     from midas.models.model_dflare import DFlareDraftModel
 
@@ -111,6 +117,10 @@ def run_eval(
         elif variant_name == "router-nofc":
             nofc_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0, use_fc=False)
             model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=nofc_config)
+        elif variant_name == "base-continued":
+            model = DFlashDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
+        elif variant_name in ("lora-head", "lora-head-continued"):
+            model = DFlashDraftModelLoRAHead.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "split-query":
             model = DFlashDraftModelSplitQuery.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "dflare":
@@ -184,7 +194,14 @@ def run_eval(
 
 
 @app.local_entrypoint()
-def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50, measure_ar: bool = False):
+def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50, measure_ar: bool = False, spawn: bool = False):
+    if spawn:
+        # A .remote() call is cancelled when the local caller disconnects, which
+        # silently kills a multi-hour eval. Results land in /checkpoints/eval_<ts>.json.
+        call = run_eval.spawn(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
+        print(f"Spawned eval — call id: {call.object_id}")
+        print(f"Follow with: modal app logs {app.app_id}")
+        return
     output = run_eval.remote(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
     print(f"\n{'=' * 70}")
     print(f"  EVAL RESULTS — Benchmarks: {output['benchmarks']}, Seed: {output['seed']}")

@@ -18,11 +18,13 @@ from midas.train import (
     load_checkpoint,
     cleanup_old_checkpoints,
     build_default_model,
+    load_warm_start,
 )
 from midas.config import DFlareConfig, TrainConfig, RouterConfig
 from midas.models.model import DFlashDraftModel
 from midas.models.model_context_router import DFlashDraftModelRouted
 from midas.models.model_dflare import DFlareDraftModel
+from midas.models.model_lora_head import DFlashDraftModelLoRAHead
 from tests.conftest import make_tiny_qwen3_config
 
 
@@ -353,3 +355,66 @@ class TestTrainSmoke:
 
         # Weights should have changed
         assert not torch.equal(model.fc.weight, initial_fc_weight)
+
+
+# ---------------------------------------------------------------------------
+# load_warm_start
+# ---------------------------------------------------------------------------
+
+
+class TestLoadWarmStart:
+    """Weights only: a NEW run on top of a checkpoint, not a resume."""
+
+    def _saved(self, tmp_path, model):
+        torch.save(model.state_dict(), tmp_path / "model.pt")
+        return str(tmp_path)
+
+    def test_copies_the_weights(self, tmp_path, tiny_config):
+        trained = DFlashDraftModel(tiny_config)
+        with torch.no_grad():
+            trained.norm.weight.fill_(3.5)
+        fresh = DFlashDraftModel(tiny_config)
+        load_warm_start(fresh, self._saved(tmp_path, trained))
+        torch.testing.assert_close(fresh.norm.weight, trained.norm.weight)
+
+    def test_touches_no_optimizer_or_scheduler_state(self, tmp_path, tiny_config):
+        """The whole point: only model.pt is read, so the schedule restarts."""
+        trained = DFlashDraftModel(tiny_config)
+        path = Path(self._saved(tmp_path, trained))
+        (path / "optimizer.pt").write_bytes(b"corrupt")
+        (path / "scheduler.pt").write_bytes(b"corrupt")
+        load_warm_start(DFlashDraftModel(tiny_config), str(path))  # must not read them
+
+    def test_follows_a_latest_symlink(self, tmp_path, tiny_config):
+        inner = tmp_path / "checkpoint_epoch3_step99"
+        inner.mkdir()
+        trained = DFlashDraftModel(tiny_config)
+        with torch.no_grad():
+            trained.norm.weight.fill_(2.25)
+        torch.save(trained.state_dict(), inner / "model.pt")
+        (tmp_path / "latest").symlink_to(inner.name)
+        fresh = DFlashDraftModel(tiny_config)
+        load_warm_start(fresh, str(tmp_path / "latest"))
+        torch.testing.assert_close(fresh.norm.weight, trained.norm.weight)
+
+    def test_extra_modules_keep_their_init(self, tmp_path, tiny_config):
+        """A base checkpoint into the LoRA model: the adapter stays identity."""
+        base = DFlashDraftModel(tiny_config)
+        lora = DFlashDraftModelLoRAHead(tiny_config)
+        load_warm_start(lora, self._saved(tmp_path, base))
+        assert lora.lm_head_adapter.up.weight.abs().sum() == 0
+
+    def test_rejects_a_checkpoint_from_another_variant(self, tmp_path, tiny_config):
+        """LoRA weights into a base model: the adapter keys have no home."""
+        lora = DFlashDraftModelLoRAHead(tiny_config)
+        with pytest.raises(ValueError, match="does not accept"):
+            load_warm_start(DFlashDraftModel(tiny_config), self._saved(tmp_path, lora))
+
+    def test_lora_checkpoint_into_lora_model_is_exact(self, tmp_path, tiny_config):
+        """The actual continuation case: every tensor, including the adapter."""
+        trained = DFlashDraftModelLoRAHead(tiny_config)
+        torch.nn.init.normal_(trained.lm_head_adapter.up.weight, std=0.1)
+        fresh = DFlashDraftModelLoRAHead(tiny_config)
+        load_warm_start(fresh, self._saved(tmp_path, trained))
+        for k, v in trained.state_dict().items():
+            torch.testing.assert_close(fresh.state_dict()[k], v)

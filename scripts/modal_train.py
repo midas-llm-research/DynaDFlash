@@ -68,7 +68,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
+    from midas.models import DFlashDraftModel, DFlashDraftModelLoRAHead, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -104,13 +104,39 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-base-v4"
         logger.info("Training BASE variant (z-lab fc+hidden_norm)")
+    elif variant == "lora-head":
+        # Matched arm for `base`: same config file, same random init, same 3
+        # epochs. The adapter is identity at step 0, so the two start as the
+        # same function and differ only by the adapter's 327,680 parameters.
+        model_cls = DFlashDraftModelLoRAHead
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-lora-head-v1"
+        config.logging.wandb_project = "midas-lora-head"
+        logger.info("Training LORA-HEAD variant (low-rank adapter before the LM head)")
+    elif variant == "lora-head-continued":
+        # 6-epoch arm. Takes the 3-epoch lora-head weights and runs the SAME
+        # fresh 3-epoch schedule base-continued ran (new optimizer, new cosine),
+        # so midas-lora-head-continued-v1 and midas-base-continued-v1 are
+        # comparable at ~6 epochs of total training.
+        model_cls = DFlashDraftModelLoRAHead
+        config.router = None
+        config.warm_start = "/checkpoints/midas-lora-head-v1/latest"
+        config.checkpoint.save_dir = "/checkpoints/midas-lora-head-continued-v1"
+        config.logging.wandb_project = "midas-lora-head-continued"
+        logger.info("Training LORA-HEAD-CONTINUED (3-epoch warm start, 3 more epochs)")
     elif variant == "split-query":
         model_cls = DFlashDraftModelSplitQuery
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', or 'dflare'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'lora-head', 'lora-head-continued', 'split-query', or 'dflare'.")
+
+    # `fresh` wipes save_dir; a warm start living inside it would be deleted first.
+    if config.warm_start and Path(config.warm_start).resolve().parent == Path(config.checkpoint.save_dir):
+        raise ValueError(
+            f"save_dir {config.checkpoint.save_dir} contains the warm-start checkpoint."
+        )
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -149,6 +175,7 @@ def main(
     download: bool = False,
     fresh: bool = True,
     epochs: int = 0,
+    spawn: bool = False,
 ):
     if download:
         download_models.remote()
@@ -160,4 +187,11 @@ def main(
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
+    if spawn:
+        # A .remote() call is cancelled when the local caller disconnects, which
+        # silently kills a multi-hour run. spawn() hands off instead.
+        call = train.spawn(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)
+        print(f"Spawned {variant} training — call id: {call.object_id}")
+        print(f"Follow with: modal app logs {app.app_id}")
+        return
     train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)
