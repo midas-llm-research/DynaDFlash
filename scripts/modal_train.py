@@ -26,7 +26,9 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
         "torch>=2.2.0",
-        "transformers>=4.57.0",
+        # Pinned: unpinned `>=4.57.0` resolves to 5.x, and `DynamicCache.crop` (used by
+        # dflash_generate) is deprecated for removal in 5.18. 5.15.1 is verified end to end.
+        "transformers==5.15.1",
         "accelerate",
         "datasets",
         "wandb",
@@ -68,7 +70,7 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlash2DraftModel, DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
+    from midas.models import CommitRefineDraftModel, DFlash2DraftModel, DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
@@ -113,13 +115,61 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-base-v4"
         logger.info("Training BASE variant (z-lab fc+hidden_norm)")
+    elif variant == "commit-refine":
+        # Matched against `base`: identical training block, same random init, same 3 epochs.
+        # The commit gate is zero at init, so stage 2 starts as plain extra depth.
+        #
+        # WARNING: the trained v1 in this save_dir is the DEPTH-ONLY CONTROL for the v2
+        # comparison — it predates the injection-scale fix, so its conditioning is inert
+        # and it isolates what the two extra layers buy on their own. Re-running this
+        # variant with fresh=True deletes it. Use `commit-refine-v2` for new runs.
+        model_cls = CommitRefineDraftModel
+        if config.commit_refine is None:
+            from midas.config import CommitRefineConfig
+            config.commit_refine = CommitRefineConfig()
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-commit-refine-v1"
+        config.logging.wandb_project = "midas-commit-refine"
+        logger.info("Training COMMIT-REFINE variant (committed-prefix conditioned stage 2)")
+    elif variant == "commit-refine-v2":
+        # Same recipe as `commit-refine`, with the injection put on the residual's scale.
+        # v1's conditioning was inert (0.009% of the residual), which leaves it as a clean
+        # DEPTH-ONLY control — so this writes elsewhere and `fresh` must not touch it.
+        model_cls = CommitRefineDraftModel
+        if config.commit_refine is None:
+            from midas.config import CommitRefineConfig
+            config.commit_refine = CommitRefineConfig()
+        config.commit_refine.scaled_injection = True
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-commit-refine-v2"
+        config.logging.wandb_project = "midas-commit-refine-v2"
+        logger.info("Training COMMIT-REFINE-V2 (scaled injection; v1 is the depth control)")
+    elif variant == "commit-refine-continued":
+        # 6-epoch arm, mirroring how midas-base-continued-v1 was made: take the 3-epoch
+        # weights and run the SAME fresh 3-epoch schedule (new optimizer, new cosine), so
+        # the two are comparable at ~6 epochs of total training.
+        model_cls = CommitRefineDraftModel
+        if config.commit_refine is None:
+            from midas.config import CommitRefineConfig
+            config.commit_refine = CommitRefineConfig()
+        config.router = None
+        config.warm_start = "/checkpoints/midas-commit-refine-v1/latest"
+        config.checkpoint.save_dir = "/checkpoints/midas-commit-refine-continued-v1"
+        config.logging.wandb_project = "midas-commit-refine-continued"
+        logger.info("Training COMMIT-REFINE-CONTINUED (3-epoch warm start, 3 more epochs)")
     elif variant == "split-query":
         model_cls = DFlashDraftModelSplitQuery
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'dflash2', or 'dflare'.")
+        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'commit-refine', 'commit-refine-v2', 'commit-refine-continued', 'split-query', 'dflash2', or 'dflare'.")
+
+    # `fresh` wipes save_dir; a warm start living inside it would be deleted first.
+    if config.warm_start and Path(config.warm_start).resolve().parent == Path(config.checkpoint.save_dir):
+        raise ValueError(
+            f"save_dir {config.checkpoint.save_dir} contains the warm-start checkpoint."
+        )
 
     if fresh:
         ckpt_dir = Path(config.checkpoint.save_dir)
@@ -158,11 +208,15 @@ def main(
     download: bool = False,
     fresh: bool = True,
     epochs: int = 0,
+    spawn: bool = False,
 ):
     if download:
         download_models.remote()
         return
-    defaults = {"dflare": "configs/dflare_4b.yaml", "dflash2": "configs/dflash2_4b.yaml"}
+    defaults = {"dflare": "configs/dflare_4b.yaml", "dflash2": "configs/dflash2_4b.yaml",
+                "commit-refine": "configs/commit_refine_4b.yaml",
+                "commit-refine-v2": "configs/commit_refine_4b.yaml",
+                "commit-refine-continued": "configs/commit_refine_4b.yaml"}
     if config == "configs/base_4b.yaml" and variant in defaults:
         config = defaults[variant]
 
@@ -170,4 +224,11 @@ def main(
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
+    if spawn:
+        # A .remote() call is cancelled when the local caller disconnects, which silently
+        # kills a multi-hour run. spawn() hands off instead.
+        call = train.spawn(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)
+        print(f"Spawned {variant} training — call id: {call.object_id}")
+        print(f"Follow with: modal app logs {app.app_id}")
+        return
     train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs)

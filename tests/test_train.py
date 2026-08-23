@@ -14,6 +14,7 @@ import torch.nn as nn
 import pytest
 
 from midas.train import (
+    load_warm_start,
     save_checkpoint,
     load_checkpoint,
     cleanup_old_checkpoints,
@@ -23,6 +24,7 @@ from midas.config import DFlareConfig, TrainConfig, RouterConfig
 from midas.models.model import DFlashDraftModel
 from midas.models.model_context_router import DFlashDraftModelRouted
 from midas.models.model_dflare import DFlareDraftModel
+from midas.models.model_commit_refine import CommitRefineDraftModel
 from tests.conftest import make_tiny_qwen3_config
 
 
@@ -353,3 +355,73 @@ class TestTrainSmoke:
 
         # Weights should have changed
         assert not torch.equal(model.fc.weight, initial_fc_weight)
+
+
+# ---------------------------------------------------------------------------
+# load_warm_start
+# ---------------------------------------------------------------------------
+
+
+def _tiny_commit_refine(tiny_config):
+    """block_size is 4 in the tiny config, so commit must leave a slot to refine."""
+    from midas.config import CommitRefineConfig
+    return CommitRefineDraftModel(
+        tiny_config, CommitRefineConfig(commit=1, refine_layers=1, refine_intermediate=64))
+
+
+class TestLoadWarmStart:
+    """Weights only: a NEW run on top of a checkpoint, not a resume."""
+
+    def _saved(self, tmp_path, model):
+        torch.save(model.state_dict(), tmp_path / "model.pt")
+        return str(tmp_path)
+
+    def test_copies_the_weights(self, tmp_path, tiny_config):
+        trained = DFlashDraftModel(tiny_config)
+        with torch.no_grad():
+            trained.norm.weight.fill_(3.5)
+        fresh = DFlashDraftModel(tiny_config)
+        load_warm_start(fresh, self._saved(tmp_path, trained))
+        torch.testing.assert_close(fresh.norm.weight, trained.norm.weight)
+
+    def test_touches_no_optimizer_or_scheduler_state(self, tmp_path, tiny_config):
+        """The whole point: only model.pt is read, so the schedule restarts."""
+        path = Path(self._saved(tmp_path, DFlashDraftModel(tiny_config)))
+        (path / "optimizer.pt").write_bytes(b"corrupt")
+        (path / "scheduler.pt").write_bytes(b"corrupt")
+        load_warm_start(DFlashDraftModel(tiny_config), str(path))  # must not read them
+
+    def test_follows_a_latest_symlink(self, tmp_path, tiny_config):
+        inner = tmp_path / "checkpoint_epoch3_step99"
+        inner.mkdir()
+        trained = DFlashDraftModel(tiny_config)
+        with torch.no_grad():
+            trained.norm.weight.fill_(2.25)
+        torch.save(trained.state_dict(), inner / "model.pt")
+        (tmp_path / "latest").symlink_to(inner.name)
+        fresh = DFlashDraftModel(tiny_config)
+        load_warm_start(fresh, str(tmp_path / "latest"))
+        torch.testing.assert_close(fresh.norm.weight, trained.norm.weight)
+
+    def test_extra_modules_keep_their_init(self, tmp_path, tiny_config):
+        """A base checkpoint into commit-refine: stage 2 stays at its own init."""
+        model = _tiny_commit_refine(tiny_config)
+        load_warm_start(model, self._saved(tmp_path, DFlashDraftModel(tiny_config)))
+        assert model.commit_gate.abs().sum() == 0
+
+    def test_rejects_a_checkpoint_from_another_variant(self, tmp_path, tiny_config):
+        """commit-refine weights into a base model: stage 2's keys have no home."""
+        ckpt = self._saved(tmp_path, _tiny_commit_refine(tiny_config))
+        with pytest.raises(ValueError, match="does not accept"):
+            load_warm_start(DFlashDraftModel(tiny_config), ckpt)
+
+    def test_continuation_carries_every_tensor(self, tmp_path, tiny_config):
+        """The actual continuation case: all of stage 1, stage 2, and the trained gate."""
+        trained = _tiny_commit_refine(tiny_config)
+        with torch.no_grad():
+            trained.commit_gate.fill_(0.15)          # a gate that learned something
+        fresh = _tiny_commit_refine(tiny_config)
+        load_warm_start(fresh, self._saved(tmp_path, trained))
+        assert fresh.commit_gate.abs().mean() > 0.1, "the trained gate must carry over"
+        for k, v in trained.state_dict().items():
+            torch.testing.assert_close(fresh.state_dict()[k], v)

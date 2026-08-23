@@ -39,6 +39,22 @@ class DFlash2Config:
 
 
 @dataclass
+class CommitRefineConfig:
+    """Commit-and-refine: how many slots stage 1 commits, and the size of stage 2.
+
+    `refine_intermediate` is deliberately far below the backbone's 9728 — stage 2 applies
+    a correction conditioned on the committed tokens, it does not re-derive the block.
+    """
+    commit: int = 3
+    refine_layers: int = 2
+    refine_intermediate: int = 2048
+    # False reproduces the original unscaled injection, which measured 0.009% of the
+    # residual and left the conditioning inert. Only for loading checkpoints trained
+    # before the fix — midas-commit-refine-v1, kept as the depth-only control.
+    scaled_injection: bool = True
+
+
+@dataclass
 class CheckpointConfig:
     save_every_steps: int = 2000
     save_dir: str = "/checkpoints/midas-router"
@@ -68,6 +84,10 @@ class TrainConfig:
     warmup_ratio: float = 0.04
     grad_clip: float = 1.0
     loss_gamma: float = 7.0
+    # Directory holding a trained model.pt to overlay onto a freshly built model
+    # (weights only — optimizer and LR schedule start fresh, so this is a NEW run
+    # on top of that checkpoint, not a resume).
+    warm_start: Optional[str] = None
 
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
@@ -80,6 +100,7 @@ class TrainConfig:
     router: Optional[RouterConfig] = None
     dflare: Optional[DFlareConfig] = None
     dflash2: Optional[DFlash2Config] = None
+    commit_refine: Optional[CommitRefineConfig] = None
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -102,6 +123,9 @@ class TrainConfig:
         dflash2_raw = raw.pop("dflash2", None)
         if dflash2_raw is not None:
             method_kwargs["dflash2"] = DFlash2Config(**dflash2_raw)
+        commit_refine_raw = raw.pop("commit_refine", None)
+        if commit_refine_raw is not None:
+            method_kwargs["commit_refine"] = CommitRefineConfig(**commit_refine_raw)
 
         known_top_keys = {"target_model", "draft_checkpoint", "data_path"}
         unknown = set(raw.keys()) - known_top_keys

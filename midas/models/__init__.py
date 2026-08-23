@@ -6,6 +6,7 @@ from midas.models.model import (
     dflash_generate,
     sample,
 )
+from midas.models.model_commit_refine import CommitRefineDraftModel
 from midas.models.model_context_router import (
     ContextRouter,
     DFlashDraftModelRouted,
@@ -35,6 +36,7 @@ ContextRouterNoFC = ContextRouter
 DFlashDraftModelRoutedNoFC = DFlashDraftModelRouted
 
 __all__ = [
+    "CommitRefineDraftModel",
     "ContextRouter",
     "ContextRouterNoFC",
     "AdaptiveLayerFusion",

@@ -23,7 +23,9 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
         "torch>=2.2.0",
-        "transformers>=4.57.0",
+        # Pinned: unpinned `>=4.57.0` resolves to 5.x, and `DynamicCache.crop` (used by
+        # dflash_generate) is deprecated for removal in 5.18. 5.15.1 is verified end to end.
+        "transformers==5.15.1",
         "accelerate",
         "datasets",
         "numpy",
@@ -37,6 +39,11 @@ image = (
 
 CHECKPOINTS = {
     "baseline": "/checkpoints/midas-baseline/best",
+    # v1 = the DEPTH-ONLY control (pre-fix, conditioning measured inert at 0.1%).
+    "commit-refine": "/checkpoints/midas-commit-refine-v1/latest",
+    "commit-refine-v2": "/checkpoints/midas-commit-refine-v2/latest",
+    "commit-refine-continued": "/checkpoints/midas-commit-refine-continued-v1/latest",
+    "base-continued": "/checkpoints/midas-base-continued-v1/latest",
     "router": "/checkpoints/midas-router-v2/best",
     "router-nofc": "/checkpoints/midas-router-nofc-v3/best",
     "split-query": "/checkpoints/midas-split-query-v1/best",
@@ -77,6 +84,7 @@ def run_eval(
     from midas.eval import evaluate, load_eval_prompts, measure_ar_baseline
     from midas.models.model import DFlashDraftModel
     from midas.models.model_context_router import DFlashDraftModelRouted
+    from midas.models.model_commit_refine import CommitRefineDraftModel
     from midas.models.model_split_query import DFlashDraftModelSplitQuery
     from midas.models.model_dflare import DFlareDraftModel
     from midas.models.model_dflash2 import DFlash2DraftModel
@@ -113,6 +121,17 @@ def run_eval(
         elif variant_name == "router-nofc":
             nofc_config = RouterConfig(hidden_size=2560, num_layers=5, rank=128, gamma_init=1.0, use_fc=False)
             model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=nofc_config)
+        elif variant_name == "base-continued":
+            model = DFlashDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
+        elif variant_name in ("commit-refine", "commit-refine-continued", "commit-refine-v2"):
+            from midas.config import CommitRefineConfig
+            # v1 predates the injection-scale fix and is kept as the DEPTH-ONLY control: its
+            # trained gate of 0.15 was 0.009% of the residual. Loading it under the scaled
+            # injection would make that same 0.15 a ~15% perturbation, i.e. a different model
+            # than the one trained — so it has to be rebuilt in the mode it was trained in.
+            cr_config = CommitRefineConfig(scaled_injection=variant_name == "commit-refine-v2")
+            model = CommitRefineDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, commit_refine_config=cr_config)
+            model.bind_shared(target.lm_head, target.model.embed_tokens)
         elif variant_name == "split-query":
             model = DFlashDraftModelSplitQuery.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "dflash2":
