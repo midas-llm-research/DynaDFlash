@@ -33,6 +33,7 @@ VARIANT_CONFIGS = {
     "router-nofc": "base_4b.yaml",
     "split-query": "base_4b.yaml",
     "token-mix": "base_4b.yaml",
+    "token-mix-continued": "base_4b.yaml",
     "causal-block": "base_4b.yaml",
     "dflare": "dflare_4b.yaml",
     "dflare-deep": "dflare_deep_4b.yaml",
@@ -142,6 +143,16 @@ def train(
         config.router = None
         config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
+    elif variant == "token-mix-continued":
+        # 6-epoch arm, mirroring exactly how midas-base-continued-v1 was made: take the
+        # 3-epoch weights and run the SAME fresh 3-epoch schedule (new optimizer, new
+        # cosine), so this and the 6-epoch baseline are comparable at ~6 epochs total.
+        model_cls = DFlashDraftModelTokenMix
+        config.router = None
+        config.warm_start = "/checkpoints/midas-token-mix-v1/latest"
+        config.checkpoint.save_dir = "/checkpoints/midas-token-mix-continued-v1"
+        config.logging.wandb_project = "midas-token-mix-continued"
+        logger.info("Training TOKEN-MIX-CONTINUED (3-epoch warm start, 3 more epochs)")
     elif variant == "token-mix":
         model_cls = DFlashDraftModelTokenMix
         config.router = None
@@ -176,6 +187,12 @@ def train(
     else:
         raise ValueError(
             f"Unknown variant '{variant}'. Valid variants: {sorted(VARIANT_CONFIGS)}"
+        )
+
+    # `fresh` wipes save_dir; a warm start living inside it would be deleted first.
+    if config.warm_start and Path(config.warm_start).resolve().parent == Path(config.checkpoint.save_dir):
+        raise ValueError(
+            f"save_dir {config.checkpoint.save_dir} contains the warm-start checkpoint."
         )
 
     if fresh:

@@ -55,6 +55,8 @@ CHECKPOINTS = {
     "split-query": "/checkpoints/midas-split-query-v1/latest",
     "dflare": "/checkpoints/dflare-qwen3-4b/latest",
     "token-mix": "/checkpoints/midas-token-mix-v1/latest",
+    "token-mix-continued": "/checkpoints/midas-token-mix-continued-v1/latest",
+    "base-continued": "/checkpoints/midas-base-continued-v1/latest",
     "causal-block": "/checkpoints/midas-causal-block-v1/latest",
     "dflare-deep": "/checkpoints/dflare-deep-qwen3-4b/latest",
     "dflare-plus": "/checkpoints/dflare-plus-qwen3-4b/latest",
@@ -136,8 +138,17 @@ def run_eval(
 
     # Helper to load a draft model
     def load_draft(variant_name):
+        # The released z-lab weights, evaluated as-is on this harness. Every other arm in
+        # this project trains from random init, so this is the only measurement of what the
+        # reference implementation scores -- i.e. how much of our gap is training budget.
+        if variant_name == "dflash-published":
+            model = DFlashDraftModel.from_pretrained_dflash(
+                "/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
+            model.eval()
+            return model, {"step": -1, "loss": float("nan")}, "published-z-lab"
+
         ckpt_path = checkpoint or CHECKPOINTS[variant_name]
-        if variant_name == "baseline":
+        if variant_name in ("baseline", "base-continued"):
             model = DFlashDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "router":
             model = DFlashDraftModelRouted.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, router_config=router_config)
@@ -148,7 +159,7 @@ def run_eval(
             model = DFlashDraftModelSplitQuery.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "dflare":
             model = DFlareDraftModel.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16, dflare_config=arch_config(variant_name))
-        elif variant_name == "token-mix":
+        elif variant_name in ("token-mix", "token-mix-continued"):
             model = DFlashDraftModelTokenMix.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
         elif variant_name == "causal-block":
             model = DFlashDraftModelCausalBlock.from_config_random("/models/Qwen3-4B-DFlash-b16", device=device, dtype=torch.bfloat16)
@@ -224,7 +235,15 @@ def run_eval(
 
 
 @app.local_entrypoint()
-def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50, measure_ar: bool = False):
+def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50, measure_ar: bool = False, spawn: bool = False):
+    if spawn:
+        # A .remote() call dies with its client even under --detach; only spawn() hands
+        # off to the server. Results land in /checkpoints/eval_<ts>.json either way.
+        call = run_eval.spawn(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks,
+                              seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
+        print(f"Spawned eval for {variants} — call id: {call.object_id}")
+        print(f"Follow with: modal app logs {app.app_id}")
+        return
     output = run_eval.remote(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
     print(f"\n{'=' * 70}")
     print(f"  EVAL RESULTS — Benchmarks: {output['benchmarks']}, Seed: {output['seed']}")
