@@ -1,0 +1,37 @@
+# Layer-skip (early-exit) draft training: 10-layer draft, 50k samples, 1 epoch.
+# Launch:  modal run scripts/modal_train.py --variant skip --config configs/skip_4b.yaml
+# (modal_train.py rewrites target_model/draft_checkpoint to the /models volume paths.)
+target_model: "Qwen/Qwen3-4B"
+draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
+data_path: "/checkpoints/sdd/sdd_100k.jsonl"
+
+skip:
+  aggregation: "attention"      # coerced via BlockAggregationType(...) in model_skip
+  gamma: 7.0
+  rank: 128
+  gate_loss_weight: 1.0
+  exit_threshold: 0.0
+  latency_path: "/checkpoints/latency_16.json"  # 16-layer fit; valid for 10 layers (latency is linear in depth)
+
+training:
+  num_hidden_layers: 7          # draft decoder depth (config_overrides -> from_config_random)
+  max_samples: 50000            # cap sequences loaded from data_path
+  num_epochs: 1
+  lr: 6.0e-4
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  max_seq_len: 3072
+  block_size: 16
+  max_num_anchors: 512
+  warmup_ratio: 0.04
+  grad_clip: 1.0
+  loss_gamma: 7.0
+
+checkpointing:
+  save_every_steps: 500
+  save_dir: "/checkpoints/midas-skip"
+  keep_last_n: 3
+
+logging:
+  wandb_project: "midas-dflash-skip"
+  log_every_steps: 50
