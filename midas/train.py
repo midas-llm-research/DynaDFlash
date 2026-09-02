@@ -17,6 +17,7 @@ Pipeline pieces all live elsewhere:
 """
 
 import json
+import random
 import shutil
 from pathlib import Path
 from typing import Optional
@@ -243,6 +244,13 @@ def train(
 ):
     """Main training loop. `model` can be any DFlashDraftModel subclass."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Seed before anything draws: model init happens in build_default_model below,
+    # and anchor sampling draws from `random` inside the loop.
+    random.seed(config.seed)
+    torch.manual_seed(config.seed)
+    torch.cuda.manual_seed_all(config.seed)
+    logger.info(f"Seeded torch and random with {config.seed}")
 
     try:
         import wandb

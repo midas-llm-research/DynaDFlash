@@ -67,6 +67,11 @@ class TrainConfig:
     # (weights only — optimizer and LR schedule start fresh, so this is a NEW run
     # on top of that checkpoint, not a resume).
     warm_start: Optional[str] = None
+    # Seeds torch (model init for any module the warm start does not cover) and
+    # `random` (anchor sampling in prepare_draft_inputs). The batch sampler is
+    # already deterministic, so with this set two runs see identical batches,
+    # identical anchors and identical draws for any freshly-initialized module.
+    seed: int = 0
 
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
