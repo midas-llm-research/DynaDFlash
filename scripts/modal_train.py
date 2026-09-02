@@ -1,7 +1,8 @@
 """
 Modal cloud training script for DFlash-family draft models.
 
-Supports router, router-nofc, DFlare, and base variants. Select via --variant.
+Supports router, router-nofc, DFlare, DFlash 2, correction, and base variants.
+Select via --variant.
 
 Usage:
     modal run scripts/modal_train.py --variant router         # Train router variant
@@ -9,7 +10,13 @@ Usage:
     modal run scripts/modal_train.py --variant base           # Train base variant
     modal run scripts/modal_train.py --variant router --config configs/base_4b.yaml
     modal run scripts/modal_train.py --variant dflare --config configs/dflare_4b.yaml
+    modal run scripts/modal_train.py --variant correction     # Train correction variant
+    modal run scripts/modal_train.py --variant correction --max-steps 1500   # bounded spend
+    modal run scripts/modal_train.py --variant correction --fresh false      # RESUME (see below)
     modal run scripts/modal_train.py --download               # (one-time) download models
+
+`--fresh` defaults to True and DELETES the variant's checkpoint directory before
+starting. Pass `--fresh false` to resume from the last checkpoint.
 """
 
 import modal
@@ -59,6 +66,7 @@ def train(
     fresh: bool = True,
     epochs: int = 0,
     warm_start: str = "",
+    max_steps: int = 0,
 ):
     import sys
     import shutil
@@ -69,12 +77,15 @@ def train(
     sys.path.insert(0, "/root")
 
     from midas.config import TrainConfig
-    from midas.models import DFlash2DraftModel, DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
+    from midas.models import CorrectionDraftModel, DFlash2DraftModel, DFlashDraftModel, DFlashDraftModelRouted, DFlashDraftModelSplitQuery, DFlareDraftModel
     from midas.train import train as run_training
 
     config = TrainConfig.from_yaml(config_path)
     if epochs > 0:
         config.num_epochs = epochs
+    if max_steps > 0:
+        config.max_steps = max_steps
+        logger.info(f"Capped at {max_steps} optimizer steps")
 
     # Override paths to use Modal volumes
     config.target_model = "/models/Qwen3-4B"
@@ -106,6 +117,20 @@ def train(
         # top-K, which from random init is ~k/vocab -- it would get no gradient.
         config.warm_start = "/checkpoints/midas-baseline/latest"
         logger.info("Training DFLASH2 variant (path selector + block-local dynamic conv)")
+    elif variant == "correction":
+        model_cls = CorrectionDraftModel
+        if config.correction is None:
+            from midas.config import CorrectionConfig
+            config.correction = CorrectionConfig()
+        config.router = None
+        config.checkpoint.save_dir = "/checkpoints/midas-correction-v1"
+        config.logging.wandb_project = "midas-correction"
+        # Round 1 must be the TRAINED DFlash 2 — the recycled residuals are its
+        # output, so a base-checkpoint round 1 trains this model on residuals
+        # deployment will never produce.
+        if not config.correction.parent_checkpoint:
+            config.correction.parent_checkpoint = "/checkpoints/midas-dflash2-v1/best"
+        logger.info("Training CORRECTION variant (depth-1 refiner over recycled residuals)")
     elif variant == "router-nofc":
         model_cls = DFlashDraftModelRouted
         if config.router is None:
@@ -125,7 +150,10 @@ def train(
         config.checkpoint.save_dir = "/checkpoints/midas-split-query-v1"
         logger.info("Training SPLIT-QUERY variant (separate q_proj for target/draft KV)")
     else:
-        raise ValueError(f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', 'split-query', 'dflash2', or 'dflare'.")
+        raise ValueError(
+            f"Unknown variant '{variant}'. Use 'router', 'router-nofc', 'base', "
+            f"'split-query', 'dflash2', 'dflare', or 'correction'."
+        )
 
     if warm_start:
         config.warm_start = None if warm_start.lower() == "none" else warm_start
@@ -138,7 +166,15 @@ def train(
             shutil.rmtree(ckpt_dir)
             logger.info(f"Cleared old checkpoints at {ckpt_dir}")
 
-    run_training(config, model_cls=model_cls, random_init=True)
+    # Commit after EVERY checkpoint, not just at the end: without this the
+    # checkpoints a long run writes are only in this container's view of the
+    # volume, so a crash, preemption or timeout throws away all of them.
+    run_training(
+        config,
+        model_cls=model_cls,
+        random_init=True,
+        on_checkpoint=checkpoint_volume.commit,
+    )
     checkpoint_volume.commit()
 
 
@@ -170,11 +206,16 @@ def main(
     fresh: bool = True,
     epochs: int = 0,
     warm_start: str = "",
+    max_steps: int = 0,
 ):
     if download:
         download_models.remote()
         return
-    defaults = {"dflare": "configs/dflare_4b.yaml", "dflash2": "configs/dflash2_4b.yaml"}
+    defaults = {
+        "dflare": "configs/dflare_4b.yaml",
+        "dflash2": "configs/dflash2_4b.yaml",
+        "correction": "configs/correction_4b.yaml",
+    }
     if config == "configs/base_4b.yaml" and variant in defaults:
         config = defaults[variant]
 
@@ -182,4 +223,7 @@ def main(
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
-    train.remote(config_path=container_config, variant=variant, fresh=fresh, epochs=epochs, warm_start=warm_start)
+    train.remote(
+        config_path=container_config, variant=variant, fresh=fresh,
+        epochs=epochs, warm_start=warm_start, max_steps=max_steps,
+    )
