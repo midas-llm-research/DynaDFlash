@@ -239,6 +239,34 @@ class TestBuildDefaultModel:
         assert isinstance(config.dflare, DFlareConfig)
         assert captured["kwargs"] == {"dflare_config": config.dflare}
 
+    def test_builds_correction_with_default_config(self, monkeypatch):
+        from midas.config import CorrectionConfig
+        from midas.models import CorrectionDraftModel
+
+        captured = {}
+
+        def fake_from_config_random(cls, checkpoint, *, device, dtype, **kwargs):
+            captured["kwargs"] = kwargs
+            return "correction-model"
+
+        monkeypatch.setattr(
+            CorrectionDraftModel,
+            "from_config_random",
+            classmethod(fake_from_config_random),
+        )
+
+        config = TrainConfig(correction=None)
+        model = build_default_model(
+            config,
+            device=torch.device("cpu"),
+            model_cls=CorrectionDraftModel,
+            random_init=True,
+        )
+
+        assert model == "correction-model"
+        assert isinstance(config.correction, CorrectionConfig)
+        assert captured["kwargs"] == {"correction_config": config.correction}
+
 
 # ---------------------------------------------------------------------------
 # Train loop smoke test

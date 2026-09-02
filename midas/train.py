@@ -19,7 +19,7 @@ Pipeline pieces all live elsewhere:
 import json
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import torch
 from loguru import logger
@@ -29,13 +29,15 @@ from transformers import (
     get_cosine_schedule_with_warmup,
 )
 
-from midas.config import DFlareConfig, TrainConfig
+from midas.config import CorrectionConfig, DFlareConfig, TrainConfig
 from midas.data import (
     DFlashDataProcessor,
     OnlineHiddenStateExtractor,
     prepare_draft_inputs,
 )
+from midas.data_correction import prepare_correction_batch
 from midas.models import (
+    CorrectionDraftModel,
     DFlash2DraftModel,
     DFlashDraftModel,
     DFlashDraftModelRouted,
@@ -69,7 +71,14 @@ def _dflash2_constructor_kwargs(config: TrainConfig) -> dict:
     return {"dflash2_config": config.dflash2}
 
 
+def _correction_constructor_kwargs(config: TrainConfig) -> dict:
+    if config.correction is None:
+        config.correction = CorrectionConfig()
+    return {"correction_config": config.correction}
+
+
 _MODEL_CONSTRUCTOR_KWARGS = {
+    CorrectionDraftModel: _correction_constructor_kwargs,
     DFlashDraftModel: lambda config: {},
     DFlash2DraftModel: _dflash2_constructor_kwargs,
     DFlashDraftModelRouted: _router_constructor_kwargs,
@@ -239,8 +248,15 @@ def train(
     model: Optional[DFlashDraftModel] = None,
     model_cls: type[DFlashDraftModel] = DFlashDraftModelRouted,
     random_init: bool = False,
+    on_checkpoint: Optional[Callable[[], None]] = None,
 ):
-    """Main training loop. `model` can be any DFlashDraftModel subclass."""
+    """Main training loop. `model` can be any DFlashDraftModel subclass.
+
+    `on_checkpoint` runs right after every `save_checkpoint`. On Modal this is
+    `Volume.commit` — without it the checkpoint files exist only in the
+    container's view of the volume until the function returns, so a crash,
+    preemption or timeout loses every checkpoint the run wrote.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     try:
@@ -272,7 +288,47 @@ def train(
         model = build_default_model(config, device, model_cls=model_cls, random_init=random_init)
     elif isinstance(model, DFlareDraftModel) and config.dflare is None:
         config.dflare = DFlareConfig()
+    elif isinstance(model, CorrectionDraftModel) and config.correction is None:
+        config.correction = model.correction_config
     model.train()
+
+    # A correction run needs a SECOND, frozen model: the round-1 drafter whose
+    # residuals are being recycled. bf16 because it is inference-only — only the
+    # trainable model needs fp32 for the optimizer.
+    parent_drafter = None
+    if isinstance(model, CorrectionDraftModel):
+        parent_drafter = DFlash2DraftModel.from_pretrained_dflash(
+            config.draft_checkpoint,
+            device=device,
+            dtype=torch.bfloat16,
+            dflash2_config=config.correction.dflash2,
+        )
+        if config.correction.parent_checkpoint:
+            load_warm_start(parent_drafter, config.correction.parent_checkpoint)
+        else:
+            logger.warning(
+                "correction.parent_checkpoint is unset, so round 1 runs the base "
+                "checkpoint with a randomly initialized selector and identity convs. "
+                "The recycled residuals will not be the ones deployment produces."
+            )
+        parent_drafter.eval()
+        for param in parent_drafter.parameters():
+            param.requires_grad = False
+        # One `extract_target_hidden` call per step feeds BOTH models, so they
+        # have to agree on which target layers they consume. They do by default
+        # (CorrectionConfig inherits the parent's ids); catch an explicit
+        # override here rather than at the first forward, where it surfaces as a
+        # shape mismatch inside the fusion.
+        if model.target_layer_ids != parent_drafter.target_layer_ids:
+            raise ValueError(
+                f"correction target_layer_ids {model.target_layer_ids} != parent's "
+                f"{parent_drafter.target_layer_ids}; the train loop extracts target "
+                f"hidden once and hands the same tensor to both rounds."
+            )
+        # An explicit warm_start (resuming a correction run) wins over seeding
+        # from the parent's last layer.
+        if not config.warm_start:
+            model.warm_start_from_parent(parent_drafter)
 
     extractor = OnlineHiddenStateExtractor(target_model, device)
     processor = DFlashDataProcessor(tokenizer, config)
@@ -295,6 +351,7 @@ def train(
 
     best_loss = float("inf")
     global_step = start_step
+    stop_early = False
 
     logger.info(
         f"Starting training: {config.num_epochs} epochs, "
@@ -328,6 +385,32 @@ def train(
                 response_starts=response_starts,
             )
 
+            # Correction runs replace the round-1 batch with the round-2 one: the
+            # frozen drafter proposes, acceptance is simulated against the target's
+            # committed tokens, and the rejected suffix becomes this step's block.
+            correction_kwargs: dict = {}
+            correction_metrics: dict = {}
+            if parent_drafter is not None:
+                step = prepare_correction_batch(
+                    parent_drafter,
+                    input_ids,
+                    batch,
+                    target_hidden,
+                    target_model.model.embed_tokens,
+                    target_model.lm_head,
+                    block_size=config.block_size,
+                    mask_token_id=model.mask_token_id or 0,
+                    min_remaining=config.correction.min_remaining,
+                    below_trigger_keep_prob=config.correction.below_trigger_keep_prob,
+                    chunk_blocks=config.correction.round1_chunk_blocks,
+                )
+                batch = step.batch
+                correction_kwargs = {
+                    "recycled_hidden": step.recycled_hidden,
+                    "is_recycled": step.is_recycled,
+                }
+                correction_metrics = step.metrics
+
             # Draft forward + loss in bf16 autocast (fast), optimizer in fp32 (precise).
             noise_embedding = target_model.model.embed_tokens(batch.noise_token_ids)
             autocast_device = device.type if device.type in {"cuda", "cpu"} else "cuda"
@@ -337,6 +420,7 @@ def train(
                     noise_embedding=noise_embedding,
                     target_hidden=target_hidden,
                     attention_mask=batch.attention_mask,
+                    **correction_kwargs,
                 )
                 raw_model = model.module if hasattr(model, "module") else model
                 loss_gamma = (
@@ -375,6 +459,10 @@ def train(
                         lr=scheduler.get_last_lr()[0],
                         epoch=epoch,
                         step=global_step,
+                        # Empty for every non-correction run. Worth watching:
+                        # trigger_rate and supervised_width say whether the
+                        # simulated acceptance distribution matches deployment.
+                        **correction_metrics,
                     )
 
                     if use_wandb:
@@ -402,6 +490,15 @@ def train(
                     cleanup_old_checkpoints(
                         config.checkpoint.save_dir, config.checkpoint.keep_last_n
                     )
+                    if on_checkpoint is not None:
+                        on_checkpoint()
+
+                if config.max_steps is not None and global_step >= config.max_steps:
+                    logger.info(
+                        f"Reached max_steps={config.max_steps}; saving and stopping."
+                    )
+                    stop_early = True
+                    break
 
         avg_loss = epoch_loss / max(epoch_steps, 1)
         is_best = avg_loss < best_loss
@@ -415,7 +512,11 @@ def train(
         cleanup_old_checkpoints(
             config.checkpoint.save_dir, config.checkpoint.keep_last_n
         )
+        if on_checkpoint is not None:
+            on_checkpoint()
         logger.info(f"Epoch {epoch + 1} complete. Avg loss: {avg_loss:.4f}")
+        if stop_early:
+            break
 
     logger.info(f"Training complete. Best loss: {best_loss:.4f}")
     if use_wandb:

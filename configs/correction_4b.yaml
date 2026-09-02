@@ -1,0 +1,49 @@
+target_model: "Qwen/Qwen3-4B"
+draft_checkpoint: "z-lab/Qwen3-4B-DFlash-b16"
+data_path: "/checkpoints/sdd/sdd_100k.jsonl"
+
+# Depth-1 correction drafter: re-drafts a rejected block suffix from the residuals
+# that suffix already produced. See papers/hidden_state_recycling.md.
+#
+# Round 1 is the FROZEN trained DFlash 2 drafter — point `parent_checkpoint` at it,
+# or the recycled residuals come from an untrained selector and identity convs and
+# will not be the ones deployment produces.
+correction:
+  parent_checkpoint: "/checkpoints/midas-dflash2-v1/best"
+  min_remaining: 7
+  below_trigger_keep_prob: 0.1
+  normalize_recycled: false
+  # Blocks per round-1 `propose` chunk. The selector walk materializes
+  # [chunk * (block_size-1), vocab] logits: 128 blocks -> 1920 x 151936 x 2B =
+  # 583 MB, and 4 chunks for a 4x128-anchor step instead of 16, which matters
+  # because the walk is 15 sequential steps per chunk.
+  round1_chunk_blocks: 128
+  dflash2:
+    selector_rank: 256
+    selector_top_k: 16
+    conv_kernel_size: 2
+    conv_group_size: 16
+    lambda_selector: 1.0
+
+# Block size must match the parent's: round-2 slots are the parent's own slots.
+training:
+  lr: 6.0e-4
+  weight_decay: 0.01
+  num_epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  max_seq_len: 3072
+  block_size: 16
+  max_num_anchors: 128
+  warmup_ratio: 0.04
+  grad_clip: 1.0
+  loss_gamma: 7.0
+
+checkpointing:
+  save_every_steps: 500
+  save_dir: "/checkpoints/midas-correction-v1"
+  keep_last_n: 3
+
+logging:
+  wandb_project: "midas-correction"
+  log_every_steps: 50

@@ -51,6 +51,18 @@ class CorrectionConfig:
     """
     num_layers: int = 1
     target_layer_ids: Optional[list[int]] = None
+    # Directory holding the trained DFlash 2 `model.pt` to use as the frozen
+    # round-1 drafter. Without it round 1 runs the z-lab base checkpoint with a
+    # randomly initialized selector and identity convs, so the residuals being
+    # recycled would not be the ones deployment produces.
+    parent_checkpoint: Optional[str] = None
+    # Fraction of below-trigger blocks kept in training anyway, as insurance
+    # against the real acceptance distribution running narrower than simulated.
+    below_trigger_keep_prob: float = 0.1
+    # Blocks per `propose` chunk in round 1. The selector walk materializes
+    # [chunk, block_size, vocab] logits, which is ~2.3 GB at 128 anchors and
+    # V=151936 if left unchunked.
+    round1_chunk_blocks: int = 32
     # Trigger policy: run a correction round only when at least this many
     # positions of the block are left to re-draft, and never twice in a row.
     min_remaining: int = 7
@@ -99,6 +111,10 @@ class TrainConfig:
     # model (weights only — optimizer and LR schedule start fresh, so this
     # is a NEW run on top of that checkpoint, not a resume).
     warm_start: Optional[str] = None
+    # Hard cap on optimizer steps, checked after each one. The run saves an
+    # end-of-epoch checkpoint and exits cleanly rather than being killed, which
+    # is the difference between a bounded spend and a lost one. None = no cap.
+    max_steps: Optional[int] = None
 
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)

@@ -160,6 +160,27 @@ class CorrectionBlock:
     noise_original_positions: torch.Tensor
     position_in_block: torch.Tensor
     valid_mask: torch.Tensor
+    block_size: int
+
+    @property
+    def is_pad(self) -> torch.Tensor:
+        """Tail slots this block does not reach. A slot is either the anchor
+        (position 0), recycled, or padding — so padding is what is left over.
+        Nothing may attend to these, and the target must never verify them.
+        """
+        return (self.position_in_block > 0) & ~self.is_recycled
+
+    @property
+    def anchor_positions(self) -> torch.Tensor:
+        """[B, num_blocks] the round-2 anchor position s+a+1 per block, which is
+        also the ctx cutoff: a slot may see target hidden strictly before it.
+        """
+        return self.by_block(self.noise_original_positions)[:, :, 0]
+
+    def by_block(self, flat: torch.Tensor) -> torch.Tensor:
+        """[B, N, ...] -> [B, num_blocks, block_size, ...]."""
+        b, n = flat.shape[:2]
+        return flat.view(b, n // self.block_size, self.block_size, *flat.shape[2:])
 
 
 def build_correction_block(
@@ -223,6 +244,7 @@ def build_correction_block(
         noise_original_positions=positions.view(B, N),
         position_in_block=slot.expand(B, num_blocks, block_size).reshape(B, N),
         valid_mask=is_recycled.expand(B, num_blocks, block_size).reshape(B, N),
+        block_size=block_size,
     )
 
 
