@@ -441,8 +441,17 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         target_hidden: Optional[torch.Tensor] = None,
         past_key_values: Optional[Cache] = None,
         use_cache: bool = False,
+        return_prenorm: bool = False,
         **kwargs,
     ) -> CausalLMOutputWithPast:
+        """MIDAS: `return_prenorm` is new (default False reproduces z-lab exactly).
+
+        When True, returns `(self.norm(h), h)` instead of just `self.norm(h)`.
+        The pre-norm residual is what a *next* layer would consume, so it is the
+        correct thing to hand to a correction model that recycles rejected
+        positions (see `midas/models/model_correction.py`). Callers generally need
+        both: the normed tensor for the LM head, the raw residual for recycling.
+        """
         hidden_states = noise_embedding
         # MIDAS: was `target_hidden = self.hidden_norm(self.fc(target_hidden))`.
         # Delegated to `_apply_target_hidden_fusion` so subclasses can swap the fusion module
@@ -460,6 +469,8 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
                 position_embeddings=position_embeddings,
                 **kwargs,
             )
+        if return_prenorm:
+            return self.norm(hidden_states), hidden_states
         return self.norm(hidden_states)
 
     # MIDAS: new extension hook. Default reproduces z-lab's independent

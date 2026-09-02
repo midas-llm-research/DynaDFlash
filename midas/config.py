@@ -39,6 +39,33 @@ class DFlash2Config:
 
 
 @dataclass
+class CorrectionConfig:
+    """Depth-1 correction model that re-drafts a rejected suffix from its own
+    recycled hidden states (see papers/hidden_state_recycling.md).
+
+    `target_layer_ids=None` means "inherit the parent drafter's layers", which is
+    the default for a reason: `dflash_generate` extracts `target_hidden` once per
+    iteration, so sharing the layer set lets one tensor feed both models instead
+    of forcing a second extraction and a second fusion. It also makes the
+    parent's `fc` shape-compatible, which is what `warm_start_from_parent` needs.
+    """
+    num_layers: int = 1
+    target_layer_ids: Optional[list[int]] = None
+    # Trigger policy: run a correction round only when at least this many
+    # positions of the block are left to re-draft, and never twice in a row.
+    min_remaining: int = 7
+    # RMSNorm the recycled residual before mixing. OFF by default: a recycled
+    # position then passes through untouched, so a parent-warm-started layer is
+    # exactly "the 6th drafter layer" at init. Normalizing shrinks the residual
+    # relative to the sublayer contribution (layer-5 residual RMS >> 1), which
+    # makes the correction edit far more aggressive. Exposed as an ablation.
+    normalize_recycled: bool = False
+    # The correction layer keeps DFlash 2's conv + selector; depth 1 is exactly
+    # the regime the conv was introduced to rescue.
+    dflash2: DFlash2Config = field(default_factory=DFlash2Config)
+
+
+@dataclass
 class CheckpointConfig:
     save_every_steps: int = 2000
     save_dir: str = "/checkpoints/midas-router"
@@ -84,6 +111,7 @@ class TrainConfig:
     router: Optional[RouterConfig] = None
     dflare: Optional[DFlareConfig] = None
     dflash2: Optional[DFlash2Config] = None
+    correction: Optional[CorrectionConfig] = None
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -106,6 +134,13 @@ class TrainConfig:
         dflash2_raw = raw.pop("dflash2", None)
         if dflash2_raw is not None:
             method_kwargs["dflash2"] = DFlash2Config(**dflash2_raw)
+        correction_raw = raw.pop("correction", None)
+        if correction_raw is not None:
+            nested = correction_raw.pop("dflash2", None)
+            correction = CorrectionConfig(**correction_raw)
+            if nested is not None:
+                correction.dflash2 = DFlash2Config(**nested)
+            method_kwargs["correction"] = correction
 
         known_top_keys = {"target_model", "draft_checkpoint", "data_path"}
         unknown = set(raw.keys()) - known_top_keys

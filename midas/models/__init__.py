@@ -16,6 +16,15 @@ from midas.models.model_dflash2 import (
     DFlash2DraftModel,
     Qwen3DFlash2DecoderLayer,
 )
+from midas.models.model_correction import (
+    CorrectionBlock,
+    CorrectionDraftModel,
+    RecycledInputMixer,
+    build_correction_block,
+    positions_to_redraft,
+    should_correct,
+    simulate_acceptance,
+)
 from midas.models.model_dflare import (
     AdaptiveLayerFusion,
     DFlareDraftModel,
@@ -40,6 +49,13 @@ __all__ = [
     "AdaptiveLayerFusion",
     "DFlashDraftModel",
     "DFlash2DraftModel",
+    "CorrectionBlock",
+    "CorrectionDraftModel",
+    "RecycledInputMixer",
+    "build_correction_block",
+    "positions_to_redraft",
+    "should_correct",
+    "simulate_acceptance",
     "BlockLocalDynamicConv",
     "CandidateSelector",
     "Qwen3DFlash2DecoderLayer",
