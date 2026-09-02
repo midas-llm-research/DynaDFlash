@@ -4,19 +4,33 @@ Modal cloud training script for DFlash-family draft models.
 Supports router, router-nofc, DFlare, DFlash 2, correction, and base variants.
 Select via --variant.
 
+Always pass `--detach`, before the script path:
+
+    modal run --detach scripts/modal_train.py --variant router
+
+The entrypoint spawns the job and exits, so the run is not tied to this terminal.
+Without `--detach` the ephemeral app is torn down as soon as the entrypoint
+returns, which cancels the spawned job within seconds. The two go together.
+
 Usage:
-    modal run scripts/modal_train.py --variant router         # Train router variant
-    modal run scripts/modal_train.py --variant dflare         # Train DFlare variant
-    modal run scripts/modal_train.py --variant base           # Train base variant
-    modal run scripts/modal_train.py --variant router --config configs/base_4b.yaml
-    modal run scripts/modal_train.py --variant dflare --config configs/dflare_4b.yaml
-    modal run scripts/modal_train.py --variant correction     # Train correction variant
-    modal run scripts/modal_train.py --variant correction --max-steps 1500   # bounded spend
-    modal run scripts/modal_train.py --variant correction --fresh false      # RESUME (see below)
-    modal run scripts/modal_train.py --download               # (one-time) download models
+    modal run --detach scripts/modal_train.py --variant router      # Train router variant
+    modal run --detach scripts/modal_train.py --variant dflare      # Train DFlare variant
+    modal run --detach scripts/modal_train.py --variant base        # Train base variant
+    modal run --detach scripts/modal_train.py --variant router --config configs/base_4b.yaml
+    modal run --detach scripts/modal_train.py --variant correction  # Train correction variant
+    modal run --detach scripts/modal_train.py --variant correction --no-fresh      # RESUME
+    modal run --detach scripts/modal_train.py --variant correction --no-fresh --max-steps 520
+    modal run scripts/modal_train.py --download                     # (one-time) download models
 
 `--fresh` defaults to True and DELETES the variant's checkpoint directory before
-starting. Pass `--fresh false` to resume from the last checkpoint.
+starting. Pass `--no-fresh` to resume from the last checkpoint. (It is a click
+boolean flag -- `--fresh false` is a parse error, not a way to disable it.)
+
+`--max-steps` caps the ABSOLUTE global_step (midas/train.py:516), and global_step
+is restored on resume -- it is not "run N more steps". Resuming a step-500
+checkpoint with `--max-steps 20` stops after a single step, because 500 >= 20,
+and still writes a checkpoint on the way out. For 20 more steps from step 500,
+pass `--max-steps 520`.
 """
 
 import modal
@@ -209,7 +223,10 @@ def main(
     max_steps: int = 0,
 ):
     if download:
-        download_models.remote()
+        # spawn().get() rather than remote(): same blocking behaviour, but the
+        # download is an ASYNC invocation so it is not cancelled if this
+        # terminal drops mid-download (see the note on train.spawn below).
+        download_models.spawn().get()
         return
     defaults = {
         "dflare": "configs/dflare_4b.yaml",
@@ -223,7 +240,14 @@ def main(
     config_name = Path(config).name
     container_config = f"/root/configs/{config_name}"
 
-    train.remote(
+    # spawn(), not remote(): .remote() is a SYNC invocation bound to this local
+    # client, so the server cancels it ~2.5 min after the client disconnects --
+    # even under `modal run --detach`, which only keeps the *app* alive. A 24h
+    # training run dies when the laptop sleeps. spawn() is an ASYNC invocation:
+    # it hands off and returns immediately, and nothing is tied to this process.
+    call = train.spawn(
         config_path=container_config, variant=variant, fresh=fresh,
         epochs=epochs, warm_start=warm_start, max_steps=max_steps,
     )
+    print(f"Spawned {variant} training - call id: {call.object_id}")
+    print(f"Follow with: modal app logs {app.app_id}")

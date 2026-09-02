@@ -1,12 +1,18 @@
 """
-Evaluate a single DFlash variant on MATH-500 (50 problems).
-Each invocation gets its own fresh GPU — run separately per variant
-to eliminate warmup/caching bias between models.
+Evaluate DFlash variants across benchmarks on a single fresh GPU.
 
-Usage:
-    modal run scripts/modal_eval.py --variant baseline
-    modal run scripts/modal_eval.py --variant router
-    modal run scripts/modal_eval.py --variant router-nofc
+Always pass `--detach`, before the script path -- this is a 12h-timeout H100
+job, and without it the run is cancelled a couple of minutes after this
+terminal disconnects:
+
+    modal run --detach scripts/modal_eval.py --variants baseline,router
+    modal run --detach scripts/modal_eval.py --variants dflash2 --benchmarks math500
+    modal run --detach scripts/modal_eval.py --variants baseline --n-prompts 5   # smoke test
+
+The entrypoint blocks to print the summary table, but the job itself is
+spawned, so Ctrl+C leaves it running -- reattach with `modal app logs <app-id>`.
+Results are always written to /checkpoints/eval_<timestamp>.json on the volume
+regardless of whether this terminal is still around to print them.
 """
 
 import modal
@@ -190,7 +196,17 @@ def run_eval(
 
 @app.local_entrypoint()
 def main(variants: str = "baseline,router,split-query,dflare", checkpoint: str = "", benchmarks: str = "math500,humaneval,mt_bench", seed: int = 42, n_prompts: int = 50, measure_ar: bool = False):
-    output = run_eval.remote(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
+    # spawn(), not remote(): .remote() is a SYNC invocation bound to this local
+    # client, so the server cancels it ~2.5 min after the client disconnects --
+    # even under `modal run --detach`, which only keeps the *app* alive.
+    # spawn() is ASYNC and untethered; blocking on .get() below is just this
+    # process waiting, and Ctrl+C during the wait leaves the eval running.
+    call = run_eval.spawn(variants=variants, checkpoint=checkpoint, benchmarks=benchmarks, seed=seed, n_prompts=n_prompts, measure_ar=measure_ar)
+    print(f"Spawned eval - call id: {call.object_id}")
+    print(f"Safe to Ctrl+C; follow with: modal app logs {app.app_id}")
+    print("Waiting for results (also saved to /checkpoints/eval_<timestamp>.json)...")
+
+    output = call.get()
     print(f"\n{'=' * 70}")
     print(f"  EVAL RESULTS — Benchmarks: {output['benchmarks']}, Seed: {output['seed']}")
     print(f"{'=' * 70}")
