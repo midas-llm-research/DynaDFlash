@@ -352,6 +352,14 @@ def train(
     best_loss = float("inf")
     global_step = start_step
     stop_early = False
+    # Per-micro-batch scalars, averaged at the optimizer step. Logging only the
+    # last micro-batch is not just noisy but BIASED: the length-interleaved
+    # sampler yields [longest, shortest, 2nd-longest, ...], so with an even
+    # gradient_accumulation_steps the last one always comes from the short end,
+    # where `prepare_draft_inputs` fits far fewer anchors and the position-
+    # weighted mean is taken over very few supervised positions.
+    micro_losses: list[float] = []
+    micro_metrics: list[dict] = []
 
     logger.info(
         f"Starting training: {config.num_epochs} epochs, "
@@ -439,6 +447,11 @@ def train(
                     embed_tokens=target_model.model.embed_tokens,
                 )
 
+            micro_losses.append(loss.item())
+            micro_metrics.append(
+                {**correction_metrics, **getattr(raw_model, "_last_loss_metrics", {})}
+            )
+
             loss = loss / config.gradient_accumulation_steps
             loss.backward()
 
@@ -449,7 +462,14 @@ def train(
                 optimizer.zero_grad()
                 global_step += 1
 
-                step_loss = loss.item() * config.gradient_accumulation_steps
+                step_loss = sum(micro_losses) / len(micro_losses)
+                window_metrics = {
+                    k: sum(m[k] for m in micro_metrics if k in m)
+                    / max(1, sum(k in m for m in micro_metrics))
+                    for k in {k for m in micro_metrics for k in m}
+                }
+                micro_losses.clear()
+                micro_metrics.clear()
                 epoch_loss += step_loss
                 epoch_steps += 1
 
@@ -459,11 +479,11 @@ def train(
                         lr=scheduler.get_last_lr()[0],
                         epoch=epoch,
                         step=global_step,
-                        # Empty for every non-correction run. Worth watching:
-                        # trigger_rate and supervised_width say whether the
-                        # simulated acceptance distribution matches deployment.
-                        **correction_metrics,
                     )
+                    # After, not as kwargs: DFlash 2's log_metrics appends its own
+                    # `_last_loss_metrics` last, which would clobber the averages
+                    # with the final micro-batch's values.
+                    log_dict.update(window_metrics)
 
                     if use_wandb:
                         wandb.log(log_dict, step=global_step)
