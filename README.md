@@ -1,6 +1,6 @@
-# DDFlash
+# DynaDFlash
 
-This repository contains the training and evaluation code used for the DDFlash research project!
+This repository contains the training and evaluation code used for the DynaDFlash research project!
 
 # Funding
 
