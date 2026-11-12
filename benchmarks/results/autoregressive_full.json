@@ -1,0 +1,3831 @@
+{
+  "cycles": [
+    {
+      "arm": "autoregressive",
+      "cycle": 0,
+      "measured": [
+        {
+          "concurrency": 1,
+          "elapsed_seconds": 17.396446241000007,
+          "observations": [
+            {
+              "completion_tokens": 64,
+              "index": 5493,
+              "latency_seconds": 0.7248722349999923,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7229901819999895,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "174461aec27e4e00bc1337f0bf83f0c8",
+                "num_retractions": 0,
+                "prompt_tokens": 95,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0bb370d7a1eb24075b3bf8112343cd235564cedda3c35c737287b56d3880ec26",
+              "prompt_tokens": 95,
+              "text": "We are given:\n\n- Total number of students = 1800  \n- $ x\\% $ of the students are foreign now.  \n- 200 new foreign students will join next semester.  \n- After the new students join, the total number of foreign students becomes **740**.\n\n",
+              "ttft_seconds": 0.03260985499998981
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4665,
+              "latency_seconds": 0.7240194599999938,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7224055690000029,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "0ff70959443e435db0bcc37ba0a021f3",
+                "num_retractions": 0,
+                "prompt_tokens": 86,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c09fb68182ccff1af28b81a14a63699d6e0cc499e946ea5ee879bd60b46ff87",
+              "prompt_tokens": 86,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **First Half:**\n\n- **Team A** scored **8 points**.\n- **Team B** scored **half as many points** as Team A.\n\nSo, Team B scored:\n\n$$\n\\frac{8}{2} = 4 \\text",
+              "ttft_seconds": 0.032896638999986294
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5826,
+              "latency_seconds": 0.7243035110000022,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.722582150000008,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "29856aa4094b49219cd597b95491ee67",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c5f070576af32e063d1cd57961462e45e8ec4200c25bfd0c45c5448e6cb5157",
+              "prompt_tokens": 79,
+              "text": "We are given the following information:\n\n- Tony's **normal temperature** is **95 degrees**.\n- He comes down with a sickness that **raises his temperature by 10 degrees**.\n- His **fever threshold** is **x degrees**.\n- His **temperature is 5 degrees above the fever",
+              "ttft_seconds": 0.03360242499999799
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4531,
+              "latency_seconds": 0.7269549450000028,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7250779999999963,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "7c1ab692381a432db8c288fb3f78753d",
+                "num_retractions": 0,
+                "prompt_tokens": 104,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c9eafaf7cc80c80cd07e31b2abc4c4a06095bba8f94e1081138fe35d45300b0",
+              "prompt_tokens": 104,
+              "text": "We are given:\n\n- Tyson swims at **3 mph** in a **lake**.\n- He swims at **2.5 mph** in an **ocean**.\n- Half of his races were in **lakes**, and half in **oceans**.\n- He had **x total races**, each **",
+              "ttft_seconds": 0.034074042000000304
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4961,
+              "latency_seconds": 0.7263518449999964,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7246196260000062,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e93fad1a7a4945a79ee03e19ac78ea15",
+                "num_retractions": 0,
+                "prompt_tokens": 93,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ca3e694520c6fc9d7b97c69691a731e935c5dcfd7db8f4b3527f2529c033611",
+              "prompt_tokens": 93,
+              "text": "We are given a **right rectangular prism** (a box) with **three adjacent faces** having areas of:\n\n- $24 \\, \\mathrm{cm}^2$\n- $32 \\, \\mathrm{cm}^2$\n- $48 \\, \\mathrm{cm}^2",
+              "ttft_seconds": 0.034081878999998594
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5229,
+              "latency_seconds": 0.7225092800000112,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7209206259999945,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e1f9c36645b54ad29db80cb198617b09",
+                "num_retractions": 0,
+                "prompt_tokens": 28,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cb99066c7fef0725178bddc3086849c8f30c77ec73d841c7840d7c826a7983c",
+              "prompt_tokens": 28,
+              "text": "We are asked to find the **base four equivalent** of the decimal number **123\u2081\u2080**.\n\n---\n\n### Step 1: Understand the Problem\n\nWe need to convert the decimal number **123** into **base 4**. This means we want to express 123 as a",
+              "ttft_seconds": 0.03394137899999805
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4558,
+              "latency_seconds": 0.7238162030000126,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7219976160000101,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a9dc8a8f6363400d9e0d6a909de9046e",
+                "num_retractions": 0,
+                "prompt_tokens": 55,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cfbc5bf4ca595047d77d621202be25984eedc2ace683807e3547a4b5984adfe",
+              "prompt_tokens": 55,
+              "text": "We are given:\n\n- Nadia makes **3 mistakes per 40 notes**.\n- She plays **60 notes per minute**.\n- She plays for **8 minutes**.\n\n---\n\n### Step 1: Total number of notes played\n\n$$\n\\text{Total notes} = 60 \\text",
+              "ttft_seconds": 0.03403680000000975
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4913,
+              "latency_seconds": 0.7236962070000033,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7220840880000026,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "cdf13bc0e873472eb481db1838f5688b",
+                "num_retractions": 0,
+                "prompt_tokens": 54,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0da344b76cfb69afbba77a13297cc51498ed032a5eb585bf1ad000a017556ed0",
+              "prompt_tokens": 54,
+              "text": "We are given three points:\n\n- $ A = (3, -5) $\n- $ B = (-a + 2, 3) $\n- $ C = (2a + 3, 2) $\n\nWe are told that these three points are **collinear**, meaning they lie on the same",
+              "ttft_seconds": 0.03355658200000278
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4596,
+              "latency_seconds": 0.7248463330000021,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7231734949999975,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "5e7be8c9abeb45ebbc3419336b1f7ad8",
+                "num_retractions": 0,
+                "prompt_tokens": 82,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0dcacd2103703d65851213c7c19b56d4f5f7effd439ccc3ffb6e3ad538137a66",
+              "prompt_tokens": 82,
+              "text": "We are given:\n\n- Gail has **some bills** in her wallet that total **$100**.\n- She has **4 $5 bills**.\n- She has **3 $x bills**.\n- The **rest are $10 bills**.\n- The **number of $10 bills",
+              "ttft_seconds": 0.03334378499999957
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5729,
+              "latency_seconds": 0.7227608559999936,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7211478609999915,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "783f83d31b0843aa81f2ccbad131edd1",
+                "num_retractions": 0,
+                "prompt_tokens": 51,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e1cfcd0bdd3c64528c80672514c2406d44f39e975da42274167871094f43650",
+              "prompt_tokens": 51,
+              "text": "Jose purchased **20,000 square meters** of land and plans to divide it **equally with his four siblings**.\n\nThat means the land will be divided among **5 people** in total (Jose + 4 siblings).\n\n---\n\n### Step 1: Divide the total land by the number of people",
+              "ttft_seconds": 0.032758830999995325
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5043,
+              "latency_seconds": 0.7237719419999991,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.722106960000005,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e66d35bcba8241d99058c37f15826c1e",
+                "num_retractions": 0,
+                "prompt_tokens": 60,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e763c7cc84e767772096c74d66516c548a4adaad59de6b5e8ad8db955e05bcd",
+              "prompt_tokens": 60,
+              "text": "We are given:\n\n- Each student contributes **$2 every Friday**.\n- After **2 months**, the total amount collected is **$480**.\n- We are to find the number of students, **x**.\n\n---\n\n### Step 1: Determine how many Fridays are in 2 months\n\nAss",
+              "ttft_seconds": 0.03311747000000764
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5032,
+              "latency_seconds": 0.7282191020000113,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7265500050000071,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "c17dc60fdd8543e5ac6175705ae6e107",
+                "num_retractions": 0,
+                "prompt_tokens": 133,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ef9eaa03fa664b00c4ec87278066989c0ef282a15eb5bdb01c9e4582013023d",
+              "prompt_tokens": 133,
+              "text": "We are given the following information:\n\n- Mary started at **99 pounds**.\n- She **lost 12 pounds** initially.\n- Then she **gained back twice the weight she initially lost**, which is **2 \u00d7 12 = 24 pounds**.\n- Then she **lost x times",
+              "ttft_seconds": 0.033054974999998876
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5309,
+              "latency_seconds": 0.725636281000007,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7239832989999968,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "506ba38f094d43599ceefe0ed67e9174",
+                "num_retractions": 0,
+                "prompt_tokens": 73,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0fea39ceec522821d0b6a39f338ce52426d7000b4e1329cb2bb6ea5fa78ff043",
+              "prompt_tokens": 73,
+              "text": "We are given that on a chessboard, each square $ k $ (where $ k = 1 $ to $ 64 $) has $ 2^k $ grains of rice.\n\nWe are asked to find how many **more grains** are on the **10th square** compared to the **",
+              "ttft_seconds": 0.03441235200000392
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5796,
+              "latency_seconds": 0.7245636100000041,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7226826649999936,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "3c3da45464d048f2ade09a4866ad3bdf",
+                "num_retractions": 0,
+                "prompt_tokens": 72,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ff51c08aec74adfd2e8b5df8923002ddea44a835d57ec6dc4f5c06a1113e27d",
+              "prompt_tokens": 72,
+              "text": "Let's break down the problem step by step to find out how much the archer spends on arrows per week.\n\n---\n\n### **Given:**\n- **Total shots per week:** 200 shots/day \u00d7 4 days = **800 shots/week**\n- **Recovery rate:** 20",
+              "ttft_seconds": 0.033665834000004224
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4900,
+              "latency_seconds": 0.7254631720000049,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7237529669999958,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "0c3cca26b31a44de8678f68df275fd3e",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "10058d07b615190925dfc5e709d32b7480db970326fa5618768cd449ea64f214",
+              "prompt_tokens": 79,
+              "text": "We are told:\n\n- Janet goes to the gym **5 hours a week**.\n- She goes on **Monday, Tuesday, Wednesday, and Friday**.\n- She spends **1.5 hours** on **Monday** and **Wednesday**.\n- She spends the **same amount of time** on **Tuesday**",
+              "ttft_seconds": 0.034216655999998125
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4852,
+              "latency_seconds": 0.723987864999998,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7224130210000084,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "6be0ae41a3c944248ec62475a5715327",
+                "num_retractions": 0,
+                "prompt_tokens": 47,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1023bc52242c1ba925aa9f7c585e7174e4e273d53f4b170a477393dd1f1afef8",
+              "prompt_tokens": 47,
+              "text": "To find Jewel's **total gain**, we need to calculate the **total cost** and the **total selling price**, then subtract the cost from the selling price.\n\n---\n\n### Step 1: Calculate the total cost\nJewel bought 10 magazines at **$3 each**:\n\n$$\n\\text{",
+              "ttft_seconds": 0.03364993900000002
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4604,
+              "latency_seconds": 0.7251740119999965,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7236129769999877,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "6fcb6c4ae8a346c6a0a8f257be63fd48",
+                "num_retractions": 0,
+                "prompt_tokens": 65,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "119b4f7c1eea3ac11af3929fa66c4f41ff6a4dd4ab1454a7c6e832a25703328d",
+              "prompt_tokens": 65,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **Given:**\n\n- Jeremy **bought a computer** for **$3000**.\n- He also bought **accessories** that cost **10% of the computer's price**.\n- Before making the purchase, Jeremy had **two",
+              "ttft_seconds": 0.034015996999997355
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4697,
+              "latency_seconds": 0.7260185880000165,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7242923529999814,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "b98db0a423974b12b93c72eb4404700f",
+                "num_retractions": 0,
+                "prompt_tokens": 85,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1226b673e52fdaee24eb5b3fe1d4f89312ab99dd9a1077f7cb6dab12a1469fe1",
+              "prompt_tokens": 85,
+              "text": "We are given that:\n\n- From point $ A $, Leigh walked:\n  - 40 yards **south**\n  - 60 yards **west**\n  - 10 yards **north**\n  - $ X $ yards **east**\n- The final position is point $ B $, and the distance",
+              "ttft_seconds": 0.033760119000021405
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4791,
+              "latency_seconds": 0.7249669670000003,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7234578929999884,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "8abb3858d70841318861558f96fb2da6",
+                "num_retractions": 0,
+                "prompt_tokens": 78,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12c8b10fbb8f7090914449639633caf8aeb525ebb16c754d27764cd8927bbf5d",
+              "prompt_tokens": 78,
+              "text": "We are given the following information about the bells:\n\n- The **first bell** requires **50 pounds** of bronze.\n- The **second bell** is **twice the size** of the first bell.\n- The **third bell** is **four times the size** of the second bell.\n\nWe are to",
+              "ttft_seconds": 0.03300739399998065
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4522,
+              "latency_seconds": 0.7262551399999779,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7245755620000125,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "b33cb045cf3b41c29897988ea7a4c814",
+                "num_retractions": 0,
+                "prompt_tokens": 74,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12d64331d3209969fa16ad0cf26cf75b0e3e3558b7f921a509151f8e6e9e586d",
+              "prompt_tokens": 74,
+              "text": "We are given:\n\n- Region I has a **perimeter of 12 units**.\n- Region II has a **perimeter of 24 units**.\n- All regions are **bounded by squares**.\n- We are to find the **ratio of the area of region I to the area of region III",
+              "ttft_seconds": 0.034457638999981555
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5194,
+              "latency_seconds": 0.7231811469999911,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7215269929999977,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "4ea9c9b6751f482080f012ca1dbc7752",
+                "num_retractions": 0,
+                "prompt_tokens": 46,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "130dd1eec17fa17a2132e50561b8af8ea01ea1d6f56d2c7e8723e52a8fadebb2",
+              "prompt_tokens": 46,
+              "text": "Amy started with $100.\n\nShe bought 3 dolls, each costing $1, so she spent:\n\n$$\n3 \\times 1 = 3 \\text{ dollars}\n$$\n\nNow, subtract the amount she spent from her original money:\n\n$$\n100 - 3 = 97",
+              "ttft_seconds": 0.03303767599999219
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4568,
+              "latency_seconds": 0.7237636299999792,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7220612940000137,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "c7899f1e44334d97a923129ba61c5e48",
+                "num_retractions": 0,
+                "prompt_tokens": 40,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "13710ead074747209dbd4a1c0481123ab62850bf8299380c7c333fcd970decf2",
+              "prompt_tokens": 40,
+              "text": "We are given that the **surface area** of a cube is **216 square centimeters**, and we are asked to find the **volume** of the cube.\n\n---\n\n### Step 1: Use the formula for the surface area of a cube\n\nThe surface area $ A $ of a cube with side length",
+              "ttft_seconds": 0.03384002499998928
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5621,
+              "latency_seconds": 0.7246783260000029,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7230347240000015,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "ec3842872aac4c39b90436c868be68c0",
+                "num_retractions": 0,
+                "prompt_tokens": 53,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1385cb507eaf3571c8dd5fd1484b14fd09b447d208e87afa0b7eac09a1e5e4e7",
+              "prompt_tokens": 53,
+              "text": "We are given:\n\n- George can carry **2 buckets per round**.\n- Harry can carry **3 buckets per round**.\n- Total buckets needed to fill the pool: **110 buckets**.\n\nWe are to find how many **rounds** it will take to fill the pool, assuming **both George",
+              "ttft_seconds": 0.03324240899999609
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4822,
+              "latency_seconds": 0.7240043090000086,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.722489042999996,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "05369ca83f694a3d8a4d6a91d4fd7c0f",
+                "num_retractions": 0,
+                "prompt_tokens": 57,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "139119690648aae8c4251db6fad33fd3c1ddf03eae1586a41ec8754657a677f3",
+              "prompt_tokens": 57,
+              "text": "We are given the following information:\n\n- Dennis initially had **$50**.\n- He bought shirts worth **$27**.\n- He received **2 bills of $x** and **$3 in loose coins** as change.\n\nWe are to find the value of **x**.\n\n---\n\n### Step ",
+              "ttft_seconds": 0.033182796999994935
+            }
+          ],
+          "output_tokens": 1536
+        },
+        {
+          "concurrency": 8,
+          "elapsed_seconds": 2.3634152980000067,
+          "observations": [
+            {
+              "completion_tokens": 64,
+              "index": 5493,
+              "latency_seconds": 0.7847308080000062,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7768381959999999,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "6eac75ab2526463e942543788c6ac695",
+                "num_retractions": 0,
+                "prompt_tokens": 95,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0bb370d7a1eb24075b3bf8112343cd235564cedda3c35c737287b56d3880ec26",
+              "prompt_tokens": 95,
+              "text": "We are given:\n\n- Total number of students = 1800  \n- $ x\\% $ of the students are foreign now.  \n- 200 new foreign students will join next semester.  \n- After the new students join, the total number of foreign students becomes **740**.\n\n",
+              "ttft_seconds": 0.06789742500001239
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4665,
+              "latency_seconds": 0.7853961799999922,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7773851860000036,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "ac24c02f435141eebcc9b08c4a4f281a",
+                "num_retractions": 0,
+                "prompt_tokens": 86,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c09fb68182ccff1af28b81a14a63699d6e0cc499e946ea5ee879bd60b46ff87",
+              "prompt_tokens": 86,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **First Half:**\n\n- **Team A** scored **8 points**.\n- **Team B** scored **half as many points** as Team A.\n\nSo, Team B scored:\n\n$$\n\\frac{8}{2} = 4 \\text",
+              "ttft_seconds": 0.06745118099999559
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5826,
+              "latency_seconds": 0.7844009630000244,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7801512990000106,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "1d3b7ad331f9466bad21327b21a3e9b7",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c5f070576af32e063d1cd57961462e45e8ec4200c25bfd0c45c5448e6cb5157",
+              "prompt_tokens": 79,
+              "text": "We are given the following information:\n\n- Tony's **normal temperature** is **95 degrees**.\n- He comes down with a sickness that **raises his temperature by 10 degrees**.\n- His **fever threshold** is **x degrees**.\n- His **temperature is 5 degrees above the fever",
+              "ttft_seconds": 0.06698247000002766
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4531,
+              "latency_seconds": 0.7834903690000203,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.778018172000003,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "7ab1cb7e2160466cb06aa62d8c1b3f1d",
+                "num_retractions": 0,
+                "prompt_tokens": 104,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c9eafaf7cc80c80cd07e31b2abc4c4a06095bba8f94e1081138fe35d45300b0",
+              "prompt_tokens": 104,
+              "text": "We are given:\n\n- Tyson swims at **3 mph** in a **lake**.\n- He swims at **2.5 mph** in an **ocean**.\n- Half of his races were in **lakes**, and half in **oceans**.\n- He had **x total races**, each **",
+              "ttft_seconds": 0.06677180800002702
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4961,
+              "latency_seconds": 0.7824955289999878,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7762547030000064,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "2005c0d4453c4a969bcb348cd0cf35ea",
+                "num_retractions": 0,
+                "prompt_tokens": 93,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ca3e694520c6fc9d7b97c69691a731e935c5dcfd7db8f4b3527f2529c033611",
+              "prompt_tokens": 93,
+              "text": "We are given a **right rectangular prism** (a box) with **three adjacent faces** having areas of:\n\n- $ A_1 = 24 \\, \\mathrm{cm}^2 $\n- $ A_2 = 32 \\, \\mathrm{cm}^2 $\n- $ A",
+              "ttft_seconds": 0.06642789899999002
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5229,
+              "latency_seconds": 0.7834846460000051,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7752708229999996,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "580e27e9b7244a1b96a367aa692b333a",
+                "num_retractions": 0,
+                "prompt_tokens": 28,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cb99066c7fef0725178bddc3086849c8f30c77ec73d841c7840d7c826a7983c",
+              "prompt_tokens": 28,
+              "text": "To find the **base four equivalent** of the decimal number **123\u2081\u2080**, we need to **convert 123 from base 10 to base 4**.\n\n---\n\n### Step 1: Understand the process\n\nTo convert a decimal number to base 4, we repeatedly divide the number",
+              "ttft_seconds": 0.06587954899998749
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4558,
+              "latency_seconds": 0.7811355499999877,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7743057980000003,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "508a2d5cd7c24d38baa8af95cf75a4fe",
+                "num_retractions": 0,
+                "prompt_tokens": 55,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cfbc5bf4ca595047d77d621202be25984eedc2ace683807e3547a4b5984adfe",
+              "prompt_tokens": 55,
+              "text": "We are given:\n\n- Nadia makes **3 mistakes per 40 notes**.\n- She plays **60 notes per minute**.\n- She plays for **8 minutes**.\n\n---\n\n### Step 1: Total number of notes played\n\n$$\n\\text{Total notes} = 60 \\text",
+              "ttft_seconds": 0.06670683999999483
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4913,
+              "latency_seconds": 0.781310824000002,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7735348880000004,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "443c056d7a424204830fc0bb35fd0cdb",
+                "num_retractions": 0,
+                "prompt_tokens": 54,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0da344b76cfb69afbba77a13297cc51498ed032a5eb585bf1ad000a017556ed0",
+              "prompt_tokens": 54,
+              "text": "We are given three points:\n\n- $ A = (3, -5) $\n- $ B = (-a + 2, 3) $\n- $ C = (2a + 3, 2) $\n\nWe are told that these three points are **collinear**, meaning they lie on the same",
+              "ttft_seconds": 0.06644447799999398
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4596,
+              "latency_seconds": 0.7984863430000075,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7886523350000232,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "1759e6478cd848cca367c010fa8930c1",
+                "num_retractions": 0,
+                "prompt_tokens": 82,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0dcacd2103703d65851213c7c19b56d4f5f7effd439ccc3ffb6e3ad538137a66",
+              "prompt_tokens": 82,
+              "text": "We are given:\n\n- Gail has **some bills** in her wallet that total **$100**.\n- She has **4 $5 bills**.\n- She has **3 $x bills**.\n- The **rest are $10 bills**.\n- The **number of $10 bills",
+              "ttft_seconds": 0.0815674950000016
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5729,
+              "latency_seconds": 0.7963858589999973,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7863727749999896,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "b3a03406f8ba4552a926bc6ca742f2db",
+                "num_retractions": 0,
+                "prompt_tokens": 51,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e1cfcd0bdd3c64528c80672514c2406d44f39e975da42274167871094f43650",
+              "prompt_tokens": 51,
+              "text": "Jose purchased **20,000 square meters** of land and plans to divide it **equally with his four siblings**.\n\nThis means the land will be divided among **5 people** in total (Jose + 4 siblings).\n\n### Step 1: Divide the land equally among 5 people\n$$",
+              "ttft_seconds": 0.0814137639999899
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5043,
+              "latency_seconds": 0.7966338070000063,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7875059490000069,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "bf12795deb8e412f93d9f1ed4841ae24",
+                "num_retractions": 0,
+                "prompt_tokens": 60,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e763c7cc84e767772096c74d66516c548a4adaad59de6b5e8ad8db955e05bcd",
+              "prompt_tokens": 60,
+              "text": "We are given:\n\n- Each student contributes **$2 every Friday**.\n- After **2 months**, the total amount collected is **$480**.\n- We are to find the number of students, **x**.\n\n---\n\n### Step 1: Determine how many Fridays are in 2 months\n\nAss",
+              "ttft_seconds": 0.08112619100000984
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5032,
+              "latency_seconds": 0.7969068059999813,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7870047549999981,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "2c2a1b1839dc46feb85a2bd9de7e01b7",
+                "num_retractions": 0,
+                "prompt_tokens": 133,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ef9eaa03fa664b00c4ec87278066989c0ef282a15eb5bdb01c9e4582013023d",
+              "prompt_tokens": 133,
+              "text": "We are given:\n\n- Mary started at **99 pounds**.\n- She **lost 12 pounds** initially.\n- Then she **gained back twice the weight she initially lost**, which is **2 \u00d7 12 = 24 pounds**.\n- Then she **lost x times more weight than",
+              "ttft_seconds": 0.0808758719999787
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5309,
+              "latency_seconds": 0.796867935999984,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7919915219999893,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "d2c3b803a14440768ad0f1f90bf19cd9",
+                "num_retractions": 0,
+                "prompt_tokens": 73,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0fea39ceec522821d0b6a39f338ce52426d7000b4e1329cb2bb6ea5fa78ff043",
+              "prompt_tokens": 73,
+              "text": "We are given that on a chessboard, each square $ k $ (where $ k = 1 $ to $ 64 $) has $ 2^k $ grains of rice.\n\nWe are asked to find how many **more grains** are on the **10th square** compared to the **",
+              "ttft_seconds": 0.08052005199999712
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5796,
+              "latency_seconds": 0.7955648450000012,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7904303779999964,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "6329853e5b814963bf4038a467d89ca1",
+                "num_retractions": 0,
+                "prompt_tokens": 72,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ff51c08aec74adfd2e8b5df8923002ddea44a835d57ec6dc4f5c06a1113e27d",
+              "prompt_tokens": 72,
+              "text": "Let's break down the problem step by step to find out how much the archer spends on arrows per week.\n\n---\n\n### **Given:**\n- **Total shots per week:** 200 shots/day \u00d7 4 days = **800 shots/week**\n- **Recovery rate:** 20",
+              "ttft_seconds": 0.08034884999997871
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4900,
+              "latency_seconds": 0.7957448419999764,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7880523400000072,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "50937564f2ee4f93b2b8284af06805c3",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "10058d07b615190925dfc5e709d32b7480db970326fa5618768cd449ea64f214",
+              "prompt_tokens": 79,
+              "text": "We are told:\n\n- Janet goes to the gym **5 hours a week**.\n- She goes on **Monday, Tuesday, Wednesday, and Friday**.\n- She spends **1.5 hours** on **Monday** and **Wednesday**.\n- She spends the **same amount of time** on **Tuesday**",
+              "ttft_seconds": 0.08015768100000287
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4852,
+              "latency_seconds": 0.7941562369999815,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7854880460000118,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "47521a8872ae44aeb7d25a2effd52ef6",
+                "num_retractions": 0,
+                "prompt_tokens": 47,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1023bc52242c1ba925aa9f7c585e7174e4e273d53f4b170a477393dd1f1afef8",
+              "prompt_tokens": 47,
+              "text": "To find Jewel's **total gain**, we need to calculate the **total cost** of the magazines and the **total selling price**, then subtract the cost from the selling price.\n\n---\n\n### Step 1: Calculate the total cost\nJewel bought **10 magazines** at **$3 each**:\n\n$$",
+              "ttft_seconds": 0.08061327199999369
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4604,
+              "latency_seconds": 0.7820365040000183,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7736756159999914,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "06822be18e1c4068b78fb7c222a683b2",
+                "num_retractions": 0,
+                "prompt_tokens": 65,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "119b4f7c1eea3ac11af3929fa66c4f41ff6a4dd4ab1454a7c6e832a25703328d",
+              "prompt_tokens": 65,
+              "text": "We are given the following information:\n\n- Jeremy **bought a computer for $3000**.\n- He also bought **accessories that cost 10% of the computer's price**.\n- Before making the purchase, Jeremy had **two times more money than the cost of the computer itself**.\n\n",
+              "ttft_seconds": 0.06858103400000459
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4697,
+              "latency_seconds": 0.7822361750000084,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7761426040000003,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "7f0ee57885ed4b17b214ca262ca1894a",
+                "num_retractions": 0,
+                "prompt_tokens": 85,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1226b673e52fdaee24eb5b3fe1d4f89312ab99dd9a1077f7cb6dab12a1469fe1",
+              "prompt_tokens": 85,
+              "text": "We are given that:\n\n- From point $ A $, Leigh walked:\n  - 40 yards **south**\n  - 60 yards **west**\n  - 10 yards **north**\n  - $ X $ yards **east**\n- The final position is point $ B $, and the distance",
+              "ttft_seconds": 0.0682469600000104
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4791,
+              "latency_seconds": 0.781874087999995,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7722120450000034,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a961f09cc6f54ffda82362cb478e8db7",
+                "num_retractions": 0,
+                "prompt_tokens": 78,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12c8b10fbb8f7090914449639633caf8aeb525ebb16c754d27764cd8927bbf5d",
+              "prompt_tokens": 78,
+              "text": "We are given the following information about the bells:\n\n- The **first bell** requires **50 pounds** of bronze.\n- The **second bell** is **twice the size** of the first bell.\n- The **third bell** is **four times the size** of the second bell.\n\nWe are to",
+              "ttft_seconds": 0.06780874099999323
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4522,
+              "latency_seconds": 0.781372073,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7755069490000039,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "110752c727c94b328eb08054ac038dd6",
+                "num_retractions": 0,
+                "prompt_tokens": 74,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12d64331d3209969fa16ad0cf26cf75b0e3e3558b7f921a509151f8e6e9e586d",
+              "prompt_tokens": 74,
+              "text": "We are given:\n\n- Region I has a **perimeter of 12 units**.\n- Region II has a **perimeter of 24 units**.\n- All regions are **bounded by squares**.\n- We are to find the **ratio of the area of region I to the area of region III",
+              "ttft_seconds": 0.06761288199999171
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5194,
+              "latency_seconds": 0.781335136000024,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.777607651000011,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "4f6b3f4be8214e648f51bc30bb90fe3d",
+                "num_retractions": 0,
+                "prompt_tokens": 46,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "130dd1eec17fa17a2132e50561b8af8ea01ea1d6f56d2c7e8723e52a8fadebb2",
+              "prompt_tokens": 46,
+              "text": "Amy started with $100.\n\nShe bought 3 dolls, each costing $1, so she spent:\n\n$$\n3 \\times 1 = 3 \\text{ dollars}\n$$\n\nNow, subtract the amount she spent from her original money:\n\n$$\n100 - 3 = 97",
+              "ttft_seconds": 0.0673244230000023
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4568,
+              "latency_seconds": 0.780913484999985,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7731202240000243,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "4f2523c02e65482e899817bd03306ed9",
+                "num_retractions": 0,
+                "prompt_tokens": 40,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "13710ead074747209dbd4a1c0481123ab62850bf8299380c7c333fcd970decf2",
+              "prompt_tokens": 40,
+              "text": "We are given that the **surface area** of a cube is **216 square centimeters**, and we are asked to find the **volume** of the cube.\n\n---\n\n### Step 1: Use the formula for the surface area of a cube\n\nThe surface area $ A $ of a cube with side length",
+              "ttft_seconds": 0.06692782400000397
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5621,
+              "latency_seconds": 0.7803937619999886,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.77122881599999,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e3573bc0e05648f79cffd3fcdf3f0201",
+                "num_retractions": 0,
+                "prompt_tokens": 53,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1385cb507eaf3571c8dd5fd1484b14fd09b447d208e87afa0b7eac09a1e5e4e7",
+              "prompt_tokens": 53,
+              "text": "We are given:\n\n- George can carry **2 buckets per round**.\n- Harry can carry **3 buckets per round**.\n- Total buckets needed to fill the pool: **110 buckets**.\n\nWe are to find how many **rounds** it will take to fill the pool, assuming **both George",
+              "ttft_seconds": 0.0682485819999954
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4822,
+              "latency_seconds": 0.7797096769999996,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7703756639999995,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a264a46f37ab40f1a9a7a65f52e43615",
+                "num_retractions": 0,
+                "prompt_tokens": 57,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "139119690648aae8c4251db6fad33fd3c1ddf03eae1586a41ec8754657a677f3",
+              "prompt_tokens": 57,
+              "text": "We are given the following information:\n\n- Dennis initially had **$50**.\n- He bought shirts worth **$27**.\n- He received **2 bills of $x** and **$3 in loose coins** as change.\n\nWe are to find the value of **x**.\n\n---\n\n### Step ",
+              "ttft_seconds": 0.06768356300000278
+            }
+          ],
+          "output_tokens": 1536
+        }
+      ],
+      "server_log_sha256": "fbb2451c238b47020396126553f30206c8ac4973227c1f8a65115f9a41a8cb08",
+      "server_log_tail": [
+        "[2026-11-12 22:30:47] INFO:     127.0.0.1:29013 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:47] INFO:     127.0.0.1:27074 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:47] INFO:     127.0.0.1:36790 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:47] INFO:     127.0.0.1:19875 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:47] INFO:     127.0.0.1:23326 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:47] INFO:     127.0.0.1:33590 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:47] INFO:     127.0.0.1:19721 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:47] INFO:     127.0.0.1:36776 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:47] Prefill batch, #new-seq: 7, #new-token: 550, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 691.28",
+        "[2026-11-12 22:30:47] Prefill batch, #new-seq: 1, #new-token: 47, #cached-token: 0, token usage: 0.00, #running-req: 7, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 28614.65",
+        "[2026-11-12 22:30:48] Decode batch, #running-req: 8, #token: 661, token usage: 0.00, cuda graph: True, gen throughput (token/s): 608.41, #queue-req: 0",
+        "[2026-11-12 22:30:48] Decode batch, #running-req: 8, #token: 981, token usage: 0.00, cuda graph: True, gen throughput (token/s): 708.55, #queue-req: 0",
+        "[2026-11-12 22:30:48] INFO:     127.0.0.1:19263 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:48] INFO:     127.0.0.1:22051 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:48] INFO:     127.0.0.1:30135 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:48] INFO:     127.0.0.1:21602 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:48] INFO:     127.0.0.1:48396 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:48] INFO:     127.0.0.1:48448 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:48] INFO:     127.0.0.1:22855 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:48] INFO:     127.0.0.1:47271 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:30:48] Prefill batch, #new-seq: 6, #new-token: 388, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 496.39",
+        "[2026-11-12 22:30:48] Prefill batch, #new-seq: 2, #new-token: 110, #cached-token: 0, token usage: 0.00, #running-req: 6, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 65836.37",
+        "[2026-11-12 22:30:48] Decode batch, #running-req: 8, #token: 690, token usage: 0.00, cuda graph: True, gen throughput (token/s): 625.41, #queue-req: 0",
+        "[2026-11-12 22:30:49] Decode batch, #running-req: 8, #token: 0, token usage: 0.00, cuda graph: True, gen throughput (token/s): 708.11, #queue-req: 0",
+        "[2026-11-12 22:30:49] SIGTERM received. signum=None frame=None. Draining requests and shutting down...",
+        "[2026-11-12 22:30:50] Subprocess scheduler_0 (pid=58) crashed with exit code -15. Triggering SIGQUIT for cleanup...",
+        "[2026-11-12 22:30:50] SIGQUIT received. signum=None, frame=None. It usually means one child failed.",
+        "[2026-11-12 22:30:50] Sleeping 5 seconds before crash diagnostics to let GPU activity settle.",
+        "[2026-11-12 22:30:55] No live scheduler processes found; skipping py-spy and CUDA coredump.",
+        "[2026-11-12 22:30:55] kill_process_tree called: parent_pid=30, include_parent=True, pid=30"
+      ]
+    },
+    {
+      "arm": "autoregressive",
+      "cycle": 1,
+      "measured": [
+        {
+          "concurrency": 1,
+          "elapsed_seconds": 17.41997033199999,
+          "observations": [
+            {
+              "completion_tokens": 64,
+              "index": 5493,
+              "latency_seconds": 0.7273340989999895,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7256538820000173,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "b83d8c2cfab547b6ac7c0fbcb72d3156",
+                "num_retractions": 0,
+                "prompt_tokens": 95,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0bb370d7a1eb24075b3bf8112343cd235564cedda3c35c737287b56d3880ec26",
+              "prompt_tokens": 95,
+              "text": "We are given:\n\n- Total number of students = 1800  \n- $ x\\% $ of the students are foreign now.  \n- 200 new foreign students will join next semester.  \n- After the new students join, the total number of foreign students becomes **740**.\n\n",
+              "ttft_seconds": 0.033807399000011173
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4665,
+              "latency_seconds": 0.7267183660000001,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7249537669999881,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a5034e6314e14bc48a6cd59cfe8021ef",
+                "num_retractions": 0,
+                "prompt_tokens": 86,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c09fb68182ccff1af28b81a14a63699d6e0cc499e946ea5ee879bd60b46ff87",
+              "prompt_tokens": 86,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **First Half:**\n\n- **Team A** scored **8 points**.\n- **Team B** scored **half as many points** as Team A.\n\nSo, Team B scored:\n\n$$\n\\frac{8}{2} = 4 \\text",
+              "ttft_seconds": 0.03401114400000438
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5826,
+              "latency_seconds": 0.7262344709999979,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.724690226000007,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a367ba0eedf5487d93a0ca1caf8cdb84",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c5f070576af32e063d1cd57961462e45e8ec4200c25bfd0c45c5448e6cb5157",
+              "prompt_tokens": 79,
+              "text": "We are given the following information:\n\n- Tony's **normal temperature** is **95 degrees**.\n- He comes down with a sickness that **raises his temperature by 10 degrees**.\n- His **fever threshold** is **x degrees**.\n- His **temperature is 5 degrees above the fever",
+              "ttft_seconds": 0.033448173000010684
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4531,
+              "latency_seconds": 0.7271427639999786,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7256146869999895,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "3700dfecb9a04f658efff67963ee051e",
+                "num_retractions": 0,
+                "prompt_tokens": 104,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c9eafaf7cc80c80cd07e31b2abc4c4a06095bba8f94e1081138fe35d45300b0",
+              "prompt_tokens": 104,
+              "text": "We are given:\n\n- Tyson swims at **3 mph** in a **lake**.\n- He swims at **2.5 mph** in an **ocean**.\n- Half of his races were in **lakes**, and half in **oceans**.\n- He had **x total races**, each **",
+              "ttft_seconds": 0.032823767999985876
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4961,
+              "latency_seconds": 0.7270133540000074,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7254789560000177,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "699379b518a84124be73f37fb714d60c",
+                "num_retractions": 0,
+                "prompt_tokens": 93,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ca3e694520c6fc9d7b97c69691a731e935c5dcfd7db8f4b3527f2529c033611",
+              "prompt_tokens": 93,
+              "text": "We are given a **right rectangular prism** (a box) with **three adjacent faces** having areas of:\n\n- $24 \\, \\mathrm{cm}^2$\n- $32 \\, \\mathrm{cm}^2$\n- $48 \\, \\mathrm{cm}^2",
+              "ttft_seconds": 0.032977971999997635
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5229,
+              "latency_seconds": 0.723038334999984,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7215271459999997,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "d1b7623e2e294251b510cf2d14f1b7e9",
+                "num_retractions": 0,
+                "prompt_tokens": 28,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cb99066c7fef0725178bddc3086849c8f30c77ec73d841c7840d7c826a7983c",
+              "prompt_tokens": 28,
+              "text": "We are asked to find the **base four equivalent** of the decimal number **123\u2081\u2080**.\n\n---\n\n### Step 1: Understand the Problem\n\nWe need to convert the decimal number **123** into **base 4**. This means we want to express 123 as a",
+              "ttft_seconds": 0.03258740299997953
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4558,
+              "latency_seconds": 0.7245032840000079,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7228505729999881,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "f970fe6e912d43abb597e73cf40ea75c",
+                "num_retractions": 0,
+                "prompt_tokens": 55,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cfbc5bf4ca595047d77d621202be25984eedc2ace683807e3547a4b5984adfe",
+              "prompt_tokens": 55,
+              "text": "We are given:\n\n- Nadia makes **3 mistakes per 40 notes**.\n- She plays **60 notes per minute**.\n- She plays for **8 minutes**.\n\n---\n\n### Step 1: Total number of notes played\n\n$$\n\\text{Total notes} = 60 \\text",
+              "ttft_seconds": 0.03255150399999707
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4913,
+              "latency_seconds": 0.7237432739999861,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7219945550000091,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e825c43863ee45caa16062698f855de5",
+                "num_retractions": 0,
+                "prompt_tokens": 54,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0da344b76cfb69afbba77a13297cc51498ed032a5eb585bf1ad000a017556ed0",
+              "prompt_tokens": 54,
+              "text": "We are given three points:\n\n- $ A = (3, -5) $\n- $ B = (-a + 2, 3) $\n- $ C = (2a + 3, 2) $\n\nWe are told that these three points are **collinear**, meaning they lie on the same",
+              "ttft_seconds": 0.03230270200000973
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4596,
+              "latency_seconds": 0.7266483440000115,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7249311840000132,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "066a35daa4d54155b2b6ceb02c2e5b22",
+                "num_retractions": 0,
+                "prompt_tokens": 82,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0dcacd2103703d65851213c7c19b56d4f5f7effd439ccc3ffb6e3ad538137a66",
+              "prompt_tokens": 82,
+              "text": "We are given:\n\n- Gail has **some bills** in her wallet that total **$100**.\n- She has **4 $5 bills**.\n- She has **3 $x bills**.\n- The **rest are $10 bills**.\n- The **number of $10 bills",
+              "ttft_seconds": 0.03339069800000516
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5729,
+              "latency_seconds": 0.7239014479999923,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7223778169999946,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "f3ae4ce6d2cc4081bc87b4b0047bb828",
+                "num_retractions": 0,
+                "prompt_tokens": 51,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e1cfcd0bdd3c64528c80672514c2406d44f39e975da42274167871094f43650",
+              "prompt_tokens": 51,
+              "text": "Jose purchased **20,000 square meters** of land and plans to divide it **equally with his four siblings**.\n\nThat means the land will be divided among **5 people** in total (Jose + 4 siblings).\n\n---\n\n### Step 1: Divide the total land by the number of people",
+              "ttft_seconds": 0.03221058700000867
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5043,
+              "latency_seconds": 0.7244983589999947,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7229151880000018,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "9fe98f8e244a43aa9935f7c536aa3b1c",
+                "num_retractions": 0,
+                "prompt_tokens": 60,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e763c7cc84e767772096c74d66516c548a4adaad59de6b5e8ad8db955e05bcd",
+              "prompt_tokens": 60,
+              "text": "We are given:\n\n- Each student contributes **$2 every Friday**.\n- After **2 months**, the total amount collected is **$480**.\n- We are to find the number of students, **x**.\n\n---\n\n### Step 1: Determine how many Fridays are in 2 months\n\nAss",
+              "ttft_seconds": 0.03251840699999775
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5032,
+              "latency_seconds": 0.7293117410000036,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7277052050000066,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "3d3fd835b83d47adb34804e466108481",
+                "num_retractions": 0,
+                "prompt_tokens": 133,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ef9eaa03fa664b00c4ec87278066989c0ef282a15eb5bdb01c9e4582013023d",
+              "prompt_tokens": 133,
+              "text": "We are given the following information:\n\n- Mary started at **99 pounds**.\n- She **lost 12 pounds** initially.\n- Then she **gained back twice the weight she initially lost**, which is **2 \u00d7 12 = 24 pounds**.\n- Then she **lost x times",
+              "ttft_seconds": 0.03269778599999995
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5309,
+              "latency_seconds": 0.7264919209999903,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7248253729999874,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "5410db53753a4587b393e817c71b251e",
+                "num_retractions": 0,
+                "prompt_tokens": 73,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0fea39ceec522821d0b6a39f338ce52426d7000b4e1329cb2bb6ea5fa78ff043",
+              "prompt_tokens": 73,
+              "text": "We are given that on a chessboard, each square $ k $ (where $ k = 1 $ to $ 64 $) has $ 2^k $ grains of rice.\n\nWe are asked to find how many **more grains** are on the **10th square** compared to the **",
+              "ttft_seconds": 0.0335350080000012
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5796,
+              "latency_seconds": 0.7253826179999976,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7239141959999813,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "cc9c87df777a4bb383e89f1e2f5e01fa",
+                "num_retractions": 0,
+                "prompt_tokens": 72,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ff51c08aec74adfd2e8b5df8923002ddea44a835d57ec6dc4f5c06a1113e27d",
+              "prompt_tokens": 72,
+              "text": "Let's break down the problem step by step to find out how much the archer spends on arrows per week.\n\n---\n\n### **Given:**\n- **Total shots per week:** 200 shots/day \u00d7 4 days = **800 shots/week**\n- **Recovery rate:** 20",
+              "ttft_seconds": 0.032892029999999295
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4900,
+              "latency_seconds": 0.7261150040000075,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7246182680000004,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "3dd0d3ed328d4f538a08283c95dd2128",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "10058d07b615190925dfc5e709d32b7480db970326fa5618768cd449ea64f214",
+              "prompt_tokens": 79,
+              "text": "We are told:\n\n- Janet goes to the gym **5 hours a week**.\n- She goes on **Monday, Tuesday, Wednesday, and Friday**.\n- She spends **1.5 hours** on **Monday** and **Wednesday**.\n- She spends the **same amount of time** on **Tuesday**",
+              "ttft_seconds": 0.03354114300000788
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4852,
+              "latency_seconds": 0.7251567799999918,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.723659079000015,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "905f7cc2b3c749a3b596b6ecb9092e57",
+                "num_retractions": 0,
+                "prompt_tokens": 47,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1023bc52242c1ba925aa9f7c585e7174e4e273d53f4b170a477393dd1f1afef8",
+              "prompt_tokens": 47,
+              "text": "To find Jewel's **total gain**, we need to calculate the **total cost** and the **total selling price**, then subtract the cost from the selling price.\n\n---\n\n### Step 1: Calculate the total cost\nJewel bought 10 magazines at **$3 each**:\n\n$$\n\\text{",
+              "ttft_seconds": 0.033186368999992055
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4604,
+              "latency_seconds": 0.7258301829999994,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7242989359999967,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "5bd38d4d28944a03800e9959e95ff35e",
+                "num_retractions": 0,
+                "prompt_tokens": 65,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "119b4f7c1eea3ac11af3929fa66c4f41ff6a4dd4ab1454a7c6e832a25703328d",
+              "prompt_tokens": 65,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **Given:**\n\n- Jeremy **bought a computer** for **$3000**.\n- He also bought **accessories** that cost **10% of the computer's price**.\n- Before making the purchase, Jeremy had **two",
+              "ttft_seconds": 0.03303893300000027
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4697,
+              "latency_seconds": 0.7267041869999957,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7252392560000089,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a03eeaf0e95047619eba3790a33bc9eb",
+                "num_retractions": 0,
+                "prompt_tokens": 85,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1226b673e52fdaee24eb5b3fe1d4f89312ab99dd9a1077f7cb6dab12a1469fe1",
+              "prompt_tokens": 85,
+              "text": "We are given that:\n\n- From point $ A $, Leigh walked:\n  - 40 yards **south**\n  - 60 yards **west**\n  - 10 yards **north**\n  - $ X $ yards **east**\n- The final position is point $ B $, and the distance",
+              "ttft_seconds": 0.03295065699998645
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4791,
+              "latency_seconds": 0.726076594999995,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7245886949999942,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "0a92e280300d4df3a458634b5d0067c0",
+                "num_retractions": 0,
+                "prompt_tokens": 78,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12c8b10fbb8f7090914449639633caf8aeb525ebb16c754d27764cd8927bbf5d",
+              "prompt_tokens": 78,
+              "text": "We are given the following information about the bells:\n\n- The **first bell** requires **50 pounds** of bronze.\n- The **second bell** is **twice the size** of the first bell.\n- The **third bell** is **four times the size** of the second bell.\n\nWe are to",
+              "ttft_seconds": 0.032983298999994304
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4522,
+              "latency_seconds": 0.7262652299999957,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7248025220000045,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "8c98a89e710e47fd9aeec59c42933748",
+                "num_retractions": 0,
+                "prompt_tokens": 74,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12d64331d3209969fa16ad0cf26cf75b0e3e3558b7f921a509151f8e6e9e586d",
+              "prompt_tokens": 74,
+              "text": "We are given:\n\n- Region I has a **perimeter of 12 units**.\n- Region II has a **perimeter of 24 units**.\n- All regions are **bounded by squares**.\n- We are to find the **ratio of the area of region I to the area of region III",
+              "ttft_seconds": 0.0331886010000062
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5194,
+              "latency_seconds": 0.7245047679999743,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7230676439999968,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e1abc46b995b41e29123fa8cb4d63d24",
+                "num_retractions": 0,
+                "prompt_tokens": 46,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "130dd1eec17fa17a2132e50561b8af8ea01ea1d6f56d2c7e8723e52a8fadebb2",
+              "prompt_tokens": 46,
+              "text": "Amy started with $100.\n\nShe bought 3 dolls, each costing $1, so she spent:\n\n$$\n3 \\times 1 = 3 \\text{ dollars}\n$$\n\nNow, subtract the amount she spent from her original money:\n\n$$\n100 - 3 = 97",
+              "ttft_seconds": 0.03264730299997609
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4568,
+              "latency_seconds": 0.724826519000004,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7233538870000018,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "8e8e3b58434949c292ead846a3685f52",
+                "num_retractions": 0,
+                "prompt_tokens": 40,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "13710ead074747209dbd4a1c0481123ab62850bf8299380c7c333fcd970decf2",
+              "prompt_tokens": 40,
+              "text": "We are given that the **surface area** of a cube is **216 square centimeters**, and we are asked to find the **volume** of the cube.\n\n---\n\n### Step 1: Use the formula for the surface area of a cube\n\nThe surface area $ A $ of a cube with side length",
+              "ttft_seconds": 0.03310635699997988
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5621,
+              "latency_seconds": 0.7245376289999967,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7230251099999805,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "6b84e27e7eed4d8aa26c84eb5270f951",
+                "num_retractions": 0,
+                "prompt_tokens": 53,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1385cb507eaf3571c8dd5fd1484b14fd09b447d208e87afa0b7eac09a1e5e4e7",
+              "prompt_tokens": 53,
+              "text": "We are given:\n\n- George can carry **2 buckets per round**.\n- Harry can carry **3 buckets per round**.\n- Total buckets needed to fill the pool: **110 buckets**.\n\nWe are to find how many **rounds** it will take to fill the pool, assuming **both George",
+              "ttft_seconds": 0.03236293399999113
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4822,
+              "latency_seconds": 0.7253645970000093,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7239271330000179,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "7874c050f2af4618a074a5212b61f7ce",
+                "num_retractions": 0,
+                "prompt_tokens": 57,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "139119690648aae8c4251db6fad33fd3c1ddf03eae1586a41ec8754657a677f3",
+              "prompt_tokens": 57,
+              "text": "We are given the following information:\n\n- Dennis initially had **$50**.\n- He bought shirts worth **$27**.\n- He received **2 bills of $x** and **$3 in loose coins** as change.\n\nWe are to find the value of **x**.\n\n---\n\n### Step ",
+              "ttft_seconds": 0.03317075100000011
+            }
+          ],
+          "output_tokens": 1536
+        },
+        {
+          "concurrency": 8,
+          "elapsed_seconds": 2.3289029219999975,
+          "observations": [
+            {
+              "completion_tokens": 64,
+              "index": 5493,
+              "latency_seconds": 0.7855770000000177,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7824818790000165,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "45cb72ca7bd946ada89ca5ae8f47b6e9",
+                "num_retractions": 0,
+                "prompt_tokens": 95,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0bb370d7a1eb24075b3bf8112343cd235564cedda3c35c737287b56d3880ec26",
+              "prompt_tokens": 95,
+              "text": "We are given:\n\n- Total number of students = 1800  \n- $ x\\% $ of the students are foreign now.  \n- 200 new foreign students will join next semester.  \n- After the new students join, the total number of foreign students becomes **740**.\n\n",
+              "ttft_seconds": 0.0696639520000133
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4665,
+              "latency_seconds": 0.7857141210000123,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7812454430000173,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "4025a01468b74f2d80b9147f23a14a89",
+                "num_retractions": 0,
+                "prompt_tokens": 86,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c09fb68182ccff1af28b81a14a63699d6e0cc499e946ea5ee879bd60b46ff87",
+              "prompt_tokens": 86,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **First Half:**\n\n- **Team A** scored **8 points**.\n- **Team B** scored **half as many points** as Team A.\n\nSo, Team B scored:\n\n$$\n\\frac{8}{2} = 4 \\text",
+              "ttft_seconds": 0.0694049090000135
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5826,
+              "latency_seconds": 0.7843257819999963,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7801891409999939,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "29110e1104594eb6aefd8ad7253f9965",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c5f070576af32e063d1cd57961462e45e8ec4200c25bfd0c45c5448e6cb5157",
+              "prompt_tokens": 79,
+              "text": "We are given the following information:\n\n- Tony's **normal temperature** is **95 degrees**.\n- He comes down with a sickness that **raises his temperature by 10 degrees**.\n- His **fever threshold** is **x degrees**.\n- His **temperature is 5 degrees above the fever",
+              "ttft_seconds": 0.06890647200000899
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4531,
+              "latency_seconds": 0.785270603999976,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7790482089999955,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a0ff1abdcbe84912808682519ee012db",
+                "num_retractions": 0,
+                "prompt_tokens": 104,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c9eafaf7cc80c80cd07e31b2abc4c4a06095bba8f94e1081138fe35d45300b0",
+              "prompt_tokens": 104,
+              "text": "We are given:\n\n- Tyson swims at **3 mph** in a **lake**.\n- He swims at **2.5 mph** in an **ocean**.\n- Half of his races were in **lakes**, and half in **oceans**.\n- He had **x total races**, each **",
+              "ttft_seconds": 0.0685528009999814
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4961,
+              "latency_seconds": 0.7854391730000145,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7779988229999901,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a8ca70612a38479e8f876ef30d9ef9d8",
+                "num_retractions": 0,
+                "prompt_tokens": 93,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ca3e694520c6fc9d7b97c69691a731e935c5dcfd7db8f4b3527f2529c033611",
+              "prompt_tokens": 93,
+              "text": "We are given a **right rectangular prism** (a box) with **three adjacent faces** having areas of:\n\n- $ A_1 = 24 \\, \\mathrm{cm}^2 $\n- $ A_2 = 32 \\, \\mathrm{cm}^2 $\n- $ A",
+              "ttft_seconds": 0.0681476580000151
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5229,
+              "latency_seconds": 0.7835177089999945,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7770295990000022,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "fe0609a4c42d4cd28149dc37b764c1f9",
+                "num_retractions": 0,
+                "prompt_tokens": 28,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cb99066c7fef0725178bddc3086849c8f30c77ec73d841c7840d7c826a7983c",
+              "prompt_tokens": 28,
+              "text": "To find the **base four equivalent** of the decimal number **123\u2081\u2080**, we need to **convert 123 from base 10 to base 4**.\n\n---\n\n### Step 1: Understand the process\n\nTo convert a decimal number to base 4, we repeatedly divide the number",
+              "ttft_seconds": 0.06790746999999442
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4558,
+              "latency_seconds": 0.7845784470000012,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7761040480000077,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "0d83444161714843b302711fd7c61e77",
+                "num_retractions": 0,
+                "prompt_tokens": 55,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cfbc5bf4ca595047d77d621202be25984eedc2ace683807e3547a4b5984adfe",
+              "prompt_tokens": 55,
+              "text": "We are given:\n\n- Nadia makes **3 mistakes per 40 notes**.\n- She plays **60 notes per minute**.\n- She plays for **8 minutes**.\n\n---\n\n### Step 1: Total number of notes played\n\n$$\n\\text{Total notes} = 60 \\text",
+              "ttft_seconds": 0.06910369199999877
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4913,
+              "latency_seconds": 0.7831313280000245,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7753693690000034,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "4b55a8eeef514132a62702e0f5e2de61",
+                "num_retractions": 0,
+                "prompt_tokens": 54,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0da344b76cfb69afbba77a13297cc51498ed032a5eb585bf1ad000a017556ed0",
+              "prompt_tokens": 54,
+              "text": "We are given three points:\n\n- $ A = (3, -5) $\n- $ B = (-a + 2, 3) $\n- $ C = (2a + 3, 2) $\n\nWe are told that these three points are **collinear**, meaning they lie on the same",
+              "ttft_seconds": 0.06850210700000048
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4596,
+              "latency_seconds": 0.7781239729999925,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7744622079999886,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "906dcd8b0e0a493babbd3c456396268c",
+                "num_retractions": 0,
+                "prompt_tokens": 82,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0dcacd2103703d65851213c7c19b56d4f5f7effd439ccc3ffb6e3ad538137a66",
+              "prompt_tokens": 82,
+              "text": "We are given:\n\n- Gail has **some bills** in her wallet that total **$100**.\n- She has **4 $5 bills**.\n- She has **3 $x bills**.\n- The **rest are $10 bills**.\n- The **number of $10 bills",
+              "ttft_seconds": 0.062436011999977836
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5729,
+              "latency_seconds": 0.7776221940000028,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7703978520000021,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "b429844f148b4320a8aa2d411df024c3",
+                "num_retractions": 0,
+                "prompt_tokens": 51,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e1cfcd0bdd3c64528c80672514c2406d44f39e975da42274167871094f43650",
+              "prompt_tokens": 51,
+              "text": "Jose purchased **20,000 square meters** of land and plans to divide it **equally with his four siblings**.\n\nThis means the land will be divided among **5 people** in total (Jose + 4 siblings).\n\n### Step 1: Divide the land equally among 5 people\n$$",
+              "ttft_seconds": 0.06211611099999459
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5043,
+              "latency_seconds": 0.7776876749999815,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7709110689999932,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "b0b80dcfa3244272a708b25bc41a46cd",
+                "num_retractions": 0,
+                "prompt_tokens": 60,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e763c7cc84e767772096c74d66516c548a4adaad59de6b5e8ad8db955e05bcd",
+              "prompt_tokens": 60,
+              "text": "We are given:\n\n- Each student contributes **$2 every Friday**.\n- After **2 months**, the total amount collected is **$480**.\n- We are to find the number of students, **x**.\n\n---\n\n### Step 1: Determine how many Fridays are in 2 months\n\nAss",
+              "ttft_seconds": 0.06160702699997955
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5032,
+              "latency_seconds": 0.7768339349999849,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.769921557999993,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a4d3a0dba7df4165a875e8c0f1a653b7",
+                "num_retractions": 0,
+                "prompt_tokens": 133,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ef9eaa03fa664b00c4ec87278066989c0ef282a15eb5bdb01c9e4582013023d",
+              "prompt_tokens": 133,
+              "text": "We are given:\n\n- Mary started at **99 pounds**.\n- She **lost 12 pounds** initially.\n- Then she **gained back twice the weight she initially lost**, which is **2 \u00d7 12 = 24 pounds**.\n- Then she **lost x times more weight than",
+              "ttft_seconds": 0.0615743079999902
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5309,
+              "latency_seconds": 0.7778256180000085,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7715040059999865,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "f562dda92a8f4d1bbc5af0ee94f4e86a",
+                "num_retractions": 0,
+                "prompt_tokens": 73,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0fea39ceec522821d0b6a39f338ce52426d7000b4e1329cb2bb6ea5fa78ff043",
+              "prompt_tokens": 73,
+              "text": "We are given that on a chessboard, each square $ k $ (where $ k = 1 $ to $ 64 $) has $ 2^k $ grains of rice.\n\nWe are asked to find how many **more grains** are on the **10th square** compared to the **",
+              "ttft_seconds": 0.06124732899999685
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5796,
+              "latency_seconds": 0.7777847920000056,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7692947459999857,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "ac6c75deaafd423586545882a9aa8537",
+                "num_retractions": 0,
+                "prompt_tokens": 72,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ff51c08aec74adfd2e8b5df8923002ddea44a835d57ec6dc4f5c06a1113e27d",
+              "prompt_tokens": 72,
+              "text": "Let's break down the problem step by step to find out how much the archer spends on arrows per week.\n\n---\n\n### **Given:**\n- **Total shots per week:** 200 shots/day \u00d7 4 days = **800 shots/week**\n- **Recovery rate:** 20",
+              "ttft_seconds": 0.06101557700000626
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4900,
+              "latency_seconds": 0.7778279370000121,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7683630740000069,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a890a06ae77c4fcc86d4e98e77ab5593",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "10058d07b615190925dfc5e709d32b7480db970326fa5618768cd449ea64f214",
+              "prompt_tokens": 79,
+              "text": "We are told:\n\n- Janet goes to the gym **5 hours a week**.\n- She goes on **Monday, Tuesday, Wednesday, and Friday**.\n- She spends **1.5 hours** on **Monday** and **Wednesday**.\n- She spends the **same amount of time** on **Tuesday**",
+              "ttft_seconds": 0.060643080999994936
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4852,
+              "latency_seconds": 0.7767581180000036,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.767451426000008,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "df3a78c947144712b524daa93447cd58",
+                "num_retractions": 0,
+                "prompt_tokens": 47,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1023bc52242c1ba925aa9f7c585e7174e4e273d53f4b170a477393dd1f1afef8",
+              "prompt_tokens": 47,
+              "text": "To find Jewel's **total gain**, we need to calculate the **total cost** of the magazines and the **total selling price**, then subtract the cost from the selling price.\n\n---\n\n### Step 1: Calculate the total cost\nJewel bought **10 magazines** at **$3 each**:\n\n$$",
+              "ttft_seconds": 0.06034584299999324
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4604,
+              "latency_seconds": 0.7651932269999975,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7583232069999895,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "f3e7a97740cb4197b81b1597c60098e4",
+                "num_retractions": 0,
+                "prompt_tokens": 65,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "119b4f7c1eea3ac11af3929fa66c4f41ff6a4dd4ab1454a7c6e832a25703328d",
+              "prompt_tokens": 65,
+              "text": "We are given the following information:\n\n- Jeremy **bought a computer for $3000**.\n- He also bought **accessories that cost 10% of the computer's price**.\n- Before making the purchase, Jeremy had **two times more money than the cost of the computer itself**.\n\n",
+              "ttft_seconds": 0.051407565000005206
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4697,
+              "latency_seconds": 0.7647027710000032,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7611861289999808,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "f78c93175dc8482e9bef2a247d0e71a6",
+                "num_retractions": 0,
+                "prompt_tokens": 85,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1226b673e52fdaee24eb5b3fe1d4f89312ab99dd9a1077f7cb6dab12a1469fe1",
+              "prompt_tokens": 85,
+              "text": "We are given that:\n\n- From point $ A $, Leigh walked:\n  - 40 yards **south**\n  - 60 yards **west**\n  - 10 yards **north**\n  - $ X $ yards **east**\n- The final position is point $ B $, and the distance",
+              "ttft_seconds": 0.05111567800000216
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4791,
+              "latency_seconds": 0.764491607999986,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.756415856000018,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "c1ab8dcc836b4042bcbdb3c8bddd20d2",
+                "num_retractions": 0,
+                "prompt_tokens": 78,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12c8b10fbb8f7090914449639633caf8aeb525ebb16c754d27764cd8927bbf5d",
+              "prompt_tokens": 78,
+              "text": "We are given the following information about the bells:\n\n- The **first bell** requires **50 pounds** of bronze.\n- The **second bell** is **twice the size** of the first bell.\n- The **third bell** is **four times the size** of the second bell.\n\nWe are to",
+              "ttft_seconds": 0.05069798599998876
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4522,
+              "latency_seconds": 0.7644240040000057,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.759945522999999,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "bba8a517e8ba46d3a2e4f031c0f1d6f1",
+                "num_retractions": 0,
+                "prompt_tokens": 74,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12d64331d3209969fa16ad0cf26cf75b0e3e3558b7f921a509151f8e6e9e586d",
+              "prompt_tokens": 74,
+              "text": "We are given:\n\n- Region I has a **perimeter of 12 units**.\n- Region II has a **perimeter of 24 units**.\n- All regions are **bounded by squares**.\n- We are to find the **ratio of the area of region I to the area of region III",
+              "ttft_seconds": 0.050620432000016535
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5194,
+              "latency_seconds": 0.7643642939999893,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7554895039999963,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "134c72b16e7d4a139a257b9d2d947f25",
+                "num_retractions": 0,
+                "prompt_tokens": 46,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "130dd1eec17fa17a2132e50561b8af8ea01ea1d6f56d2c7e8723e52a8fadebb2",
+              "prompt_tokens": 46,
+              "text": "Amy started with $100.\n\nShe bought 3 dolls, each costing $1, so she spent:\n\n$$\n3 \\times 1 = 3 \\text{ dollars}\n$$\n\nNow, subtract the amount she spent from her original money:\n\n$$\n100 - 3 = 97",
+              "ttft_seconds": 0.050298720000000685
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4568,
+              "latency_seconds": 0.7639250439999898,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7593548579999947,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "74517131953f4ad5a7c54aefda03a452",
+                "num_retractions": 0,
+                "prompt_tokens": 40,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "13710ead074747209dbd4a1c0481123ab62850bf8299380c7c333fcd970decf2",
+              "prompt_tokens": 40,
+              "text": "We are given that the **surface area** of a cube is **216 square centimeters**, and we are asked to find the **volume** of the cube.\n\n---\n\n### Step 1: Use the formula for the surface area of a cube\n\nThe surface area $ A $ of a cube with side length",
+              "ttft_seconds": 0.05012463299999581
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5621,
+              "latency_seconds": 0.7632547839999972,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7573520849999795,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e45953857a7d4816afe8c40571aa148e",
+                "num_retractions": 0,
+                "prompt_tokens": 53,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1385cb507eaf3571c8dd5fd1484b14fd09b447d208e87afa0b7eac09a1e5e4e7",
+              "prompt_tokens": 53,
+              "text": "We are given:\n\n- George can carry **2 buckets per round**.\n- Harry can carry **3 buckets per round**.\n- Total buckets needed to fill the pool: **110 buckets**.\n\nWe are to find how many **rounds** it will take to fill the pool, assuming **both George",
+              "ttft_seconds": 0.049894391000009364
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4822,
+              "latency_seconds": 0.7633729280000239,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7546632140000042,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "c722724ec6424d9a98ba13aa6793b024",
+                "num_retractions": 0,
+                "prompt_tokens": 57,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "139119690648aae8c4251db6fad33fd3c1ddf03eae1586a41ec8754657a677f3",
+              "prompt_tokens": 57,
+              "text": "We are given the following information:\n\n- Dennis initially had **$50**.\n- He bought shirts worth **$27**.\n- He received **2 bills of $x** and **$3 in loose coins** as change.\n\nWe are to find the value of **x**.\n\n---\n\n### Step ",
+              "ttft_seconds": 0.04962752900001988
+            }
+          ],
+          "output_tokens": 1536
+        }
+      ],
+      "server_log_sha256": "01a9fde8eb58eb58efc42c5d16edfcfec4bc64b2f801599a203afa8bfd11c6a4",
+      "server_log_tail": [
+        "[2026-11-12 22:32:11] Prefill batch, #new-seq: 2, #new-token: 109, #cached-token: 0, token usage: 0.00, #running-req: 6, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 60152.77",
+        "[2026-11-12 22:32:11] Decode batch, #running-req: 8, #token: 850, token usage: 0.00, cuda graph: True, gen throughput (token/s): 622.06, #queue-req: 0",
+        "[2026-11-12 22:32:12] INFO:     127.0.0.1:31541 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:12] INFO:     127.0.0.1:53604 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:12] INFO:     127.0.0.1:37106 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:12] INFO:     127.0.0.1:43207 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:12] INFO:     127.0.0.1:55668 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:12] INFO:     127.0.0.1:57397 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:12] INFO:     127.0.0.1:18586 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:12] INFO:     127.0.0.1:35649 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:12] Prefill batch, #new-seq: 8, #new-token: 597, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 769.52",
+        "[2026-11-12 22:32:12] Decode batch, #running-req: 8, #token: 661, token usage: 0.00, cuda graph: True, gen throughput (token/s): 631.66, #queue-req: 0",
+        "[2026-11-12 22:32:12] Decode batch, #running-req: 8, #token: 981, token usage: 0.00, cuda graph: True, gen throughput (token/s): 707.24, #queue-req: 0",
+        "[2026-11-12 22:32:13] INFO:     127.0.0.1:26697 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:13] INFO:     127.0.0.1:17247 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:13] INFO:     127.0.0.1:49296 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:13] INFO:     127.0.0.1:37482 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:13] INFO:     127.0.0.1:21379 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:13] INFO:     127.0.0.1:61948 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:13] INFO:     127.0.0.1:51791 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:13] INFO:     127.0.0.1:16473 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:32:13] Prefill batch, #new-seq: 8, #new-token: 498, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 649.50",
+        "[2026-11-12 22:32:13] Decode batch, #running-req: 8, #token: 690, token usage: 0.00, cuda graph: True, gen throughput (token/s): 647.11, #queue-req: 0",
+        "[2026-11-12 22:32:13] Decode batch, #running-req: 8, #token: 0, token usage: 0.00, cuda graph: True, gen throughput (token/s): 707.77, #queue-req: 0",
+        "[2026-11-12 22:32:13] SIGTERM received. signum=None frame=None. Draining requests and shutting down...",
+        "[2026-11-12 22:32:14] Subprocess detokenizer (pid=368) crashed with exit code -15. Triggering SIGQUIT for cleanup...",
+        "[2026-11-12 22:32:14] SIGQUIT received. signum=None, frame=None. It usually means one child failed.",
+        "[2026-11-12 22:32:14] Sleeping 5 seconds before crash diagnostics to let GPU activity settle.",
+        "[2026-11-12 22:32:19] No live scheduler processes found; skipping py-spy and CUDA coredump.",
+        "[2026-11-12 22:32:19] kill_process_tree called: parent_pid=338, include_parent=True, pid=338"
+      ]
+    },
+    {
+      "arm": "autoregressive",
+      "cycle": 2,
+      "measured": [
+        {
+          "concurrency": 1,
+          "elapsed_seconds": 17.422319872000003,
+          "observations": [
+            {
+              "completion_tokens": 64,
+              "index": 5493,
+              "latency_seconds": 0.7268704460000208,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7251845220000064,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "46ec5908dd3448119615301d3856be62",
+                "num_retractions": 0,
+                "prompt_tokens": 95,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0bb370d7a1eb24075b3bf8112343cd235564cedda3c35c737287b56d3880ec26",
+              "prompt_tokens": 95,
+              "text": "We are given:\n\n- Total number of students = 1800  \n- $ x\\% $ of the students are foreign now.  \n- 200 new foreign students will join next semester.  \n- After the new students join, the total number of foreign students becomes **740**.\n\n",
+              "ttft_seconds": 0.03269841000002316
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4665,
+              "latency_seconds": 0.7258455739999476,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7242879959999868,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "47b9ebcd561d4fc9842edd3e9fd9a045",
+                "num_retractions": 0,
+                "prompt_tokens": 86,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c09fb68182ccff1af28b81a14a63699d6e0cc499e946ea5ee879bd60b46ff87",
+              "prompt_tokens": 86,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **First Half:**\n\n- **Team A** scored **8 points**.\n- **Team B** scored **half as many points** as Team A.\n\nSo, Team B scored:\n\n$$\n\\frac{8}{2} = 4 \\text",
+              "ttft_seconds": 0.03296541099996375
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5826,
+              "latency_seconds": 0.7257376519999639,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7240893809999989,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "fbb92e2995d54347ac96ff65e61deb72",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c5f070576af32e063d1cd57961462e45e8ec4200c25bfd0c45c5448e6cb5157",
+              "prompt_tokens": 79,
+              "text": "We are given the following information:\n\n- Tony's **normal temperature** is **95 degrees**.\n- He comes down with a sickness that **raises his temperature by 10 degrees**.\n- His **fever threshold** is **x degrees**.\n- His **temperature is 5 degrees above the fever",
+              "ttft_seconds": 0.033252736000008554
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4531,
+              "latency_seconds": 0.7280614779999723,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7263436050000109,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e27b45a7a31d49018b61024faa6c5967",
+                "num_retractions": 0,
+                "prompt_tokens": 104,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c9eafaf7cc80c80cd07e31b2abc4c4a06095bba8f94e1081138fe35d45300b0",
+              "prompt_tokens": 104,
+              "text": "We are given:\n\n- Tyson swims at **3 mph** in a **lake**.\n- He swims at **2.5 mph** in an **ocean**.\n- Half of his races were in **lakes**, and half in **oceans**.\n- He had **x total races**, each **",
+              "ttft_seconds": 0.03300096499998517
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4961,
+              "latency_seconds": 0.7270250579999811,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7252784679999991,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e786089adad74d84a27212a3b8f461b9",
+                "num_retractions": 0,
+                "prompt_tokens": 93,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ca3e694520c6fc9d7b97c69691a731e935c5dcfd7db8f4b3527f2529c033611",
+              "prompt_tokens": 93,
+              "text": "We are given a **right rectangular prism** (a box) with **three adjacent faces** having areas of:\n\n- $24 \\, \\mathrm{cm}^2$\n- $32 \\, \\mathrm{cm}^2$\n- $48 \\, \\mathrm{cm}^2",
+              "ttft_seconds": 0.03286641500000087
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5229,
+              "latency_seconds": 0.7232177119999506,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7215449450000051,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e1a109ac457a47928f2f426b31c9b947",
+                "num_retractions": 0,
+                "prompt_tokens": 28,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cb99066c7fef0725178bddc3086849c8f30c77ec73d841c7840d7c826a7983c",
+              "prompt_tokens": 28,
+              "text": "We are asked to find the **base four equivalent** of the decimal number **123\u2081\u2080**.\n\n---\n\n### Step 1: Understand the Problem\n\nWe need to convert the decimal number **123** into **base 4**. This means we want to express 123 as a",
+              "ttft_seconds": 0.032629487999997764
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4558,
+              "latency_seconds": 0.724584980999964,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7229872849999879,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "6ef46ed2c0794df18a6439958de3da6e",
+                "num_retractions": 0,
+                "prompt_tokens": 55,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cfbc5bf4ca595047d77d621202be25984eedc2ace683807e3547a4b5984adfe",
+              "prompt_tokens": 55,
+              "text": "We are given:\n\n- Nadia makes **3 mistakes per 40 notes**.\n- She plays **60 notes per minute**.\n- She plays for **8 minutes**.\n\n---\n\n### Step 1: Total number of notes played\n\n$$\n\\text{Total notes} = 60 \\text",
+              "ttft_seconds": 0.03236166799996454
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4913,
+              "latency_seconds": 0.7250087689999987,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7233173930000021,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "fa0ae2b5d72c4fce90b684f4be8ac726",
+                "num_retractions": 0,
+                "prompt_tokens": 54,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0da344b76cfb69afbba77a13297cc51498ed032a5eb585bf1ad000a017556ed0",
+              "prompt_tokens": 54,
+              "text": "We are given three points:\n\n- $ A = (3, -5) $\n- $ B = (-a + 2, 3) $\n- $ C = (2a + 3, 2) $\n\nWe are told that these three points are **collinear**, meaning they lie on the same",
+              "ttft_seconds": 0.032864435000021786
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4596,
+              "latency_seconds": 0.7258011680000322,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7243019840000215,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "0b8cca913492427da73aa53fb8a35f0d",
+                "num_retractions": 0,
+                "prompt_tokens": 82,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0dcacd2103703d65851213c7c19b56d4f5f7effd439ccc3ffb6e3ad538137a66",
+              "prompt_tokens": 82,
+              "text": "We are given:\n\n- Gail has **some bills** in her wallet that total **$100**.\n- She has **4 $5 bills**.\n- She has **3 $x bills**.\n- The **rest are $10 bills**.\n- The **number of $10 bills",
+              "ttft_seconds": 0.032679679000011674
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5729,
+              "latency_seconds": 0.7250669999999673,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7234107720000225,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "0da6c6c86fac42e3906ed27794fe038c",
+                "num_retractions": 0,
+                "prompt_tokens": 51,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e1cfcd0bdd3c64528c80672514c2406d44f39e975da42274167871094f43650",
+              "prompt_tokens": 51,
+              "text": "Jose purchased **20,000 square meters** of land and plans to divide it **equally with his four siblings**.\n\nThat means the land will be divided among **5 people** in total (Jose + 4 siblings).\n\n---\n\n### Step 1: Divide the total land by the number of people",
+              "ttft_seconds": 0.03291854099995817
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5043,
+              "latency_seconds": 0.7248535890000198,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7232891129999643,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a72ef7c9d7ed4ae495320072f66a7454",
+                "num_retractions": 0,
+                "prompt_tokens": 60,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e763c7cc84e767772096c74d66516c548a4adaad59de6b5e8ad8db955e05bcd",
+              "prompt_tokens": 60,
+              "text": "We are given:\n\n- Each student contributes **$2 every Friday**.\n- After **2 months**, the total amount collected is **$480**.\n- We are to find the number of students, **x**.\n\n---\n\n### Step 1: Determine how many Fridays are in 2 months\n\nAss",
+              "ttft_seconds": 0.03245954999999867
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5032,
+              "latency_seconds": 0.7297556430000327,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7280490210000039,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "b541031253214397939e54a7652cc2c1",
+                "num_retractions": 0,
+                "prompt_tokens": 133,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ef9eaa03fa664b00c4ec87278066989c0ef282a15eb5bdb01c9e4582013023d",
+              "prompt_tokens": 133,
+              "text": "We are given the following information:\n\n- Mary started at **99 pounds**.\n- She **lost 12 pounds** initially.\n- Then she **gained back twice the weight she initially lost**, which is **2 \u00d7 12 = 24 pounds**.\n- Then she **lost x times",
+              "ttft_seconds": 0.032415741000022535
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5309,
+              "latency_seconds": 0.7258626899999854,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7242240869999819,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "6f1a8d6560834374a853c40a1f8423aa",
+                "num_retractions": 0,
+                "prompt_tokens": 73,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0fea39ceec522821d0b6a39f338ce52426d7000b4e1329cb2bb6ea5fa78ff043",
+              "prompt_tokens": 73,
+              "text": "We are given that on a chessboard, each square $ k $ (where $ k = 1 $ to $ 64 $) has $ 2^k $ grains of rice.\n\nWe are asked to find how many **more grains** are on the **10th square** compared to the **",
+              "ttft_seconds": 0.033121327000003475
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5796,
+              "latency_seconds": 0.7258186909999722,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.724364788999992,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "d3f247206e4b4b61bcfe1998edccfa8f",
+                "num_retractions": 0,
+                "prompt_tokens": 72,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ff51c08aec74adfd2e8b5df8923002ddea44a835d57ec6dc4f5c06a1113e27d",
+              "prompt_tokens": 72,
+              "text": "Let's break down the problem step by step to find out how much the archer spends on arrows per week.\n\n---\n\n### **Given:**\n- **Total shots per week:** 200 shots/day \u00d7 4 days = **800 shots/week**\n- **Recovery rate:** 20",
+              "ttft_seconds": 0.03249871599996368
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4900,
+              "latency_seconds": 0.7254738670000052,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7240958640000486,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "b4254356d4a74f84bf4333eda67e412a",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "10058d07b615190925dfc5e709d32b7480db970326fa5618768cd449ea64f214",
+              "prompt_tokens": 79,
+              "text": "We are told:\n\n- Janet goes to the gym **5 hours a week**.\n- She goes on **Monday, Tuesday, Wednesday, and Friday**.\n- She spends **1.5 hours** on **Monday** and **Wednesday**.\n- She spends the **same amount of time** on **Tuesday**",
+              "ttft_seconds": 0.032285088000037376
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4852,
+              "latency_seconds": 0.7243926579999993,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7230070530000035,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "98ea26b944594edaa925fe9ca4da053c",
+                "num_retractions": 0,
+                "prompt_tokens": 47,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1023bc52242c1ba925aa9f7c585e7174e4e273d53f4b170a477393dd1f1afef8",
+              "prompt_tokens": 47,
+              "text": "To find Jewel's **total gain**, we need to calculate the **total cost** and the **total selling price**, then subtract the cost from the selling price.\n\n---\n\n### Step 1: Calculate the total cost\nJewel bought 10 magazines at **$3 each**:\n\n$$\n\\text{",
+              "ttft_seconds": 0.0320272679999789
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4604,
+              "latency_seconds": 0.7254285070000037,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7239893770000094,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a161a84c6017410f9f51dc39678b6307",
+                "num_retractions": 0,
+                "prompt_tokens": 65,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "119b4f7c1eea3ac11af3929fa66c4f41ff6a4dd4ab1454a7c6e832a25703328d",
+              "prompt_tokens": 65,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **Given:**\n\n- Jeremy **bought a computer** for **$3000**.\n- He also bought **accessories** that cost **10% of the computer's price**.\n- Before making the purchase, Jeremy had **two",
+              "ttft_seconds": 0.032795937999992475
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4697,
+              "latency_seconds": 0.728013078999993,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7265023940000219,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "c9ab0effdf8647e886fc1c4b78843b44",
+                "num_retractions": 0,
+                "prompt_tokens": 85,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1226b673e52fdaee24eb5b3fe1d4f89312ab99dd9a1077f7cb6dab12a1469fe1",
+              "prompt_tokens": 85,
+              "text": "We are given that:\n\n- From point $ A $, Leigh walked:\n  - 40 yards **south**\n  - 60 yards **west**\n  - 10 yards **north**\n  - $ X $ yards **east**\n- The final position is point $ B $, and the distance",
+              "ttft_seconds": 0.033320383999978276
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4791,
+              "latency_seconds": 0.7264536389999989,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7248723799999652,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "88951ab471e049f2881aa93843060d39",
+                "num_retractions": 0,
+                "prompt_tokens": 78,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12c8b10fbb8f7090914449639633caf8aeb525ebb16c754d27764cd8927bbf5d",
+              "prompt_tokens": 78,
+              "text": "We are given the following information about the bells:\n\n- The **first bell** requires **50 pounds** of bronze.\n- The **second bell** is **twice the size** of the first bell.\n- The **third bell** is **four times the size** of the second bell.\n\nWe are to",
+              "ttft_seconds": 0.032994948999998996
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4522,
+              "latency_seconds": 0.7263976890000094,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7249077849999708,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "89a9e89b16f9487da8969f403ea94869",
+                "num_retractions": 0,
+                "prompt_tokens": 74,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12d64331d3209969fa16ad0cf26cf75b0e3e3558b7f921a509151f8e6e9e586d",
+              "prompt_tokens": 74,
+              "text": "We are given:\n\n- Region I has a **perimeter of 12 units**.\n- Region II has a **perimeter of 24 units**.\n- All regions are **bounded by squares**.\n- We are to find the **ratio of the area of region I to the area of region III",
+              "ttft_seconds": 0.033066406999978426
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5194,
+              "latency_seconds": 0.7249689230000058,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.723449354999957,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "428002d7b49d4b769fd8fbcadebd533e",
+                "num_retractions": 0,
+                "prompt_tokens": 46,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "130dd1eec17fa17a2132e50561b8af8ea01ea1d6f56d2c7e8723e52a8fadebb2",
+              "prompt_tokens": 46,
+              "text": "Amy started with $100.\n\nShe bought 3 dolls, each costing $1, so she spent:\n\n$$\n3 \\times 1 = 3 \\text{ dollars}\n$$\n\nNow, subtract the amount she spent from her original money:\n\n$$\n100 - 3 = 97",
+              "ttft_seconds": 0.03292598999996699
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4568,
+              "latency_seconds": 0.724630736999984,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.723140098999977,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "2d51a2fa88cc448c8333db52a4f63ce9",
+                "num_retractions": 0,
+                "prompt_tokens": 40,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "13710ead074747209dbd4a1c0481123ab62850bf8299380c7c333fcd970decf2",
+              "prompt_tokens": 40,
+              "text": "We are given that the **surface area** of a cube is **216 square centimeters**, and we are asked to find the **volume** of the cube.\n\n---\n\n### Step 1: Use the formula for the surface area of a cube\n\nThe surface area $ A $ of a cube with side length",
+              "ttft_seconds": 0.032343593999996756
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5621,
+              "latency_seconds": 0.7249938049999969,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7235857440000473,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "a8ea3d6101684045b508bce0f3f907ae",
+                "num_retractions": 0,
+                "prompt_tokens": 53,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1385cb507eaf3571c8dd5fd1484b14fd09b447d208e87afa0b7eac09a1e5e4e7",
+              "prompt_tokens": 53,
+              "text": "We are given:\n\n- George can carry **2 buckets per round**.\n- Harry can carry **3 buckets per round**.\n- Total buckets needed to fill the pool: **110 buckets**.\n\nWe are to find how many **rounds** it will take to fill the pool, assuming **both George",
+              "ttft_seconds": 0.032320898000023135
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4822,
+              "latency_seconds": 0.7255901730000005,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7241845940000076,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "4926cf4d0ddf4e6a898bfa920419c1c0",
+                "num_retractions": 0,
+                "prompt_tokens": 57,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "139119690648aae8c4251db6fad33fd3c1ddf03eae1586a41ec8754657a677f3",
+              "prompt_tokens": 57,
+              "text": "We are given the following information:\n\n- Dennis initially had **$50**.\n- He bought shirts worth **$27**.\n- He received **2 bills of $x** and **$3 in loose coins** as change.\n\nWe are to find the value of **x**.\n\n---\n\n### Step ",
+              "ttft_seconds": 0.03274592299999313
+            }
+          ],
+          "output_tokens": 1536
+        },
+        {
+          "concurrency": 8,
+          "elapsed_seconds": 2.338643487000013,
+          "observations": [
+            {
+              "completion_tokens": 64,
+              "index": 5493,
+              "latency_seconds": 0.7861171029999809,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7820257440000091,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "9426419714de4c5bbac564a73d2de1d9",
+                "num_retractions": 0,
+                "prompt_tokens": 95,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0bb370d7a1eb24075b3bf8112343cd235564cedda3c35c737287b56d3880ec26",
+              "prompt_tokens": 95,
+              "text": "We are given:\n\n- Total number of students = 1800  \n- $ x\\% $ of the students are foreign now.  \n- 200 new foreign students will join next semester.  \n- After the new students join, the total number of foreign students becomes **740**.\n\n",
+              "ttft_seconds": 0.06891510000002654
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4665,
+              "latency_seconds": 0.7849763309999958,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7803405700000212,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "ee5c1b4493714564b45834f0172a7858",
+                "num_retractions": 0,
+                "prompt_tokens": 86,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c09fb68182ccff1af28b81a14a63699d6e0cc499e946ea5ee879bd60b46ff87",
+              "prompt_tokens": 86,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **First Half:**\n\n- **Team A** scored **8 points**.\n- **Team B** scored **half as many points** as Team A.\n\nSo, Team B scored:\n\n$$\n\\frac{8}{2} = 4 \\text",
+              "ttft_seconds": 0.06847503700004154
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5826,
+              "latency_seconds": 0.7857758579999654,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7785710200000153,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "9ddb0e3e321f456db7b9301ff28364da",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c5f070576af32e063d1cd57961462e45e8ec4200c25bfd0c45c5448e6cb5157",
+              "prompt_tokens": 79,
+              "text": "We are given the following information:\n\n- Tony's **normal temperature** is **95 degrees**.\n- He comes down with a sickness that **raises his temperature by 10 degrees**.\n- His **fever threshold** is **x degrees**.\n- His **temperature is 5 degrees above the fever",
+              "ttft_seconds": 0.06820343999999068
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4531,
+              "latency_seconds": 0.7858732170000167,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7797473670000272,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "9a55cb03ee4944a39f5c19d58e1d9356",
+                "num_retractions": 0,
+                "prompt_tokens": 104,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c9eafaf7cc80c80cd07e31b2abc4c4a06095bba8f94e1081138fe35d45300b0",
+              "prompt_tokens": 104,
+              "text": "We are given:\n\n- Tyson swims at **3 mph** in a **lake**.\n- He swims at **2.5 mph** in an **ocean**.\n- Half of his races were in **lakes**, and half in **oceans**.\n- He had **x total races**, each **",
+              "ttft_seconds": 0.0680091520000019
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4961,
+              "latency_seconds": 0.7845408129999782,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7775599760000205,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "111b0f644be044c3b8cf7cc2b5f8c1c2",
+                "num_retractions": 0,
+                "prompt_tokens": 93,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ca3e694520c6fc9d7b97c69691a731e935c5dcfd7db8f4b3527f2529c033611",
+              "prompt_tokens": 93,
+              "text": "We are given a **right rectangular prism** (a box) with **three adjacent faces** having areas of:\n\n- $ A_1 = 24 \\, \\mathrm{cm}^2 $\n- $ A_2 = 32 \\, \\mathrm{cm}^2 $\n- $ A",
+              "ttft_seconds": 0.06740025899995317
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5229,
+              "latency_seconds": 0.7848673390000158,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7766192640000327,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "366b5b781ca94c4493844281a4262eec",
+                "num_retractions": 0,
+                "prompt_tokens": 28,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cb99066c7fef0725178bddc3086849c8f30c77ec73d841c7840d7c826a7983c",
+              "prompt_tokens": 28,
+              "text": "To find the **base four equivalent** of the decimal number **123\u2081\u2080**, we need to **convert 123 from base 10 to base 4**.\n\n---\n\n### Step 1: Understand the process\n\nTo convert a decimal number to base 4, we repeatedly divide the number",
+              "ttft_seconds": 0.06720352799999318
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4558,
+              "latency_seconds": 0.7826848060000202,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7756659340000169,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "14177ae13ea54d17993c3be5b5d31436",
+                "num_retractions": 0,
+                "prompt_tokens": 55,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cfbc5bf4ca595047d77d621202be25984eedc2ace683807e3547a4b5984adfe",
+              "prompt_tokens": 55,
+              "text": "We are given:\n\n- Nadia makes **3 mistakes per 40 notes**.\n- She plays **60 notes per minute**.\n- She plays for **8 minutes**.\n\n---\n\n### Step 1: Total number of notes played\n\n$$\n\\text{Total notes} = 60 \\text",
+              "ttft_seconds": 0.06810960900003238
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4913,
+              "latency_seconds": 0.7828501930000016,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7749147900000253,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "7a92591f5eea4234b355f38f4c0166c1",
+                "num_retractions": 0,
+                "prompt_tokens": 54,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0da344b76cfb69afbba77a13297cc51498ed032a5eb585bf1ad000a017556ed0",
+              "prompt_tokens": 54,
+              "text": "We are given three points:\n\n- $ A = (3, -5) $\n- $ B = (-a + 2, 3) $\n- $ C = (2a + 3, 2) $\n\nWe are told that these three points are **collinear**, meaning they lie on the same",
+              "ttft_seconds": 0.06761707800001204
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4596,
+              "latency_seconds": 0.7879207919999658,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7791837640000381,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "86d69154e7214ab8aaf35fb412394e0e",
+                "num_retractions": 0,
+                "prompt_tokens": 82,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0dcacd2103703d65851213c7c19b56d4f5f7effd439ccc3ffb6e3ad538137a66",
+              "prompt_tokens": 82,
+              "text": "We are given:\n\n- Gail has **some bills** in her wallet that total **$100**.\n- She has **4 $5 bills**.\n- She has **3 $x bills**.\n- The **rest are $10 bills**.\n- The **number of $10 bills",
+              "ttft_seconds": 0.07114978699996755
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5729,
+              "latency_seconds": 0.78680454900001,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7797018020000337,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "5d0243e859ba4c2ba787f901858e8636",
+                "num_retractions": 0,
+                "prompt_tokens": 51,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e1cfcd0bdd3c64528c80672514c2406d44f39e975da42274167871094f43650",
+              "prompt_tokens": 51,
+              "text": "Jose purchased **20,000 square meters** of land and plans to divide it **equally with his four siblings**.\n\nThis means the land will be divided among **5 people** in total (Jose + 4 siblings).\n\n---\n\n### Step 1: Divide the total land by the number of people",
+              "ttft_seconds": 0.0707222080000065
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5043,
+              "latency_seconds": 0.7868506320000392,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7825892889999864,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "d8536d78ae174168a666548719e7ede4",
+                "num_retractions": 0,
+                "prompt_tokens": 60,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e763c7cc84e767772096c74d66516c548a4adaad59de6b5e8ad8db955e05bcd",
+              "prompt_tokens": 60,
+              "text": "We are given:\n\n- Each student contributes **$2 every Friday**.\n- After **2 months**, the total amount collected is **$480**.\n- We are to find the number of students, **x**.\n\n---\n\n### Step 1: Determine how many Fridays are in 2 months\n\nAss",
+              "ttft_seconds": 0.07061748099999932
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5032,
+              "latency_seconds": 0.7874793590000309,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7786648979999882,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "3f51dfbe481b49838c440ca90a9fda08",
+                "num_retractions": 0,
+                "prompt_tokens": 133,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ef9eaa03fa664b00c4ec87278066989c0ef282a15eb5bdb01c9e4582013023d",
+              "prompt_tokens": 133,
+              "text": "We are given:\n\n- Mary started at **99 pounds**.\n- She **lost 12 pounds** initially.\n- Then she **gained back twice the weight she initially lost**, which is **2 \u00d7 12 = 24 pounds**.\n- Then she **lost x times more weight than",
+              "ttft_seconds": 0.07041722500002834
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5309,
+              "latency_seconds": 0.7878376169999797,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.777092548999974,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "cc709829dac3428ab28bb54fc90b9c65",
+                "num_retractions": 0,
+                "prompt_tokens": 73,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0fea39ceec522821d0b6a39f338ce52426d7000b4e1329cb2bb6ea5fa78ff043",
+              "prompt_tokens": 73,
+              "text": "We are given that on a chessboard, each square $ k $ (where $ k = 1 $ to $ 64 $) has $ 2^k $ grains of rice.\n\nWe are asked to find how many **more grains of rice** are on the **10th square** compared to",
+              "ttft_seconds": 0.07133657499997526
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5796,
+              "latency_seconds": 0.787346762000027,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7818863429999965,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "18e7a120f76541b5ab8126e6badce88a",
+                "num_retractions": 0,
+                "prompt_tokens": 72,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ff51c08aec74adfd2e8b5df8923002ddea44a835d57ec6dc4f5c06a1113e27d",
+              "prompt_tokens": 72,
+              "text": "Let's break down the problem step by step to find out how much the archer spends on arrows per week.\n\n---\n\n### **Given:**\n- **Total shots per week:** 200 shots/day \u00d7 4 days = **800 shots/week**\n- **Recovery rate:** 20",
+              "ttft_seconds": 0.06989283799998702
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4900,
+              "latency_seconds": 0.7861556480000331,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.778035186000011,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "70c455890ec449a08347affd3f1d118c",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "10058d07b615190925dfc5e709d32b7480db970326fa5618768cd449ea64f214",
+              "prompt_tokens": 79,
+              "text": "We are told:\n\n- Janet goes to the gym **5 hours a week**.\n- She goes on **Monday, Tuesday, Wednesday, and Friday**.\n- She spends **1.5 hours** on **Monday** and **Wednesday**.\n- She spends the **same amount of time** on **Tuesday**",
+              "ttft_seconds": 0.06955859300001066
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4852,
+              "latency_seconds": 0.7864061440000114,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7761841929999491,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e88d40d590544ffa81ecd2f988ac8ed2",
+                "num_retractions": 0,
+                "prompt_tokens": 47,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1023bc52242c1ba925aa9f7c585e7174e4e273d53f4b170a477393dd1f1afef8",
+              "prompt_tokens": 47,
+              "text": "To find Jewel's **total gain**, we need to calculate the **total cost** of the magazines and the **total selling price**, then subtract the cost from the selling price.\n\n---\n\n### Step 1: Calculate the total cost\nJewel bought **10 magazines** at **$3 each**:\n\n$$",
+              "ttft_seconds": 0.07057625600003803
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4604,
+              "latency_seconds": 0.7650748439999688,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7569895029999998,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "d68c520903dc43f3948dc49a9ff4c064",
+                "num_retractions": 0,
+                "prompt_tokens": 65,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "119b4f7c1eea3ac11af3929fa66c4f41ff6a4dd4ab1454a7c6e832a25703328d",
+              "prompt_tokens": 65,
+              "text": "We are given the following information:\n\n- Jeremy **bought a computer for $3000**.\n- He also bought **accessories that cost 10% of the computer's price**.\n- Before making the purchase, Jeremy had **two times more money than the cost of the computer itself**.\n\n",
+              "ttft_seconds": 0.05047840599996789
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4697,
+              "latency_seconds": 0.7652431729999876,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7575347409999722,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "f735c8f3a07f4f279d60402baf7c1bb1",
+                "num_retractions": 0,
+                "prompt_tokens": 85,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1226b673e52fdaee24eb5b3fe1d4f89312ab99dd9a1077f7cb6dab12a1469fe1",
+              "prompt_tokens": 85,
+              "text": "We are given that:\n\n- From point $ A $, Leigh walked:\n  - 40 yards **south**\n  - 60 yards **west**\n  - 10 yards **north**\n  - $ X $ yards **east**\n- The final position is point $ B $, and the distance",
+              "ttft_seconds": 0.05018114699998932
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4791,
+              "latency_seconds": 0.7643806780000091,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7560257520000278,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "00192f6940714edeac6cbf54446a011e",
+                "num_retractions": 0,
+                "prompt_tokens": 78,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12c8b10fbb8f7090914449639633caf8aeb525ebb16c754d27764cd8927bbf5d",
+              "prompt_tokens": 78,
+              "text": "We are given the following information about the bells:\n\n- The **first bell** requires **50 pounds** of bronze.\n- The **second bell** is **twice the size** of the first bell.\n- The **third bell** is **four times the size** of the second bell.\n\nWe are to",
+              "ttft_seconds": 0.049876335000021754
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4522,
+              "latency_seconds": 0.7644206019999729,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7581523590000074,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "5c1be558929b4a0390b449c70945cc52",
+                "num_retractions": 0,
+                "prompt_tokens": 74,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12d64331d3209969fa16ad0cf26cf75b0e3e3558b7f921a509151f8e6e9e586d",
+              "prompt_tokens": 74,
+              "text": "We are given:\n\n- Region I has a **perimeter of 12 units**.\n- Region II has a **perimeter of 24 units**.\n- All regions are **bounded by squares**.\n- We are to find the **ratio of the area of region I to the area of region III",
+              "ttft_seconds": 0.049603182999987894
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5194,
+              "latency_seconds": 0.7642558269999995,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7564743720000138,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "e5c0be8bd70044f68a2e68d7d28c2f17",
+                "num_retractions": 0,
+                "prompt_tokens": 46,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "130dd1eec17fa17a2132e50561b8af8ea01ea1d6f56d2c7e8723e52a8fadebb2",
+              "prompt_tokens": 46,
+              "text": "Amy started with $100.\n\nShe bought 3 dolls, each costing $1, so she spent:\n\n$$\n3 \\times 1 = 3 \\text{ dollars}\n$$\n\nNow, subtract the amount she spent from her original money:\n\n$$\n100 - 3 = 97",
+              "ttft_seconds": 0.04949850200000583
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4568,
+              "latency_seconds": 0.76431188600003,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7604338110000413,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "ebef4b7437b748b9a0c0ee6fefa0216c",
+                "num_retractions": 0,
+                "prompt_tokens": 40,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "13710ead074747209dbd4a1c0481123ab62850bf8299380c7c333fcd970decf2",
+              "prompt_tokens": 40,
+              "text": "We are given that the **surface area** of a cube is **216 square centimeters**, and we are asked to find the **volume** of the cube.\n\n---\n\n### Step 1: Use the formula for the surface area of a cube\n\nThe surface area $ A $ of a cube with side length",
+              "ttft_seconds": 0.049380174000020816
+            },
+            {
+              "completion_tokens": 64,
+              "index": 5621,
+              "latency_seconds": 0.7636711630000264,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.759807530000046,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "264b744d9d4a4cc1947140381f88e1a3",
+                "num_retractions": 0,
+                "prompt_tokens": 53,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1385cb507eaf3571c8dd5fd1484b14fd09b447d208e87afa0b7eac09a1e5e4e7",
+              "prompt_tokens": 53,
+              "text": "We are given:\n\n- George can carry **2 buckets per round**.\n- Harry can carry **3 buckets per round**.\n- Total buckets needed to fill the pool: **110 buckets**.\n\nWe are to find how many **rounds** it will take to fill the pool, assuming **both George",
+              "ttft_seconds": 0.04890806800000291
+            },
+            {
+              "completion_tokens": 64,
+              "index": 4822,
+              "latency_seconds": 0.7637661380000509,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 64,
+                "dp_rank": null,
+                "e2e_latency": 0.7550962799999752,
+                "finish_reason": {
+                  "length": 64,
+                  "type": "length"
+                },
+                "id": "442c1d19144242adaa2ec3b30c37e820",
+                "num_retractions": 0,
+                "prompt_tokens": 57,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "139119690648aae8c4251db6fad33fd3c1ddf03eae1586a41ec8754657a677f3",
+              "prompt_tokens": 57,
+              "text": "We are given the following information:\n\n- Dennis initially had **$50**.\n- He bought shirts worth **$27**.\n- He received **2 bills of $x** and **$3 in loose coins** as change.\n\nWe are to find the value of **x**.\n\n---\n\n### Step ",
+              "ttft_seconds": 0.048546729999998206
+            }
+          ],
+          "output_tokens": 1536
+        }
+      ],
+      "server_log_sha256": "0815a212de3063dcc8265713efae0245127f51bc7ab4db479086913203cb05a0",
+      "server_log_tail": [
+        "[2026-11-12 22:33:35] Decode batch, #running-req: 8, #token: 850, token usage: 0.00, cuda graph: True, gen throughput (token/s): 621.95, #queue-req: 0",
+        "[2026-11-12 22:33:36] INFO:     127.0.0.1:56335 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:36] INFO:     127.0.0.1:60698 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:36] INFO:     127.0.0.1:44310 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:36] INFO:     127.0.0.1:24982 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:36] INFO:     127.0.0.1:23678 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:36] INFO:     127.0.0.1:54813 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:36] INFO:     127.0.0.1:44483 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:36] INFO:     127.0.0.1:26866 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:36] Prefill batch, #new-seq: 6, #new-token: 477, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 607.24",
+        "[2026-11-12 22:33:36] Prefill batch, #new-seq: 2, #new-token: 120, #cached-token: 0, token usage: 0.00, #running-req: 6, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 71959.83",
+        "[2026-11-12 22:33:36] Decode batch, #running-req: 8, #token: 661, token usage: 0.00, cuda graph: True, gen throughput (token/s): 620.11, #queue-req: 0",
+        "[2026-11-12 22:33:36] Decode batch, #running-req: 8, #token: 981, token usage: 0.00, cuda graph: True, gen throughput (token/s): 707.36, #queue-req: 0",
+        "[2026-11-12 22:33:37] INFO:     127.0.0.1:64863 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:37] INFO:     127.0.0.1:24067 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:37] INFO:     127.0.0.1:45697 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:37] INFO:     127.0.0.1:40275 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:37] INFO:     127.0.0.1:43544 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:37] INFO:     127.0.0.1:41221 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:37] INFO:     127.0.0.1:49053 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:37] INFO:     127.0.0.1:54985 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:33:37] Prefill batch, #new-seq: 8, #new-token: 498, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 651.06",
+        "[2026-11-12 22:33:37] Decode batch, #running-req: 8, #token: 690, token usage: 0.00, cuda graph: True, gen throughput (token/s): 647.74, #queue-req: 0",
+        "[2026-11-12 22:33:37] Decode batch, #running-req: 8, #token: 0, token usage: 0.00, cuda graph: True, gen throughput (token/s): 706.26, #queue-req: 0",
+        "[2026-11-12 22:33:37] SIGTERM received. signum=None frame=None. Draining requests and shutting down...",
+        "[2026-11-12 22:33:38] Subprocess scheduler_0 (pid=531) crashed with exit code -15. Triggering SIGQUIT for cleanup...",
+        "[2026-11-12 22:33:38] SIGQUIT received. signum=None, frame=None. It usually means one child failed.",
+        "[2026-11-12 22:33:38] Sleeping 5 seconds before crash diagnostics to let GPU activity settle.",
+        "[2026-11-12 22:33:43] No live scheduler processes found; skipping py-spy and CUDA coredump.",
+        "[2026-11-12 22:33:43] kill_process_tree called: parent_pid=503, include_parent=True, pid=503"
+      ]
+    }
+  ],
+  "spec": {
+    "arm": "autoregressive",
+    "benchmark_code_sha256": "65081f2dbdd6bed5283a087ed2234dd70b0277b0b2b6834d65cb952a8d654283",
+    "concurrencies": [
+      1,
+      8
+    ],
+    "cycles": 3,
+    "dtype": "bfloat16",
+    "gpu": "A100",
+    "output_tokens": 64,
+    "phase": "full",
+    "prompt_count": 24,
+    "prompts_sha256": "da3674d908e456344924233bb78c907659b9491a86c34b74318627eeaae17d9d",
+    "server_command": [
+      "/usr/bin/python",
+      "-m",
+      "sglang.launch_server",
+      "--model-path",
+      "/base_models/models/target_8b",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "30000",
+      "--tp-size",
+      "1",
+      "--dtype",
+      "bfloat16",
+      "--mem-fraction-static",
+      "0.75",
+      "--chunked-prefill-size",
+      "1024",
+      "--disable-radix-cache",
+      "--random-seed",
+      "24750",
+      "--cuda-graph-backend-prefill",
+      "disabled",
+      "--trust-remote-code"
+    ],
+    "sglang": "0.5.18",
+    "target_model_path": "/base_models/models/target_8b"
+  },
+  "summary": {
+    "1": {
+      "cycle_rates": [
+        88.29389512784225,
+        88.17466222536623,
+        88.16277116278627
+      ],
+      "elapsed_seconds": 52.238736445,
+      "latency_median_seconds": 0.7253736075000035,
+      "output_tokens": 4608,
+      "output_tokens_per_second": 88.21040311439332,
+      "request_count": 72
+    },
+    "8": {
+      "cycle_rates": [
+        649.9069381922887,
+        659.5380105757803,
+        656.7910023645222
+      ],
+      "elapsed_seconds": 7.030961707000017,
+      "latency_median_seconds": 0.7827674995000109,
+      "output_tokens": 4608,
+      "output_tokens_per_second": 655.3868719569729,
+      "request_count": 72
+    }
+  }
+}

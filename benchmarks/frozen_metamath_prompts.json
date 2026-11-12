@@ -1,0 +1,146 @@
+[
+  {
+    "index": 5493,
+    "prompt": "<|im_start|>user\nAt a university there are 1800 students. x% of all the students are from other countries. Starting next semester, 200 new foreign students will begin studying at this University. How many foreign students will then study at the University if all other students continue to study?\nIf we know the answer to the above question is 740, what is the value of unknown variable x?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0bb370d7a1eb24075b3bf8112343cd235564cedda3c35c737287b56d3880ec26",
+    "prompt_tokens": 95
+  },
+  {
+    "index": 4665,
+    "prompt": "<|im_start|>user\nIn the first half of a soccer game, Team A scored 8 points, while Team B scored half as many points. In the second half, Team B matched the number of points scored by Team A in the first half, and Team A scored 2 goals less than Team B. What is the total number of goals scored by both teams during the entire match?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0c09fb68182ccff1af28b81a14a63699d6e0cc499e946ea5ee879bd60b46ff87",
+    "prompt_tokens": 86
+  },
+  {
+    "index": 5826,
+    "prompt": "<|im_start|>user\nIf Tony normally has a temperature of 95 degrees, and he comes down with a sickness that raises his temperature by 10 degrees, His temperature is 5 degrees above the threshold of fever if a fever is anything over x degrees. What is the value of unknown variable x? What is the value of unknown variable x?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0c5f070576af32e063d1cd57961462e45e8ec4200c25bfd0c45c5448e6cb5157",
+    "prompt_tokens": 79
+  },
+  {
+    "index": 4531,
+    "prompt": "<|im_start|>user\nTyson can swim at a speed of 3 miles per hour in a lake and 2.5 mph in an ocean. This season, half his races happened in lakes and half his races happened in the ocean. He had x total races, each of which was 3 miles long. How much time did he spend in his races?\nIf we know the answer to the above question is 11, what is the value of unknown variable x?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0c9eafaf7cc80c80cd07e31b2abc4c4a06095bba8f94e1081138fe35d45300b0",
+    "prompt_tokens": 104
+  },
+  {
+    "index": 4961,
+    "prompt": "<|im_start|>user\nThe right, rectangular prism has three faces with areas of $24 \\hspace{.6mm} \\mathrm{cm}^2$, $32 \\hspace{.6mm} \\mathrm{cm}^2$, and $48 \\hspace{.6mm} \\mathrm{cm}^2$. What is the volume of the prism in cubic centimeters?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0ca3e694520c6fc9d7b97c69691a731e935c5dcfd7db8f4b3527f2529c033611",
+    "prompt_tokens": 93
+  },
+  {
+    "index": 5229,
+    "prompt": "<|im_start|>user\nWhat is the base four equivalent of $123_{10}$?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0cb99066c7fef0725178bddc3086849c8f30c77ec73d841c7840d7c826a7983c",
+    "prompt_tokens": 28
+  },
+  {
+    "index": 4558,
+    "prompt": "<|im_start|>user\nIf Nadia typically makes 3 mistakes per 40 notes and can play approximately 60 notes per minute, how many mistakes will she make on average if she plays for a duration of 8 minutes?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0cfbc5bf4ca595047d77d621202be25984eedc2ace683807e3547a4b5984adfe",
+    "prompt_tokens": 55
+  },
+  {
+    "index": 4913,
+    "prompt": "<|im_start|>user\nWhat is the value of $a$ if the three points $(3,-5)$, $(-a + 2, 3)$, and $(2a+3,2)$ are collinear?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0da344b76cfb69afbba77a13297cc51498ed032a5eb585bf1ad000a017556ed0",
+    "prompt_tokens": 54
+  },
+  {
+    "index": 4596,
+    "prompt": "<|im_start|>user\nGail has some bills in her wallet which amount to $100. She has four $5 bills and three $x bills, and the rest are $10 bills. How many $10 bills are in her wallet?\nIf we know the answer to the above question is 2, what is the value of unknown variable x?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0dcacd2103703d65851213c7c19b56d4f5f7effd439ccc3ffb6e3ad538137a66",
+    "prompt_tokens": 82
+  },
+  {
+    "index": 5729,
+    "prompt": "<|im_start|>user\nIf Jose purchased 20,000 square meters of land and plans to divide it equally with his four siblings, how many square meters of land will Jose have remaining after the division?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0e1cfcd0bdd3c64528c80672514c2406d44f39e975da42274167871094f43650",
+    "prompt_tokens": 51
+  },
+  {
+    "index": 5043,
+    "prompt": "<|im_start|>user\nA class of x high school students is preparing for a field trip. If each student contributes $2 every Friday for their trip, They will have 480 dollars in 2 months. What is the value of unknown variable x?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0e763c7cc84e767772096c74d66516c548a4adaad59de6b5e8ad8db955e05bcd",
+    "prompt_tokens": 60
+  },
+  {
+    "index": 5032,
+    "prompt": "<|im_start|>user\nMary tried to improve her health by changing her diet, but her weight bounced like a yo-yo.  At first, she dropped a dozen pounds. Then, she added back twice the weight that she initially lost.  Then, she dropped x times more weight than she initially had lost.  But finally, she gained back half of a dozen pounds.  If she weighed 99 pounds at the start of her change in diet, what was her final weight, in pounds?\nIf we know the answer to the above question is 81, what is the value of unknown variable x?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0ef9eaa03fa664b00c4ec87278066989c0ef282a15eb5bdb01c9e4582013023d",
+    "prompt_tokens": 133
+  },
+  {
+    "index": 5309,
+    "prompt": "<|im_start|>user\nOn a large chessboard, a woman labels the squares from 1 to 64 and puts $2^k$ grains of rice on each square k. How many more grains of rice are on the 10th square compared to the sum of the grains on the first 8 squares?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0fea39ceec522821d0b6a39f338ce52426d7000b4e1329cb2bb6ea5fa78ff043",
+    "prompt_tokens": 73
+  },
+  {
+    "index": 5796,
+    "prompt": "<|im_start|>user\nIf an archer plans to shoot 200 shots four days a week and can recover 20% of his arrows, and each arrow costs $5.5, with his team agreeing to cover 70% of the cost, how much does he spend on arrows per week?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "0ff51c08aec74adfd2e8b5df8923002ddea44a835d57ec6dc4f5c06a1113e27d",
+    "prompt_tokens": 72
+  },
+  {
+    "index": 4900,
+    "prompt": "<|im_start|>user\nJanet goes to the gym for 5 hours a week.  She goes Monday, Tuesday, Wednesday, and Friday.  She spends an hour and a half each day on Monday and Wednesday.  If she spends the same amount of time at the gym on Tuesday and Friday how many hours is she at the gym on Friday?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "10058d07b615190925dfc5e709d32b7480db970326fa5618768cd449ea64f214",
+    "prompt_tokens": 79
+  },
+  {
+    "index": 4852,
+    "prompt": "<|im_start|>user\nIf Jewel purchased 10 magazines at $3 each and plans to sell them for $3.50 each, what will be her total gain from selling these magazines?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "1023bc52242c1ba925aa9f7c585e7174e4e273d53f4b170a477393dd1f1afef8",
+    "prompt_tokens": 47
+  },
+  {
+    "index": 4604,
+    "prompt": "<|im_start|>user\nIf Jeremy had two times more money than the cost of the computer itself before making the purchase, and he bought a computer for $3000 along with accessories that cost 10% of the computer's price, how much money does Jeremy have left?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "119b4f7c1eea3ac11af3929fa66c4f41ff6a4dd4ab1454a7c6e832a25703328d",
+    "prompt_tokens": 65
+  },
+  {
+    "index": 4697,
+    "prompt": "<|im_start|>user\nFrom point $A$, Leigh walked 40 yards south, 60 yards west, 10 yards north, and X yards east to point $B$. What is the length, in yards, of $\\overline{AB}$?\nIf we know the answer to the above question is 50, what is the value of unknown variable X?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "1226b673e52fdaee24eb5b3fe1d4f89312ab99dd9a1077f7cb6dab12a1469fe1",
+    "prompt_tokens": 85
+  },
+  {
+    "index": 4791,
+    "prompt": "<|im_start|>user\nFor the church's belfry, Martin is casting three bells. The first bell requires 50 pounds of bronze, the second bell is twice the size of the first bell, and the third bell is four times the size of the second bell. What is the total amount of bronze that Martin needs for all three bells?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "12c8b10fbb8f7090914449639633caf8aeb525ebb16c754d27764cd8927bbf5d",
+    "prompt_tokens": 78
+  },
+  {
+    "index": 4522,
+    "prompt": "<|im_start|>user\nGiven three regions, I, II, and III, which are bounded by squares, the perimeter of region I is 12 units and the perimeter of region II is 24 units. What is the ratio of the area of region I to the area of region III, expressed as a common fraction?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "12d64331d3209969fa16ad0cf26cf75b0e3e3558b7f921a509151f8e6e9e586d",
+    "prompt_tokens": 74
+  },
+  {
+    "index": 5194,
+    "prompt": "<|im_start|>user\nAmy's grandfather gave her $100 for her birthday. Amy bought 3 dolls, each of which cost $1. How much money does Amy have left?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "130dd1eec17fa17a2132e50561b8af8ea01ea1d6f56d2c7e8723e52a8fadebb2",
+    "prompt_tokens": 46
+  },
+  {
+    "index": 4568,
+    "prompt": "<|im_start|>user\nIf a cube has a surface area of 216 square centimeters, what is the volume of the cube in cubic centimeters?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "13710ead074747209dbd4a1c0481123ab62850bf8299380c7c333fcd970decf2",
+    "prompt_tokens": 40
+  },
+  {
+    "index": 5621,
+    "prompt": "<|im_start|>user\nIf George can carry two buckets each round and Harry can carry three buckets each round, and it takes 110 buckets to fill the pool, how many rounds will it take to fill the pool?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "1385cb507eaf3571c8dd5fd1484b14fd09b447d208e87afa0b7eac09a1e5e4e7",
+    "prompt_tokens": 53
+  },
+  {
+    "index": 4822,
+    "prompt": "<|im_start|>user\nAfter buying shirts worth $27 from a store, Dennis received 2 $x bills and $3 in loose coins for his change. Dennis initially had 50 money. What is the value of unknown variable x?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "prompt_hash": "139119690648aae8c4251db6fad33fd3c1ddf03eae1586a41ec8754657a677f3",
+    "prompt_tokens": 57
+  }
+]

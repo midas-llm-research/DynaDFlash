@@ -1,0 +1,703 @@
+{
+  "cycles": [
+    {
+      "arm": "autoregressive",
+      "cycle": 0,
+      "measured": [
+        {
+          "concurrency": 1,
+          "elapsed_seconds": 4.712923517999997,
+          "observations": [
+            {
+              "completion_tokens": 16,
+              "index": 5493,
+              "latency_seconds": 0.19610604599999704,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19444474300000536,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "20b769feea2d4709910bff57e77467e2",
+                "num_retractions": 0,
+                "prompt_tokens": 95,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0bb370d7a1eb24075b3bf8112343cd235564cedda3c35c737287b56d3880ec26",
+              "prompt_tokens": 95,
+              "text": "We are given:\n\n- Total number of students = 1800  \n",
+              "ttft_seconds": 0.032566446000004134
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4665,
+              "latency_seconds": 0.1963724109999987,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19459655899999007,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "0b2f14bd9b7a471eb4cb72223c407a4c",
+                "num_retractions": 0,
+                "prompt_tokens": 86,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c09fb68182ccff1af28b81a14a63699d6e0cc499e946ea5ee879bd60b46ff87",
+              "prompt_tokens": 86,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **First Half:",
+              "ttft_seconds": 0.03295944899998915
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5826,
+              "latency_seconds": 0.19659353000000124,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19511044500001162,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "acb78efdf5c34c3eafff476f754e68e0",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c5f070576af32e063d1cd57961462e45e8ec4200c25bfd0c45c5448e6cb5157",
+              "prompt_tokens": 79,
+              "text": "We are given the following information:\n\n- Tony's **normal temperature** is **",
+              "ttft_seconds": 0.03322412299999655
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4531,
+              "latency_seconds": 0.19633209600000612,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19476761399999987,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "f21387da53d84f7e92530aa6221dc1f0",
+                "num_retractions": 0,
+                "prompt_tokens": 104,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0c9eafaf7cc80c80cd07e31b2abc4c4a06095bba8f94e1081138fe35d45300b0",
+              "prompt_tokens": 104,
+              "text": "We are given:\n\n- Tyson swims at **3 mph** in a **lake",
+              "ttft_seconds": 0.03288652200001252
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4961,
+              "latency_seconds": 0.19606020700000215,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.1945119260000041,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "e8f16a729d654a7191ec61c453910cde",
+                "num_retractions": 0,
+                "prompt_tokens": 93,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ca3e694520c6fc9d7b97c69691a731e935c5dcfd7db8f4b3527f2529c033611",
+              "prompt_tokens": 93,
+              "text": "We are given a **right rectangular prism** (a box) with **three",
+              "ttft_seconds": 0.03255733599999644
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5229,
+              "latency_seconds": 0.19512804499998992,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19357686299998988,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "ca4b66c362cf410fbf4532f65b2a0052",
+                "num_retractions": 0,
+                "prompt_tokens": 28,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cb99066c7fef0725178bddc3086849c8f30c77ec73d841c7840d7c826a7983c",
+              "prompt_tokens": 28,
+              "text": "We are asked to find the **base four equivalent** of the decimal number **",
+              "ttft_seconds": 0.0321433729999967
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4558,
+              "latency_seconds": 0.19579530299999703,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19409438800001055,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "9d0d7b7c460b47559917840a8efb711e",
+                "num_retractions": 0,
+                "prompt_tokens": 55,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0cfbc5bf4ca595047d77d621202be25984eedc2ace683807e3547a4b5984adfe",
+              "prompt_tokens": 55,
+              "text": "We are given:\n\n- Nadia makes **3 mistakes per 40 notes",
+              "ttft_seconds": 0.03263980600000593
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4913,
+              "latency_seconds": 0.1957639400000062,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19416186900001264,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "2ee3139c16d24afeb9a1ea611409714d",
+                "num_retractions": 0,
+                "prompt_tokens": 54,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0da344b76cfb69afbba77a13297cc51498ed032a5eb585bf1ad000a017556ed0",
+              "prompt_tokens": 54,
+              "text": "We are given three points:\n\n- $ A = (3, -5)",
+              "ttft_seconds": 0.032350464000003853
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4596,
+              "latency_seconds": 0.19623480600000676,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19484459599999582,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "6191f6be83434fbfb1fc9dcfd3f66746",
+                "num_retractions": 0,
+                "prompt_tokens": 82,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0dcacd2103703d65851213c7c19b56d4f5f7effd439ccc3ffb6e3ad538137a66",
+              "prompt_tokens": 82,
+              "text": "We are given:\n\n- Gail has **some bills** in her wallet that",
+              "ttft_seconds": 0.03272506300000089
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5729,
+              "latency_seconds": 0.19629894199999853,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19467421400000262,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "06e389797b384d1abd920b19bc57dbf5",
+                "num_retractions": 0,
+                "prompt_tokens": 51,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e1cfcd0bdd3c64528c80672514c2406d44f39e975da42274167871094f43650",
+              "prompt_tokens": 51,
+              "text": "Jose purchased **20,000 square meters** of land and plans",
+              "ttft_seconds": 0.033227080000003184
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5043,
+              "latency_seconds": 0.1965645330000001,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19502234400000873,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "c27dd90848404a80a3cc200fcf5561e7",
+                "num_retractions": 0,
+                "prompt_tokens": 60,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0e763c7cc84e767772096c74d66516c548a4adaad59de6b5e8ad8db955e05bcd",
+              "prompt_tokens": 60,
+              "text": "We are given:\n\n- Each student contributes **$2 every Friday**.\n-",
+              "ttft_seconds": 0.03335168499999952
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5032,
+              "latency_seconds": 0.19819037599999945,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19658430100000146,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "cb5caa28f9ab44ca894239781e9250af",
+                "num_retractions": 0,
+                "prompt_tokens": 133,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ef9eaa03fa664b00c4ec87278066989c0ef282a15eb5bdb01c9e4582013023d",
+              "prompt_tokens": 133,
+              "text": "We are given the following information:\n\n- Mary started at **99 pounds**",
+              "ttft_seconds": 0.033271411000001194
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5309,
+              "latency_seconds": 0.19639139900000657,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19472478000000137,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "5595928ffcfb4dd88c996d83e0ab6cf8",
+                "num_retractions": 0,
+                "prompt_tokens": 73,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0fea39ceec522821d0b6a39f338ce52426d7000b4e1329cb2bb6ea5fa78ff043",
+              "prompt_tokens": 73,
+              "text": "We are given that on a chessboard, each square $ k $ (where",
+              "ttft_seconds": 0.032927503999999885
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5796,
+              "latency_seconds": 0.19704267299999856,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.1952274899999935,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "2a74a3a2259b4227ba5a250c44fc4158",
+                "num_retractions": 0,
+                "prompt_tokens": 72,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "0ff51c08aec74adfd2e8b5df8923002ddea44a835d57ec6dc4f5c06a1113e27d",
+              "prompt_tokens": 72,
+              "text": "Let's break down the problem step by step to find out how much the arch",
+              "ttft_seconds": 0.033799044999994976
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4900,
+              "latency_seconds": 0.1966729080000107,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.1949950090000101,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "6c86d2a53cef4950aeb8290c81fb2f1d",
+                "num_retractions": 0,
+                "prompt_tokens": 79,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "10058d07b615190925dfc5e709d32b7480db970326fa5618768cd449ea64f214",
+              "prompt_tokens": 79,
+              "text": "We are told:\n\n- Janet goes to the gym **5 hours a week**",
+              "ttft_seconds": 0.03317323800000338
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4852,
+              "latency_seconds": 0.19567412000000672,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19391226800000538,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "4c7d6d8910f149c2a6366a015c6daeea",
+                "num_retractions": 0,
+                "prompt_tokens": 47,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1023bc52242c1ba925aa9f7c585e7174e4e273d53f4b170a477393dd1f1afef8",
+              "prompt_tokens": 47,
+              "text": "To find Jewel's **total gain**, we need to calculate the **total cost",
+              "ttft_seconds": 0.032395219000008524
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4604,
+              "latency_seconds": 0.19704409199999873,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19466553600000225,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "46d5eed5b5fb4686867c24cd3db5ee79",
+                "num_retractions": 0,
+                "prompt_tokens": 65,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "119b4f7c1eea3ac11af3929fa66c4f41ff6a4dd4ab1454a7c6e832a25703328d",
+              "prompt_tokens": 65,
+              "text": "Let's break down the problem step by step.\n\n---\n\n### **Given:**\n\n",
+              "ttft_seconds": 0.03318921799998975
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4697,
+              "latency_seconds": 0.19568086999998968,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19414117399999498,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "02653f555f224ed1b73524cf31934148",
+                "num_retractions": 0,
+                "prompt_tokens": 85,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1226b673e52fdaee24eb5b3fe1d4f89312ab99dd9a1077f7cb6dab12a1469fe1",
+              "prompt_tokens": 85,
+              "text": "We are given that:\n\n- From point $ A $, Leigh walked:\n ",
+              "ttft_seconds": 0.03222040999999365
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4791,
+              "latency_seconds": 0.19629389399999297,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19476220699999658,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "d26c062752024f259bbcbd5531a4a0cb",
+                "num_retractions": 0,
+                "prompt_tokens": 78,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12c8b10fbb8f7090914449639633caf8aeb525ebb16c754d27764cd8927bbf5d",
+              "prompt_tokens": 78,
+              "text": "We are given the following information about the bells:\n\n- The **first bell**",
+              "ttft_seconds": 0.03277038599999571
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4522,
+              "latency_seconds": 0.19596233400000074,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19438590999999406,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "5b6da93ced3a42518564f180376faaae",
+                "num_retractions": 0,
+                "prompt_tokens": 74,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "12d64331d3209969fa16ad0cf26cf75b0e3e3558b7f921a509151f8e6e9e586d",
+              "prompt_tokens": 74,
+              "text": "We are given:\n\n- Region I has a **perimeter of 12",
+              "ttft_seconds": 0.033054884999998535
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5194,
+              "latency_seconds": 0.19606322999999293,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19448989700001107,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "c1539c5a676c4921bc3502e68fc9b317",
+                "num_retractions": 0,
+                "prompt_tokens": 46,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "130dd1eec17fa17a2132e50561b8af8ea01ea1d6f56d2c7e8723e52a8fadebb2",
+              "prompt_tokens": 46,
+              "text": "Amy started with $100.\n\nShe bought 3 dolls, each costing",
+              "ttft_seconds": 0.03325054699999441
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4568,
+              "latency_seconds": 0.19634420599999203,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19472108899999796,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "9e8c17a6ae0649cc8456498a4ca9736e",
+                "num_retractions": 0,
+                "prompt_tokens": 40,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "13710ead074747209dbd4a1c0481123ab62850bf8299380c7c333fcd970decf2",
+              "prompt_tokens": 40,
+              "text": "We are given that the **surface area** of a cube is **21",
+              "ttft_seconds": 0.03313231499998892
+            },
+            {
+              "completion_tokens": 16,
+              "index": 5621,
+              "latency_seconds": 0.19613519300000348,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.1947004339999978,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "5a5978602821493485ae0043b62362f8",
+                "num_retractions": 0,
+                "prompt_tokens": 53,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "1385cb507eaf3571c8dd5fd1484b14fd09b447d208e87afa0b7eac09a1e5e4e7",
+              "prompt_tokens": 53,
+              "text": "We are given:\n\n- George can carry **2 buckets per round**.\n-",
+              "ttft_seconds": 0.03292599000000962
+            },
+            {
+              "completion_tokens": 16,
+              "index": 4822,
+              "latency_seconds": 0.19602356400000076,
+              "meta_info": {
+                "cached_tokens": 0,
+                "cached_tokens_details": null,
+                "completion_tokens": 16,
+                "dp_rank": null,
+                "e2e_latency": 0.19455239500000232,
+                "finish_reason": {
+                  "length": 16,
+                  "type": "length"
+                },
+                "id": "8d7c6e423aed4d2f8c7681b413e17dd8",
+                "num_retractions": 0,
+                "prompt_tokens": 57,
+                "reasoning_tokens": 0,
+                "weight_version": "default"
+              },
+              "prompt_hash": "139119690648aae8c4251db6fad33fd3c1ddf03eae1586a41ec8754657a677f3",
+              "prompt_tokens": 57,
+              "text": "We are given the following information:\n\n- Dennis initially had **$50**",
+              "ttft_seconds": 0.03277876599999274
+            }
+          ],
+          "output_tokens": 384
+        }
+      ],
+      "server_log_sha256": "1b954c2bf9d35eef364d2210306cbcf384bed73d1e7ec003e18b9785e6781b0e",
+      "server_log_tail": [
+        "[2026-11-12 22:28:12] INFO:     127.0.0.1:32241 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:12] Prefill batch, #new-seq: 1, #new-token: 79, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 401.73",
+        "[2026-11-12 22:28:12] Decode batch, #running-req: 1, #token: 87, token usage: 0.00, cuda graph: True, gen throughput (token/s): 79.56, #queue-req: 0",
+        "[2026-11-12 22:28:12] INFO:     127.0.0.1:26576 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:12] Prefill batch, #new-seq: 1, #new-token: 47, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 239.86",
+        "[2026-11-12 22:28:12] INFO:     127.0.0.1:58225 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:12] Prefill batch, #new-seq: 1, #new-token: 65, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 330.82",
+        "[2026-11-12 22:28:12] Decode batch, #running-req: 1, #token: 0, token usage: 0.00, cuda graph: True, gen throughput (token/s): 83.35, #queue-req: 0",
+        "[2026-11-12 22:28:12] INFO:     127.0.0.1:60167 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:12] Prefill batch, #new-seq: 1, #new-token: 85, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 433.24",
+        "[2026-11-12 22:28:12] INFO:     127.0.0.1:36210 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:12] Prefill batch, #new-seq: 1, #new-token: 78, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 397.36",
+        "[2026-11-12 22:28:13] INFO:     127.0.0.1:57688 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:13] Prefill batch, #new-seq: 1, #new-token: 74, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 377.66",
+        "[2026-11-12 22:28:13] Decode batch, #running-req: 1, #token: 82, token usage: 0.00, cuda graph: True, gen throughput (token/s): 79.85, #queue-req: 0",
+        "[2026-11-12 22:28:13] INFO:     127.0.0.1:32661 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:13] Prefill batch, #new-seq: 1, #new-token: 46, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 233.56",
+        "[2026-11-12 22:28:13] INFO:     127.0.0.1:25915 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:13] Prefill batch, #new-seq: 1, #new-token: 40, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 203.99",
+        "[2026-11-12 22:28:13] Decode batch, #running-req: 1, #token: 0, token usage: 0.00, cuda graph: True, gen throughput (token/s): 83.29, #queue-req: 0",
+        "[2026-11-12 22:28:13] INFO:     127.0.0.1:48960 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:13] Prefill batch, #new-seq: 1, #new-token: 53, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 270.20",
+        "[2026-11-12 22:28:13] INFO:     127.0.0.1:46971 - \"POST /generate HTTP/1.1\" 200 OK",
+        "[2026-11-12 22:28:13] Prefill batch, #new-seq: 1, #new-token: 57, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 290.64",
+        "[2026-11-12 22:28:14] SIGTERM received. signum=None frame=None. Draining requests and shutting down...",
+        "[2026-11-12 22:28:14] Subprocess scheduler_0 (pid=58) crashed with exit code -15. Triggering SIGQUIT for cleanup...",
+        "[2026-11-12 22:28:14] SIGQUIT received. signum=None, frame=None. It usually means one child failed.",
+        "[2026-11-12 22:28:14] Sleeping 5 seconds before crash diagnostics to let GPU activity settle.",
+        "[2026-11-12 22:28:19] No live scheduler processes found; skipping py-spy and CUDA coredump.",
+        "[2026-11-12 22:28:19] kill_process_tree called: parent_pid=30, include_parent=True, pid=30"
+      ]
+    }
+  ],
+  "spec": {
+    "arm": "autoregressive",
+    "benchmark_code_sha256": "65081f2dbdd6bed5283a087ed2234dd70b0277b0b2b6834d65cb952a8d654283",
+    "concurrencies": [
+      1
+    ],
+    "cycles": 1,
+    "dtype": "bfloat16",
+    "gpu": "A100",
+    "output_tokens": 16,
+    "phase": "smoke",
+    "prompt_count": 24,
+    "prompts_sha256": "da3674d908e456344924233bb78c907659b9491a86c34b74318627eeaae17d9d",
+    "server_command": [
+      "/usr/bin/python",
+      "-m",
+      "sglang.launch_server",
+      "--model-path",
+      "/base_models/models/target_8b",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "30000",
+      "--tp-size",
+      "1",
+      "--dtype",
+      "bfloat16",
+      "--mem-fraction-static",
+      "0.75",
+      "--chunked-prefill-size",
+      "1024",
+      "--disable-radix-cache",
+      "--random-seed",
+      "24750",
+      "--cuda-graph-backend-prefill",
+      "disabled",
+      "--trust-remote-code"
+    ],
+    "sglang": "0.5.18",
+    "target_model_path": "/base_models/models/target_8b"
+  },
+  "summary": {
+    "1": {
+      "cycle_rates": [
+        81.47808860750544
+      ],
+      "elapsed_seconds": 4.712923517999997,
+      "latency_median_seconds": 0.19626434999999987,
+      "output_tokens": 384,
+      "output_tokens_per_second": 81.47808860750544,
+      "request_count": 24
+    }
+  }
+}
